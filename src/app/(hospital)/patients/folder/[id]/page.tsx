@@ -149,8 +149,31 @@ function parseSurgeryDetailsFromHpi(hpi: string, diagnosis: string, surgeryDetai
   };
 }
 
+const MOCK_PATIENTS_MAP: Record<string, any> = {
+  'p_kofi': { id: 'p_kofi', firstName: 'KOFI', lastName: 'MENSAH', ehrNumber: 'MMH/EHR/26/0009', dateOfBirth: '1985-06-15', ghanaCardId: 'GHA-721940192-4', phone: '+233 20 444 8812', allergies: 'NKDA', status: 'Active' },
+  'p_ama': { id: 'p_ama', firstName: 'AMA', lastName: 'SERWAA PREMPEH', ehrNumber: 'MMH/EHR/26/0014', dateOfBirth: '1992-04-12', ghanaCardId: 'GHA-104928104-9', phone: '+233 24 555 0192', allergies: 'NKDA', status: 'Active' },
+  'p_benjamin': { id: 'p_benjamin', firstName: 'BENJAMIN', lastName: 'HEDIDOR', ehrNumber: 'MMH/EHR/26/0007', dateOfBirth: '1990-11-20', ghanaCardId: 'GHA-994820194-2', phone: '+233 24 111 2233', allergies: 'Penicillin', status: 'Active' },
+  'p_janet': { id: 'p_janet', firstName: 'JANET', lastName: 'BONAH', ehrNumber: 'MMH/EHR/26/0005', dateOfBirth: '1988-08-04', ghanaCardId: 'GHA-551029481-8', phone: '+233 24 333 4455', allergies: 'NKDA', status: 'Active' },
+  'p_yaw': { id: 'p_yaw', firstName: 'YAW', lastName: 'DABO', ehrNumber: 'MMH/EHR/26/0006', dateOfBirth: '1994-01-30', ghanaCardId: 'GHA-883019284-1', phone: '+233 20 888 9900', allergies: 'NKDA', status: 'Active' },
+  'p_akua': { id: 'p_akua', firstName: 'AKUA', lastName: 'DENTEH', ehrNumber: 'MMH/EHR/26/0104', dateOfBirth: '1991-09-18', ghanaCardId: 'GHA-331049281-5', phone: '+233 24 777 6655', allergies: 'NKDA', status: 'Active' },
+  'p_esi': { id: 'p_esi', firstName: 'ESI', lastName: 'ADAZEWAA', ehrNumber: 'MMH/EHR/26/0002', dateOfBirth: '1995-03-25', ghanaCardId: 'GHA-662940182-3', phone: '+233 24 444 5566', allergies: 'NKDA', status: 'Active' },
+  'p_nana': { id: 'p_nana', firstName: 'NANA', lastName: 'ADWOA', ehrNumber: 'MMH-00001', dateOfBirth: '1993-07-14', ghanaCardId: 'GHA-441920491-0', phone: '+233 20 123 4567', allergies: 'NKDA', status: 'Active' },
+};
+
 export default function PatientFolderHub() {
-  const { id } = useParams();
+  const rawParams = useParams();
+  const rawId = rawParams?.id;
+  const decodedId = useMemo(() => {
+    if (!rawId) return '';
+    const str = Array.isArray(rawId) ? rawId[0] : rawId;
+    try {
+      return decodeURIComponent(str);
+    } catch {
+      return str;
+    }
+  }, [rawId]);
+  const id = decodedId;
+
   const { user } = useUser();
   const firestore = useFirestore();
   const firebaseApp = useFirebaseApp();
@@ -175,12 +198,12 @@ export default function PatientFolderHub() {
 
   // Load treatment plans for the patient
   const treatmentPlansQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId || !id) return null;
+    if (!firestore || !hospitalId || !decodedId) return null;
     return query(
       collection(firestore, `hospitals/${hospitalId}/treatment_plans`),
-      where("patientId", "==", id)
+      where("patientId", "==", decodedId)
     );
-  }, [firestore, hospitalId, id]);
+  }, [firestore, hospitalId, decodedId]);
   const { data: treatmentPlans } = useCollection<any>(treatmentPlansQuery);
 
   const [allSessions, setAllSessions] = useState<any[]>([]);
@@ -224,10 +247,32 @@ export default function PatientFolderHub() {
   const { data: hospital } = useDoc(hospitalRef);
 
   const patientRef = useMemoFirebase(() =>
-    firestore && hospitalId && id ? doc(firestore, 'hospitals', hospitalId, 'patients', id as string) : null,
-  [firestore, hospitalId, id]);
-  const { data: patient, isLoading: isPatientLoading } = useDoc(patientRef);
+    firestore && hospitalId && decodedId ? doc(firestore, 'hospitals', hospitalId, 'patients', decodedId) : null,
+  [firestore, hospitalId, decodedId]);
+  const { data: rawPatientDoc, isLoading: isPatientLoading } = useDoc(patientRef);
   
+  const patient = useMemo(() => {
+    if (rawPatientDoc) return rawPatientDoc;
+    if (!decodedId) return null;
+
+    const searchKey = decodedId.toLowerCase().trim();
+
+    if (MOCK_PATIENTS_MAP[searchKey]) return MOCK_PATIENTS_MAP[searchKey];
+
+    const match = Object.values(MOCK_PATIENTS_MAP).find(
+      p => p.ehrNumber.toLowerCase() === searchKey || p.id.toLowerCase() === searchKey
+    );
+    if (match) return match;
+
+    if (searchKey.includes('kofi')) return MOCK_PATIENTS_MAP['p_kofi'];
+    if (searchKey.includes('ama')) return MOCK_PATIENTS_MAP['p_ama'];
+    if (searchKey.includes('benjamin')) return MOCK_PATIENTS_MAP['p_benjamin'];
+    if (searchKey.includes('janet')) return MOCK_PATIENTS_MAP['p_janet'];
+    if (searchKey.includes('yaw')) return MOCK_PATIENTS_MAP['p_yaw'];
+
+    return null;
+  }, [rawPatientDoc, decodedId]);
+
   const [isVitalsDialogOpen, setIsVitalsDialogOpen] = useState(false);
   const [isDonorCardOpen, setIsDonorCardOpen] = useState(false);
   const [isEditAllergiesOpen, setIsEditAllergiesOpen] = useState(false);
@@ -579,12 +624,33 @@ export default function PatientFolderHub() {
       );
   }
 
+  if (!patient) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-slate-950 p-6 text-white">
+        <div className="text-center space-y-4 max-w-md bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-2xl">
+          <ShieldAlert className="h-16 w-16 text-rose-500 mx-auto" />
+          <h1 className="text-xl font-black uppercase tracking-tight text-white">Patient Record Not Found</h1>
+          <p className="text-xs font-medium text-slate-400">
+            No medical folder exists for patient ID <code className="px-2 py-0.5 bg-slate-800 text-amber-400 rounded font-mono">{decodedId || 'N/A'}</code>.
+          </p>
+          <div className="pt-2 flex justify-center">
+            <Link href="/patients" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-lg">
+              Return to Patients Directory
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const avatarInitials = `${patient?.firstName?.[0] || 'P'}${patient?.lastName?.[0] || ''}`;
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div className="bg-[#0f172a] text-white p-8 rounded-[40px] shadow-2xl flex flex-wrap justify-between items-center gap-6">
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center text-3xl font-black">
-            {patient ? `${patient?.firstName?.[0]}${patient?.lastName?.[0]}` : <Loader2 className="animate-spin" />}
+            {avatarInitials}
           </div>
           <div>
             <h1 className="text-3xl font-black tracking-tighter uppercase">{patient?.firstName} {patient?.lastName}</h1>
