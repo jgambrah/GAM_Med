@@ -1,15 +1,18 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc } from 'firebase/firestore';
+import { collection, query, where, doc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { 
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, 
   Clock, UserCheck, Plus, SlidersHorizontal, 
   CheckCircle2, AlertCircle, CalendarDays, Sparkles, 
-  Loader2, ExternalLink 
+  Loader2, ExternalLink, X, User, Building2, Check 
 } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 
 // Helper to convert time slots e.g. "09:00 AM" to minutes and compare against 24h start/end strings e.g. "08:00"
 const isTimeWithinRange = (timeStr: string, start: string, end: string) => {
@@ -37,8 +40,10 @@ const isTimeWithinRange = (timeStr: string, start: string, end: string) => {
 };
 
 export default function WeeklyPlannerCommandDesk() {
+  const router = useRouter();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const { toast } = useToast();
 
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const today = new Date();
@@ -46,6 +51,17 @@ export default function WeeklyPlannerCommandDesk() {
     const diff = today.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
     return new Date(today.setDate(diff));
   });
+
+  // Modal State
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [bookingPatientName, setBookingPatientName] = useState('');
+  const [bookingDate, setBookingDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [bookingTimeSlot, setBookingTimeSlot] = useState('09:00 AM');
+  const [bookingConsultType, setBookingConsultType] = useState('General OPD');
+  const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
+
+  // Local additions to update counter dynamically
+  const [localBookingCount, setLocalBookingCount] = useState(0);
 
   // Fetch appointments for this doctor.
   const appointmentsQuery = useMemoFirebase(() => {
@@ -89,7 +105,6 @@ export default function WeeklyPlannerCommandDesk() {
       const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
       
       if (!availability) {
-        // Default availability: Monday - Friday, 08:00 AM to 04:00 PM (16:00)
         const defaultDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
         if (!defaultDays.includes(dayName)) return false;
         return isTimeWithinRange(timeStr, '08:00', '16:00');
@@ -108,10 +123,59 @@ export default function WeeklyPlannerCommandDesk() {
     const dateStr = date.toISOString().split('T')[0];
     return appointments?.find((a: any) => a.date === dateStr && a.timeSlot === time);
   };
+
+  const handleOpenBookingModal = (dateObj?: Date, timeStr?: string) => {
+    if (dateObj) {
+      setBookingDate(dateObj.toISOString().split('T')[0]);
+    }
+    if (timeStr) {
+      setBookingTimeSlot(timeStr);
+    }
+    setIsBookingModalOpen(true);
+  };
+
+  const handleConfirmBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bookingPatientName.trim()) {
+      toast({ variant: 'destructive', title: "Patient Required", description: "Please enter a patient name to schedule the appointment." });
+      return;
+    }
+
+    setIsSubmittingBooking(true);
+
+    try {
+      if (firestore && user?.uid) {
+        await addDoc(collection(firestore, "appointments"), {
+          doctorId: user.uid,
+          doctorName: user.displayName || 'Lead Physician',
+          patientName: bookingPatientName.trim(),
+          date: bookingDate,
+          timeSlot: bookingTimeSlot,
+          department: bookingConsultType,
+          status: 'CONFIRMED',
+          createdAt: serverTimestamp()
+        });
+      }
+
+      setLocalBookingCount(prev => prev + 1);
+      toast({
+        title: "Appointment Scheduled",
+        description: `Consultation with ${bookingPatientName} confirmed for ${bookingDate} at ${bookingTimeSlot}.`
+      });
+
+      setIsBookingModalOpen(false);
+      setBookingPatientName('');
+    } catch (err: any) {
+      console.error("Booking error:", err);
+      toast({ variant: 'destructive', title: "Booking Error", description: err.message });
+    } finally {
+      setIsSubmittingBooking(false);
+    }
+  };
   
   const isLoading = isUserLoading || areAppointmentsLoading || isAvailabilityLoading;
 
-  const confirmedCount = appointments?.filter((a: any) => a.status === 'CONFIRMED' || a.status === 'COMPLETED').length ?? 12;
+  const confirmedCount = (appointments?.filter((a: any) => a.status === 'CONFIRMED' || a.status === 'COMPLETED').length ?? 12) + localBookingCount;
   const pendingCount = appointments?.filter((a: any) => a.status === 'PENDING').length ?? 3;
 
   const activeDateRangeStr = `${weekDays[0].toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }).toUpperCase()} — ${weekDays[6].toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}`;
@@ -175,16 +239,19 @@ export default function WeeklyPlannerCommandDesk() {
               </button>
             </div>
 
-            {/* Actions */}
+            {/* Availability Settings Button */}
             <button 
               type="button"
+              onClick={() => router.push('/doctor/availability')}
               className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer"
             >
               <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" /> AVAILABILITY
             </button>
 
+            {/* Book Appointment Modal Trigger */}
             <button 
               type="button"
+              onClick={() => handleOpenBookingModal()}
               className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
             >
               <Plus className="w-4 h-4" /> BOOK APPOINTMENT
@@ -366,12 +433,13 @@ export default function WeeklyPlannerCommandDesk() {
                       <button
                         key={dayIdx}
                         type="button"
+                        onClick={() => onDuty && handleOpenBookingModal(day, time)}
                         className={`p-3 rounded-xl border transition-all flex items-center justify-center min-h-[52px] cursor-pointer ${
                           onDuty
                             ? (isToday 
                                 ? 'bg-indigo-50/60 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/80 hover:bg-indigo-100 dark:hover:bg-indigo-900/60' 
                                 : 'bg-slate-50/80 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:bg-indigo-50/50 hover:border-indigo-300')
-                            : 'bg-slate-100/50 dark:bg-slate-900/40 border-slate-200/50 dark:border-slate-800/40 opacity-50'
+                            : 'bg-slate-100/50 dark:bg-slate-900/40 border-slate-200/50 dark:border-slate-800/40 opacity-50 cursor-not-allowed'
                         }`}
                       >
                         <span className={`text-[9px] font-black uppercase tracking-wider ${onDuty ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
@@ -389,6 +457,131 @@ export default function WeeklyPlannerCommandDesk() {
         </div>
 
       </div>
+
+      {/* ========================================== */}
+      {/* 3. BOOK APPOINTMENT MODAL OVERLAY           */}
+      {/* ========================================== */}
+      {isBookingModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl shadow-2xl border border-slate-800 overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="p-6 bg-slate-950 text-white border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-500/20 border border-indigo-500/30 rounded-xl text-indigo-400">
+                  <CalendarDays className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
+                    CLINICAL SCHEDULER
+                  </span>
+                  <h2 className="text-base font-black italic uppercase tracking-wider text-white">
+                    SCHEDULE NEW APPOINTMENT
+                  </h2>
+                </div>
+              </div>
+
+              <button 
+                type="button"
+                onClick={() => setIsBookingModalOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form Body */}
+            <form onSubmit={handleConfirmBooking} className="p-6 space-y-4">
+              
+              {/* Patient Search Input */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-indigo-500" /> Patient Name / EHR #
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Ama Serwaa Prempeh or MMH/EHR/26/0014"
+                  value={bookingPatientName}
+                  onChange={(e) => setBookingPatientName(e.target.value)}
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                />
+              </div>
+
+              {/* Date & Time Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                    <CalendarIcon className="w-3.5 h-3.5 text-indigo-500" /> Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={bookingDate}
+                    onChange={(e) => setBookingDate(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-indigo-500" /> Time Slot
+                  </label>
+                  <select
+                    value={bookingTimeSlot}
+                    onChange={(e) => setBookingTimeSlot(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
+                  >
+                    {timeSlots.map((slot, idx) => (
+                      <option key={idx} value={slot} className="bg-slate-900 text-white">{slot}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Consultation Type / Dept */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-indigo-500" /> Consultation Type / Department
+                </label>
+                <select
+                  value={bookingConsultType}
+                  onChange={(e) => setBookingConsultType(e.target.value)}
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
+                >
+                  <option value="General OPD" className="bg-slate-900 text-white">General OPD Consultation</option>
+                  <option value="Follow-up Consult" className="bg-slate-900 text-white">Follow-up Consultation</option>
+                  <option value="Specialty Care" className="bg-slate-900 text-white">Specialty Care (Cardiology/Pediatrics)</option>
+                  <option value="Surgical Review" className="bg-slate-900 text-white">Surgical Pre-Op Review</option>
+                  <option value="Lab / Diagnostic Review" className="bg-slate-900 text-white">Lab & Diagnostic Review</option>
+                </select>
+              </div>
+
+              {/* Modal Footer Controls */}
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsBookingModalOpen(false)}
+                  className="px-4 py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  CANCEL
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingBooking}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingBooking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  CONFIRM BOOKING
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
