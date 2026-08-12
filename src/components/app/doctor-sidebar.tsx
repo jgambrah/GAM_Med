@@ -34,6 +34,7 @@ export function DoctorSidebar() {
       items: [
         { name: '"My Day" Command Desk', href: '/doctor/my-day', icon: Sun },
         { name: 'Doctor\'s Desk', href: '/doctor', icon: Stethoscope },
+        { name: 'Clinical Command Console', href: '/doctor/console', icon: Activity },
         { name: 'Patients', href: '/patients', icon: Users },
       ]
     },
