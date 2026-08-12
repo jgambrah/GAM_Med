@@ -3,10 +3,11 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, query, where, serverTimestamp, doc } from 'firebase/firestore';
+import html2canvas from 'html2canvas';
 import { 
   Heart, UserPlus, Search, Filter, Droplet, Droplets, Award, CalendarDays,
   ChevronRight, ShieldCheck, Activity, Loader2, ShieldAlert,
-  ChevronsUpDown, Eye, Sparkles, Printer, QrCode, FileText
+  ChevronsUpDown, Eye, Sparkles, Printer, QrCode, FileText, Download
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -611,8 +612,39 @@ export default function DonorArchiveHub() {
 // Digital Blood Donor Privilege Card Component
 function DigitalDonorCardDialog({ donor, hospital, open, onOpenChange }: { donor: any; hospital: any; open: boolean; onOpenChange: (open: boolean) => void }) {
   const { toast } = useToast();
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
   const donationCount = donor.donationCount || 0;
   const activeTier = donor.donorTier || 'BRONZE';
+
+  const handleDownloadCard = async () => {
+    if (!cardRef.current) return;
+    setIsDownloading(true);
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: null,
+      });
+      const image = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = image;
+      link.download = `GAM_Med_Donor_Card_${donor.donorNumber || donor.id || 'Card'}.png`;
+      link.click();
+      toast({
+        title: 'Donor Card Downloaded',
+        description: 'High-resolution PNG saved to your downloads.',
+      });
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Download Failed',
+        description: 'Unable to capture donor card image.',
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const tierConfig = useMemo(() => {
     switch (activeTier) {
@@ -797,14 +829,27 @@ function DigitalDonorCardDialog({ donor, hospital, open, onOpenChange }: { donor
         <DialogHeader>
           <DialogTitle className="text-xl font-black uppercase italic text-slate-900 dark:text-slate-100 tracking-tight flex items-center justify-between">
             <span>Privilege Card View</span>
-            <Button onClick={printCard} variant="outline" size="sm" className="border-slate-200 text-slate-600 hover:bg-slate-50 gap-1.5 rounded-xl text-xs">
-              <Printer size={14}/> Print Card
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={handleDownloadCard} 
+                disabled={isDownloading}
+                variant="outline" 
+                size="sm" 
+                className="border-slate-200 text-slate-600 hover:bg-slate-50 gap-1.5 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                {isDownloading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-500" /> : <Download size={14} />}
+                {isDownloading ? 'Downloading...' : 'Download Card'}
+              </Button>
+              <Button onClick={printCard} variant="outline" size="sm" className="border-slate-200 text-slate-600 hover:bg-slate-50 gap-1.5 rounded-xl text-xs font-bold cursor-pointer">
+                <Printer size={14}/> Print Card
+              </Button>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
         {/* Digital Card Graphic */}
         <div 
+          ref={cardRef}
           id="digital-blood-donor-card"
           className="relative w-full aspect-[1.7/1] rounded-3xl p-6 text-white overflow-hidden shadow-2xl bg-gradient-to-br from-red-800 via-red-950 to-slate-900 border border-red-500/20 flex flex-col justify-between"
         >
