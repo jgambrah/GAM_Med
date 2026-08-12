@@ -7,7 +7,8 @@ import html2canvas from 'html2canvas';
 import { 
   Heart, UserPlus, Search, Filter, Droplet, Droplets, Award, CalendarDays,
   ChevronRight, ShieldCheck, Activity, Loader2, ShieldAlert,
-  ChevronsUpDown, Eye, Sparkles, Printer, QrCode, FileText, Download
+  ChevronsUpDown, Eye, Sparkles, Printer, QrCode, FileText, Download,
+  Share2, MessageSquare, Check
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -614,8 +615,34 @@ function DigitalDonorCardDialog({ donor, hospital, open, onOpenChange }: { donor
   const { toast } = useToast();
   const cardRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
   const donationCount = donor.donationCount || 0;
   const activeTier = donor.donorTier || 'BRONZE';
+
+  const publicCardUrl = `https://gam-med.vercel.app/verify/donor/${donor.id || 'donor'}`;
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(publicCardUrl);
+    setIsCopied(true);
+    toast({ title: 'Link Copied!', description: 'Public donor verification URL copied to clipboard.' });
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleWhatsAppShare = () => {
+    window.open(`https://wa.me/?text=Here is your GAM Med Voluntary Blood Donor Card: ${encodeURIComponent(publicCardUrl)}`, '_blank');
+  };
+
+  const handleNativeShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: 'GAM Med Voluntary Blood Donor Card',
+        text: `Here is your GAM Med Voluntary Blood Donor Card for ${donor.fullName}:`,
+        url: publicCardUrl,
+      }).catch(() => {});
+    } else {
+      handleCopyLink();
+    }
+  };
 
   const handleDownloadCard = async () => {
     if (!cardRef.current) return;
@@ -904,33 +931,53 @@ function DigitalDonorCardDialog({ donor, hospital, open, onOpenChange }: { donor
         </div>
 
         {/* Share actions & QR Code Scan */}
-        <div className="mt-4 p-4 border rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-between gap-4">
-          <div className="space-y-1.5 flex-1 text-slate-800 dark:text-slate-200">
-            <h4 className="text-xs font-black uppercase tracking-tight flex items-center gap-1">
-              <QrCode size={14} className="text-rose-500"/> Share with Donor
-            </h4>
-            <p className="text-[9px] text-slate-400 font-bold uppercase leading-normal">
-              Donor can scan the QR code to save their card on their phone, or copy the link directly.
-            </p>
-            <Button
-              onClick={() => {
-                const shareUrl = `${window.location.origin}/donor/card/${donor.hospitalId || 'default'}/${donor.id}`;
-                navigator.clipboard.writeText(shareUrl);
-                toast({ title: 'Share Link Copied', description: 'Unique donor card link is now in your clipboard.' });
-              }}
-              variant="outline"
-              size="sm"
-              className="border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-100 rounded-xl mt-1 h-8"
-            >
-              Copy Shared Link
-            </Button>
+        <div className="mt-4 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-slate-800/60 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="space-y-3 flex-1 text-slate-800 dark:text-slate-200 w-full">
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
+                <QrCode size={16} className="text-rose-500"/> Share Verification Card
+              </h4>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase leading-relaxed mt-1">
+                Donor can scan the QR code to save their card on mobile, or transmit via WhatsApp / SMS.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={handleCopyLink}
+                variant="outline"
+                size="sm"
+                className="border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl h-9 px-3.5 transition-all cursor-pointer"
+              >
+                {isCopied ? <Check size={14} className="text-emerald-500 mr-1" /> : null}
+                {isCopied ? 'LINK COPIED!' : 'COPY SHARED LINK'}
+              </Button>
+
+              <button
+                type="button"
+                onClick={handleWhatsAppShare}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <MessageSquare size={14} /> SHARE VIA WHATSAPP
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNativeShare}
+                className="px-3.5 py-2 bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-900 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <Share2 size={14} /> SHARE VIA SMS / APP
+              </button>
+            </div>
           </div>
-          <div className="bg-white p-2 rounded-xl border shrink-0 flex items-center justify-center">
+
+          <div className="bg-white p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md shrink-0 flex flex-col items-center justify-center">
             <QRCodeSVG
-              value={`${typeof window !== 'undefined' ? window.location.origin : ''}/donor/card/${donor.hospitalId || 'default'}/${donor.id}`}
-              size={64}
+              value={publicCardUrl}
+              size={120}
               level="H"
             />
+            <span className="text-[9px] font-mono font-bold text-slate-400 mt-1.5 uppercase">SCAN TO VERIFY</span>
           </div>
         </div>
 
