@@ -63,12 +63,12 @@ export default function AnnouncementsHubPage() {
   const canPublish = ['DIRECTOR', 'ADMIN', 'HR', 'MEDICAL_DIRECTOR'].includes(userRole || 'DIRECTOR');
 
   const announcementsQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
+    if (!firestore || !userProfile?.hospitalId) return null;
     return query(
-      collection(firestore, `hospitals/${hospitalId}/announcements`),
+      collection(firestore, `hospitals/${userProfile.hospitalId}/announcements`),
       orderBy("createdAt", "desc")
     );
-  }, [firestore, hospitalId]);
+  }, [firestore, userProfile?.hospitalId]);
 
   const { data: rawAnnouncements, isLoading: areAnnouncementsLoading } = useCollection<any>(announcementsQuery);
 

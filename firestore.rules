@@ -190,6 +190,10 @@ service cloud.firestore {
       allow read, write, list, create, update, delete: if isSignedIn();
     }
 
+    match /{path=**}/announcements/{announcementId} {
+      allow read, write, list, create, update, delete: if isSignedIn();
+    }
+
 
 
 
@@ -354,6 +358,10 @@ service cloud.firestore {
       );
 
       match /telemetry_streams/{streamId} {
+        allow read, write, list, create, update, delete: if isSignedIn();
+      }
+
+      match /announcements/{announcementId} {
         allow read, write, list, create, update, delete: if isSignedIn();
       }
 
