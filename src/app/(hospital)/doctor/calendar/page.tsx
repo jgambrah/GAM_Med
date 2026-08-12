@@ -847,7 +847,11 @@ export default function WeeklyPlannerCommandDesk() {
 
               <button
                 type="button"
-                onClick={() => router.push(`/patients`)}
+                onClick={() => {
+                  const targetId = quickEhrPatient.id ? encodeURIComponent(quickEhrPatient.id) : encodeURIComponent(quickEhrPatient.ehrNumber);
+                  setQuickEhrPatient(null);
+                  router.push(`/patients/folder/${targetId}`);
+                }}
                 className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
               >
                 OPEN FULL EHR CHART <ExternalLink className="w-3.5 h-3.5" />
