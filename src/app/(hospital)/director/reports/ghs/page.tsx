@@ -1,10 +1,13 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, query, where, getDocs, Timestamp, doc, collectionGroup } from 'firebase/firestore';
 import { 
-  FileDown, ShieldCheck, ClipboardList, Activity, 
-  Users, Skull, Baby, Download, Printer, Loader2, Landmark, AlertTriangle, ShieldAlert
+  Building2, Calendar, Download, Printer, Activity, 
+  Baby, Stethoscope, AlertTriangle, FileSpreadsheet, 
+  ShieldCheck, TrendingUp, ChevronRight, ShieldAlert, 
+  Loader2, Skull, CheckCircle2 
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -12,41 +15,10 @@ import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-  Tooltip, Cell, PieChart, Pie, Legend
+  Tooltip, Cell, PieChart, Pie 
 } from 'recharts';
 
-function TallyBox({ id, label, count, color }: any) {
-  const colors: any = {
-    blue: "border-blue-600 text-blue-600 bg-blue-50/50 shadow-[4px_4px_0px_0px_rgba(37,99,235,1)]",
-    pink: "border-pink-600 text-pink-600 bg-pink-50/50 shadow-[4px_4px_0px_0px_rgba(219,39,119,1)]",
-    red: "border-red-600 text-red-600 bg-red-50/50 shadow-[4px_4px_0px_0px_rgba(220,38,38,1)]",
-    green: "border-green-600 text-green-700 bg-green-50/50 shadow-[4px_4px_0px_0px_rgba(22,163,74,1)]",
-  };
-  return (
-    <div id={id} className={`p-6 border-4 rounded-3xl ${colors[color]} flex flex-col items-center justify-center transition-all hover:-translate-y-1 hover:shadow-md animate-in zoom-in-95`}>
-      <span className="text-[10px] font-black uppercase tracking-wider mb-2 text-slate-500">{label}</span>
-      <span className="text-4xl font-black italic tracking-tighter">{count}</span>
-    </div>
-  );
-}
-
-function ReportStat({ id, label, value, icon: Icon, color }: any) {
-  return (
-    <div id={id} className={`bg-slate-50/50 p-5 rounded-3xl border-2 border-slate-200 border-l-8 ${color} shadow-sm transition-all hover:border-slate-300`}>
-      <div className="flex items-center gap-4">
-        <div className="p-3 bg-white rounded-2xl shadow-sm">
-           <Icon className="h-6 w-6" />
-        </div>
-        <div>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-tight">{label}</p>
-          <p className="text-2xl font-black text-slate-900 mt-1 italic tracking-tight">{value}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function GHSComplianceHub() {
+export default function StatutoryReturnsGHS() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -67,8 +39,8 @@ export default function GHSComplianceHub() {
 
   useEffect(() => {
     if (userProfile && userProfile.role === 'SUPER_ADMIN') {
-        toast({ title: "Redirecting...", description: "Accessing Global Health Insights instead." });
-        router.replace('/app-ceo/health-insights');
+      toast({ title: "Redirecting...", description: "Accessing Global Health Insights instead." });
+      router.replace('/app-ceo/health-insights');
     }
   }, [userProfile, router, toast]);
   
@@ -90,10 +62,10 @@ export default function GHSComplianceHub() {
   const admissionsQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/admissions`), where("admittedAt", ">=", startTs), where("admittedAt", "<=", endTs)) : null, [firestore, hospitalId, startTs, endTs]);
   const deliveriesQuery = useMemoFirebase(() => hospitalId ? query(collectionGroup(firestore, "deliveries"), where("hospitalId", "==", hospitalId), where("deliveryDate", ">=", format(startTs.toDate(), 'yyyy-MM-dd')), where("deliveryDate", "<=", format(endTs.toDate(), 'yyyy-MM-dd'))) : null, [firestore, hospitalId, startTs, endTs]);
 
-  const { data: encounters, isLoading: encountersLoading } = useCollection(encountersQuery);
-  const { data: mortality, isLoading: mortalityLoading } = useCollection(mortalityQuery);
-  const { data: admissions, isLoading: admissionsLoading } = useCollection(admissionsQuery);
-  const { data: deliveries, isLoading: deliveriesLoading } = useCollection(deliveriesQuery);
+  const { data: encounters, isLoading: encountersLoading } = useCollection<any>(encountersQuery);
+  const { data: mortality, isLoading: mortalityLoading } = useCollection<any>(mortalityQuery);
+  const { data: admissions, isLoading: admissionsLoading } = useCollection<any>(admissionsQuery);
+  const { data: deliveries, isLoading: deliveriesLoading } = useCollection<any>(deliveriesQuery);
 
   // Filter ANC visits
   const ancEncounters = useMemo(() => {
@@ -165,10 +137,10 @@ export default function GHSComplianceHub() {
 
   const reportData = useMemo(() => {
     // Aggregate Morbidity
-    const morbidityMap: any = {};
+    const morbidityMap: Record<string, number> = {};
     (encounters || []).forEach(doc => {
       const diagnosis = doc.diagnosis;
-      if(diagnosis) {
+      if (diagnosis) {
         morbidityMap[diagnosis] = (morbidityMap[diagnosis] || 0) + 1;
       }
     });
@@ -177,8 +149,8 @@ export default function GHSComplianceHub() {
     let svdCount = 0;
     let csCount = 0;
     (deliveries || []).forEach(doc => {
-        if (doc.modeOfDelivery === 'SVD') svdCount++;
-        if (doc.modeOfDelivery === 'C-Section') csCount++;
+      if (doc.modeOfDelivery === 'SVD') svdCount++;
+      if (doc.modeOfDelivery === 'C-Section') csCount++;
     });
 
     return {
@@ -227,7 +199,6 @@ export default function GHSComplianceHub() {
     toast({ title: "DHIMS2 CSV Downloaded", description: `Statutory file saved: ${filename}` });
   };
   
-  // Recharts Morbidity Data
   const chartMorbidityData = useMemo(() => {
     return reportData.morbidity.slice(0, 5).map((m: any) => ({
       name: m.name.length > 20 ? `${m.name.slice(0, 18)}...` : m.name,
@@ -235,38 +206,32 @@ export default function GHSComplianceHub() {
     }));
   }, [reportData.morbidity]);
 
-  // Recharts Delivery Mode Data
-  const chartDeliveryData = useMemo(() => {
-    return [
-      { name: 'SVD', value: reportData.svdCount, fill: '#db2777' },
-      { name: 'C-Section', value: reportData.csCount, fill: '#dc2626' },
-      { name: 'Assisted', value: reportData.totalDeliveries - (reportData.svdCount + reportData.csCount), fill: '#2563eb' }
-    ].filter(d => d.value > 0);
-  }, [reportData.svdCount, reportData.csCount, reportData.totalDeliveries]);
-
   if (isProfileLoading) {
-    return <div className="flex h-full w-full items-center justify-center p-20"><Loader2 className="h-16 w-16 animate-spin text-primary" /><p className="ml-4 font-bold text-muted-foreground">Authenticating session...</p></div>;
+    return (
+      <div className="flex h-full w-full items-center justify-center p-20">
+        <Loader2 className="h-16 w-16 animate-spin text-rose-500" />
+      </div>
+    );
   }
   
   if (!isAuthorized && userProfile?.role !== 'SUPER_ADMIN') {
-     return (
+    return (
       <div className="flex flex-1 items-center justify-center bg-background p-4">
         <div className="text-center">
           <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
           <h1 className="text-2xl font-bold">Access Denied</h1>
-          <p className="text-muted-foreground">You are not authorized to view GHS Returns.</p>
+          <p className="text-muted-foreground font-medium">You are not authorized to view GHS Returns.</p>
           <Button onClick={() => router.push('/dashboard')} className="mt-4">Return Home</Button>
         </div>
       </div>
     );
   }
 
-  if (userProfile?.role === 'SUPER_ADMIN') {
-    return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
-  }
+  const monthNames = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+  const currentMonthName = monthNames[period.month];
 
   return (
-    <div className="p-2 md:p-8 space-y-8 max-w-7xl mx-auto text-black font-bold">
+    <div className="max-w-7xl mx-auto space-y-6 pb-12">
       
       {/* Dynamic styling for printing return forms */}
       <style dangerouslySetInnerHTML={{ __html: `
@@ -287,308 +252,279 @@ export default function GHSComplianceHub() {
             margin: 0 !important;
             width: 100% !important;
           }
-          .page-break-before {
-            page-break-before: always;
-          }
         }
       `}} />
 
-      {/* SCREEN CONTAINER - HIDDEN ON PRINT */}
-      <div className="screen-only space-y-8">
+      {/* SCREEN CONTAINER */}
+      <div className="screen-only space-y-6">
         
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row justify-between items-end border-b-8 border-slate-900 pb-8 gap-6">
-          <div>
-             <div className="flex items-center gap-3 text-blue-600 mb-2">
-                <Landmark size={32} />
-                <span className="text-[10px] font-black uppercase tracking-[0.4em]">Government & Regulatory Affairs</span>
-             </div>
-             <h1 className="text-5xl font-black uppercase tracking-tighter italic leading-none">Statutory <span className="text-blue-600">Returns</span></h1>
+        {/* ========================================== */}
+        {/* 1. SIGNATURE DARK HERO COMMAND BANNER      */}
+        {/* ========================================== */}
+        <div className="bg-slate-950 text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden mb-6 border border-slate-800">
+          {/* Ambient Radial Accent Glows */}
+          <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-1/3 -mb-12 w-64 h-64 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+
+          {/* Top Row: Title, Subtitle, and Date Selectors */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 relative z-10">
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-violet-500/20 border border-violet-500/30 rounded-xl text-violet-400">
+                  <Building2 className="w-7 h-7" />
+                </div>
+                <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-wider text-white">
+                  STATUTORY RETURNS
+                </h1>
+              </div>
+              <p className="mt-2 text-xs md:text-sm text-slate-400 font-medium flex items-center gap-2">
+                <span className="text-violet-400 font-bold">GOVERNMENT & REGULATORY AFFAIRS</span>
+                <span className="text-slate-600">•</span>
+                <span>LIVE GHS & DHIMS2 DATA SYNCHRONIZATION</span>
+              </p>
+            </div>
+
+            {/* Month & Year Selectors */}
+            <div className="flex flex-wrap items-center gap-3 self-start lg:self-auto bg-slate-900/80 border border-slate-800 p-1.5 rounded-xl">
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-black uppercase tracking-widest text-slate-200 transition-colors cursor-pointer">
+                <Calendar className="w-4 h-4 text-violet-400" />
+                <select 
+                  value={period.month}
+                  onChange={(e) => setPeriod({ ...period, month: Number(e.target.value) })}
+                  className="bg-transparent focus:outline-none appearance-none cursor-pointer"
+                >
+                  {monthNames.map((m, idx) => (
+                    <option key={idx} value={idx} className="bg-slate-900 text-white">{m}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-black uppercase tracking-widest text-slate-200 transition-colors cursor-pointer">
+                <select 
+                  value={period.year}
+                  onChange={(e) => setPeriod({ ...period, year: Number(e.target.value) })}
+                  className="bg-transparent focus:outline-none appearance-none cursor-pointer"
+                >
+                  {[2024, 2025, 2026, 2027].map(y => (
+                    <option key={y} value={y} className="bg-slate-900 text-white">{y}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
-          
-          <div className="flex items-center gap-3 bg-white p-4 rounded-3xl border-4 border-slate-900 shadow-[8px_8px_0px_0px_rgba(15,23,42,1)]">
-             <select 
-               id="period-month-select"
-               className="bg-transparent font-black uppercase text-xs outline-none cursor-pointer"
-               value={period.month} onChange={e => setPeriod({...period, month: Number(e.target.value)})}
-             >
-                {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map((m, i) => <option key={i} value={i}>{m}</option>)}
-             </select>
-             <div className="h-4 w-px bg-slate-300" />
-             <select
-               id="period-year-select"
-               className="bg-transparent font-black uppercase text-xs outline-none cursor-pointer"
-               value={period.year} onChange={e => setPeriod({...period, year: Number(e.target.value)})}
-             >
-               {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-             </select>
+
+          {/* Bottom Row / Grid: Live GHS Tally Sheet (Telemetry) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
+            
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col justify-between hover:bg-slate-900/80 transition-colors">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1 flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-sky-400" /> OPD ATTENDANCE
+              </span>
+              <div className="text-4xl font-black text-sky-400 mt-2">{reportData.totalOPD}</div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col justify-between hover:bg-slate-900/80 transition-colors">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1 flex items-center gap-1.5">
+                <Baby className="w-3.5 h-3.5 text-rose-400" /> SVD DELIVERIES
+              </span>
+              <div className="text-4xl font-black text-rose-400 mt-2">{reportData.svdCount}</div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col justify-between hover:bg-slate-900/80 transition-colors">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1 flex items-center gap-1.5">
+                <Stethoscope className="w-3.5 h-3.5 text-amber-400" /> C-SECTIONS
+              </span>
+              <div className="text-4xl font-black text-amber-400 mt-2">{reportData.csCount}</div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col justify-between hover:bg-slate-900/80 transition-colors">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1 flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> TOTAL BIRTHS
+              </span>
+              <div className="text-4xl font-black text-emerald-400 mt-2">{reportData.totalDeliveries}</div>
+            </div>
+
           </div>
         </div>
-        
-        {/* LIVE STATS CARDS */}
-        <div className="bg-white p-8 rounded-[40px] border-4 border-slate-900 shadow-2xl">
-          <h3 className="text-xl font-black uppercase italic mb-6 flex items-center gap-2">
-            <Activity className="text-blue-600" /> Live GHS Tally Sheet (Current Month)
-          </h3>
+
+        {/* ========================================== */}
+        {/* 2. STATUTORY REPORTING GRID                */}
+        {/* ========================================== */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <TallyBox id="tally-opd" label="OPD Attendance" count={reportData.totalOPD} color="blue" />
-            <TallyBox id="tally-svd" label="SVD Deliveries" count={reportData.svdCount} color="pink" />
-            <TallyBox id="tally-cs" label="C-Sections" count={reportData.csCount} color="red" />
-            <TallyBox id="tally-births" label="Total Births" count={reportData.totalDeliveries} color="green" />
-          </div>
-        </div>
+          {/* Left Column (2 Cols): GHS Form 1 & Mortality */}
+          <div className="xl:col-span-2 space-y-6">
+            
+            {/* Outpatient Morbidity Returns */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 md:p-8">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 mb-6 border-b border-slate-200 dark:border-slate-800">
+                <div>
+                  <h2 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-violet-600 dark:text-violet-400" /> GHS FORM 1 (MONTHLY)
+                  </h2>
+                  <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wider">
+                    OUTPATIENT MORBIDITY RETURNS
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-sky-50 dark:bg-sky-950 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" /> LIVE DATA FEED
+                </span>
+              </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* EXPORT OPTIONS SIDEBAR */}
-          <div className="space-y-4">
-             <ExportCard title="GHS Form 1 (Monthly)" desc="Outpatient Morbidity Returns" icon={<ClipboardList className="text-blue-600"/>} onClick={() => window.print()} />
-             <ExportCard title="Mortality Return" desc="HeFRA/GHS Death Certification List" icon={<Skull className="text-red-600"/>} onClick={() => window.print()} />
-             <ExportCard title="Maternal Health" desc="ANC & Delivery Statistics" icon={<Baby className="text-pink-600"/>} onClick={() => window.print()} />
-             <ExportCard title="DHIMS2 Export" desc="CSV formatted for Bulk Upload" icon={<FileDown className="text-green-600"/>} onClick={exportToDHIMS2} />
-          </div>
-
-          {/* PREVIEW & CHARTS BLOCK */}
-          <div className="lg:col-span-2 bg-white p-8 md:p-10 rounded-[50px] border-4 border-slate-100 shadow-sm space-y-8">
-             
-             {/* GHS Morbidity List */}
-             <div>
-               <div className="flex justify-between items-center border-b pb-4 mb-4">
-                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">GHS Morbidity Preview (Top Diseases)</h3>
-                  <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-4 py-1 rounded-full uppercase italic">Live Data Feed</span>
-               </div>
-
-               <div className="space-y-3">
-                  {isLoading ? (
-                    <div className="p-12 text-center"><Loader2 className="animate-spin text-primary mx-auto" /></div>
-                  ) : reportData.morbidity.length === 0 ? (
-                    <div className="p-12 text-center text-slate-300 italic uppercase text-xs">No morbidity data for this period.</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
+                    OPD MORBIDITY DISTRIBUTION
+                  </h3>
+                  {reportData.morbidity.length === 0 ? (
+                    <div className="p-6 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 text-center text-xs font-bold text-slate-400">
+                      NO MORBIDITY DATA FOR THIS PERIOD.
+                    </div>
                   ) : (
-                    reportData.morbidity.slice(0, 5).map((m: any, i: number) => (
-                      <div key={i} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border-2 border-transparent hover:border-blue-100 transition-all">
-                         <span className="text-xs uppercase font-black">{m.name}</span>
-                         <div className="flex items-center gap-4">
-                            <div className="h-2 w-24 md:w-32 bg-slate-200 rounded-full overflow-hidden">
-                               <div className="bg-blue-600 h-full" style={{ width: `${(m.count / reportData.totalOPD) * 100}%` }} />
-                            </div>
-                            <span className="text-base font-black text-blue-600">{m.count}</span>
-                         </div>
-                      </div>
-                    ))
+                    <div className="space-y-2">
+                      {reportData.morbidity.slice(0, 5).map((m: any, i: number) => (
+                        <div key={i} className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase truncate max-w-[180px]">{m.name}</span>
+                          <span className="text-xs font-black text-violet-600 dark:text-violet-400">{m.count} Cases</span>
+                        </div>
+                      ))}
+                    </div>
                   )}
-               </div>
-             </div>
-
-             {/* CHARTS CONTAINER */}
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-dashed">
-                
-                {/* Chart 1: Morbidity BarChart */}
-                <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">OPD Morbidity Distribution</p>
-                  <div className="h-[200px]">
-                     {chartMorbidityData.length === 0 ? (
-                        <div className="flex h-full items-center justify-center text-xs text-slate-300 italic">No morbidity data.</div>
-                     ) : (
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={chartMorbidityData}>
-                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                             <XAxis dataKey="name" stroke="#94a3b8" fontSize={9} tickLine={false} />
-                             <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} />
-                             <Tooltip contentStyle={{ fontSize: 10, borderRadius: 12, fontWeight: 'bold' }} />
-                             <Bar dataKey="cases" radius={[4, 4, 0, 0]}>
-                               {chartMorbidityData.map((entry: any, index: number) => (
-                                 <Cell key={`cell-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5]} />
-                               ))}
-                             </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                     )}
-                  </div>
                 </div>
 
-                {/* Chart 2: Delivery Breakdown PieChart */}
-                <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Mode of Delivery Distribution</p>
-                  <div className="h-[200px] flex items-center justify-center">
-                     {chartDeliveryData.length === 0 ? (
-                        <div className="text-xs text-slate-300 italic">No delivery data recorded.</div>
-                     ) : (
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={chartDeliveryData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={45}
-                              outerRadius={70}
-                              paddingAngle={4}
-                              dataKey="value"
-                            >
-                              {chartDeliveryData.map((entry: any, index: number) => (
-                                <Cell key={`cell-${index}`} fill={entry.fill} />
-                              ))}
-                            </Pie>
-                            <Tooltip contentStyle={{ fontSize: 10, borderRadius: 12, fontWeight: 'bold' }} />
-                            <Legend wrapperStyle={{ fontSize: 9 }} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                     )}
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
+                    MODE OF DELIVERY DISTRIBUTION
+                  </h3>
+                  {reportData.totalDeliveries === 0 ? (
+                    <div className="p-6 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 text-center text-xs font-bold text-slate-400">
+                      NO DELIVERY DATA RECORDED.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">Spontaneous Vaginal Delivery (SVD)</span>
+                        <span className="text-xs font-black text-rose-600 dark:text-rose-400">{reportData.svdCount}</span>
+                      </div>
+                      <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">Caesarean Section (CS)</span>
+                        <span className="text-xs font-black text-amber-600 dark:text-amber-400">{reportData.csCount}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Mortality Returns */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 md:p-8">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 mb-6 border-b border-slate-200 dark:border-slate-800">
+                <div>
+                  <h2 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600" /> MORTALITY RETURN
+                  </h2>
+                  <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wider">
+                    HEFRA/GHS DEATH CERTIFICATION LIST
+                  </p>
+                </div>
+              </div>
+
+              {reportData.mortalityCount === 0 ? (
+                <div className="p-6 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-center text-center">
+                  <div>
+                    <ShieldCheck className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                    <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                      ZERO MORTALITIES RECORDED FOR {currentMonthName} {period.year}
+                    </span>
                   </div>
                 </div>
-             </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">Total Certified Mortalities</span>
+                  <span className="text-sm font-black text-rose-600 dark:text-rose-400">{reportData.mortalityCount} Deaths</span>
+                </div>
+              )}
+            </div>
 
-             {/* GHS Form 1B stats */}
-             <div className="pt-8 border-t border-dashed">
-                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">GHS Form 1B: Maternal & Newborn Health</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <ReportStat id="stat-anc" label="Total ANC Visits" value={reportData.totalANC} icon={Users} color="border-pink-500" />
-                      <ReportStat id="stat-deliveries" label="Total Deliveries" value={reportData.totalDeliveries} icon={Baby} color="border-pink-500" />
-                      <ReportStat id="stat-svdcs" label="SVD / CS" value={`${reportData.svdCount} / ${reportData.csCount}`} icon={Activity} color="border-blue-500" />
-                      <ReportStat id="stat-malaria" label="Malaria in Preg." value={reportData.malariaInPregnancy} icon={AlertTriangle} color="border-red-500" />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-                      <ReportStat id="stat-anc1" label="ANC 1st Visits" value={loadingANCStats ? '...' : reportData.anc1} icon={Users} color="border-emerald-500" />
-                      <ReportStat id="stat-anc4" label="ANC 4th Visits" value={loadingANCStats ? '...' : reportData.anc4} icon={Users} color="border-emerald-500" />
-                      <ReportStat id="stat-deaths" label="Maternal Deaths" value={reportData.maternalDeaths} icon={Skull} color="border-red-600" />
-                  </div>
-             </div>
-
-             {/* ACTIONS BUTTONS */}
-             <div className="pt-8 flex gap-4 border-t border-dashed">
-                <button 
-                  id="print-returns-btn"
-                  onClick={() => window.print()}
-                  className="flex-1 bg-slate-900 text-white py-5 rounded-3xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 hover:bg-slate-800 transition-all shadow-md active:scale-[0.98]"
-                >
-                   <Printer size={18}/> Print GHS Return
-                </button>
-                <button 
-                  id="download-csv-btn"
-                  onClick={exportToDHIMS2} 
-                  className="flex-1 bg-white border-4 border-slate-900 text-black py-5 rounded-3xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 hover:bg-slate-50 transition-all shadow-md active:scale-[0.98]"
-                >
-                   <Download size={18}/> Download DHIMS2 CSV
-                </button>
-             </div>
           </div>
+
+          {/* Right Column (1 Col): GHS Form 1B (Maternal) & Actions */}
+          <div className="space-y-6">
+            
+            {/* Maternal & Newborn Health Form */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+                <h2 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                  <Baby className="w-4 h-4 text-rose-500" /> GHS FORM 1B
+                </h2>
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider">
+                  MATERNAL & NEWBORN HEALTH
+                </p>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">TOTAL ANC VISITS</span>
+                  <span className="text-sm font-black text-slate-900 dark:text-slate-100">{reportData.totalANC}</span>
+                </div>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">TOTAL DELIVERIES</span>
+                  <span className="text-sm font-black text-slate-900 dark:text-slate-100">{reportData.totalDeliveries}</span>
+                </div>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">SVD / CS</span>
+                  <span className="text-sm font-black text-slate-900 dark:text-slate-100">{reportData.svdCount} / {reportData.csCount}</span>
+                </div>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">MALARIA IN PREG.</span>
+                  <span className="text-sm font-black text-slate-900 dark:text-slate-100">{reportData.malariaInPregnancy}</span>
+                </div>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">ANC 1ST VISITS</span>
+                  <span className="text-sm font-black text-slate-900 dark:text-slate-100">{reportData.anc1}</span>
+                </div>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">ANC 4TH VISITS</span>
+                  <span className="text-sm font-black text-slate-900 dark:text-slate-100">{reportData.anc4}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-rose-500">MATERNAL DEATHS</span>
+                  <span className="text-sm font-black text-rose-600 dark:text-rose-400">{reportData.maternalDeaths}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Export Action Hub */}
+            <div className="bg-slate-950 rounded-2xl border border-slate-800 p-6 text-white shadow-lg">
+              <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                <Download className="w-4 h-4 text-emerald-400" /> EXPORT & PRINT CENTER
+              </h2>
+              
+              <div className="space-y-3">
+                <button 
+                  type="button"
+                  onClick={() => window.print()}
+                  className="w-full text-left px-5 py-3.5 rounded-xl bg-violet-600 hover:bg-violet-700 border border-violet-500 text-xs font-black uppercase tracking-widest transition-all flex items-center justify-between shadow-sm cursor-pointer"
+                >
+                  <span className="flex items-center gap-2.5"><Printer className="w-4 h-4" /> PRINT GHS RETURN</span>
+                  <ChevronRight className="w-4 h-4 opacity-70" />
+                </button>
+
+                <button 
+                  type="button"
+                  onClick={exportToDHIMS2}
+                  className="w-full text-left px-5 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 text-xs font-black uppercase tracking-widest transition-all flex items-center justify-between shadow-sm cursor-pointer"
+                >
+                  <span className="flex items-center gap-2.5"><FileSpreadsheet className="w-4 h-4" /> DOWNLOAD DHIMS2 CSV</span>
+                  <ChevronRight className="w-4 h-4 opacity-70" />
+                </button>
+              </div>
+            </div>
+
+          </div>
+
         </div>
       </div>
-
-      {/* PRINT LAYOUT - VISIBLE ONLY WHEN PRINTED */}
-      <div className="hidden print:block space-y-8 bg-white p-8 text-black font-serif">
-         <div className="text-center border-b-4 border-black pb-4">
-             <h1 className="text-3xl font-extrabold uppercase">Ghana Health Service</h1>
-             <p className="text-sm font-bold uppercase tracking-widest mt-1">Statutory Monthly Return (Form 1 & 1B)</p>
-             <div className="flex justify-between items-center text-xs mt-6 font-mono font-bold">
-                 <span>FACILITY CODE: {hospitalId}</span>
-                 <span>REPORTING PERIOD: {format(startTs.toDate(), 'MMMM yyyy').toUpperCase()}</span>
-                 <span>GENERATED ON: {format(new Date(), 'dd-MM-yyyy HH:mm')}</span>
-             </div>
-         </div>
-
-         {/* Form 1: Morbidity Return */}
-         <div className="space-y-4 pt-4">
-             <h2 className="text-base font-bold border-b-2 border-black pb-1 uppercase tracking-wider">GHS Form 1: Outpatient Morbidity Returns</h2>
-             <table className="w-full text-left text-xs border-collapse">
-                 <thead>
-                     <tr className="border-b-2 border-black font-bold uppercase">
-                         <th className="py-2 w-16">No.</th>
-                         <th className="py-2">Disease Description / ICD-10 Category</th>
-                         <th className="py-2 text-right w-32">Tally Count</th>
-                     </tr>
-                 </thead>
-                 <tbody>
-                     {reportData.morbidity.length === 0 ? (
-                       <tr><td colSpan={3} className="py-4 text-center italic">No morbidity entries recorded.</td></tr>
-                     ) : (
-                       reportData.morbidity.map((m: any, idx: number) => (
-                         <tr key={idx} className="border-b border-gray-300">
-                             <td className="py-2 font-mono">{idx + 1}</td>
-                             <td className="py-2 uppercase font-mono">{m.name}</td>
-                             <td className="py-2 text-right font-mono font-bold">{m.count}</td>
-                         </tr>
-                       ))
-                     )}
-                 </tbody>
-             </table>
-         </div>
-
-         {/* Form 1B: Maternal & Newborn Returns */}
-         <div className="space-y-4 pt-8 page-break-before">
-             <h2 className="text-base font-bold border-b-2 border-black pb-1 uppercase tracking-wider">GHS Form 1B: Maternal & Newborn Returns</h2>
-             <table className="w-full text-left text-xs border-collapse">
-                 <thead>
-                     <tr className="border-b-2 border-black font-bold uppercase">
-                         <th className="py-2">Indicator / Data Element</th>
-                         <th className="py-2 text-right w-32">Reporting Value</th>
-                     </tr>
-                 </thead>
-                 <tbody>
-                     <tr className="border-b border-gray-300">
-                         <td className="py-2">Total OPD Attendance</td>
-                         <td className="py-2 text-right font-mono font-bold">{reportData.totalOPD}</td>
-                     </tr>
-                     <tr className="border-b border-gray-300">
-                         <td className="py-2">Antenatal Care (ANC) Registration / 1st Visits (ANC 1)</td>
-                         <td className="py-2 text-right font-mono font-bold">{loadingANCStats ? 'Loading...' : anc1}</td>
-                     </tr>
-                     <tr className="border-b border-gray-300">
-                         <td className="py-2">Antenatal Care (ANC) 4th Visits (ANC 4)</td>
-                         <td className="py-2 text-right font-mono font-bold">{loadingANCStats ? 'Loading...' : anc4}</td>
-                     </tr>
-                     <tr className="border-b border-gray-300">
-                         <td className="py-2">Malaria in Pregnancy (diagnosed during ANC)</td>
-                         <td className="py-2 text-right font-mono font-bold">{reportData.malariaInPregnancy}</td>
-                     </tr>
-                     <tr className="border-b border-gray-300">
-                         <td className="py-2">Total Facility Deliveries</td>
-                         <td className="py-2 text-right font-mono font-bold">{reportData.totalDeliveries}</td>
-                     </tr>
-                     <tr className="border-b border-gray-300">
-                         <td className="py-2">Spontaneous Vaginal Deliveries (SVD)</td>
-                         <td className="py-2 text-right font-mono font-bold">{reportData.svdCount}</td>
-                     </tr>
-                     <tr className="border-b border-gray-300">
-                         <td className="py-2">Caesarean Section Deliveries (CS)</td>
-                         <td className="py-2 text-right font-mono font-bold">{reportData.csCount}</td>
-                     </tr>
-                     <tr className="border-b border-gray-300">
-                         <td className="py-2">Maternal Deaths (In-Facility & Postpartum)</td>
-                         <td className="py-2 text-right font-mono font-bold">{maternalDeaths}</td>
-                     </tr>
-                 </tbody>
-             </table>
-         </div>
-
-         {/* Signatures */}
-         <div className="pt-20 flex justify-between text-xs">
-             <div className="border-t border-black pt-2 w-64 text-center font-mono">
-                 <p className="font-bold">Prepared By: {userProfile?.fullName}</p>
-                 <p className="text-gray-500 uppercase tracking-widest text-[9px] mt-0.5">Records Officer / Clinician</p>
-             </div>
-             <div className="border-t border-black pt-2 w-64 text-center font-mono">
-                 <p className="font-bold">Certified Correct: Medical Director</p>
-                 <p className="text-gray-500 uppercase tracking-widest text-[9px] mt-0.5">Signature & Official Stamp</p>
-             </div>
-         </div>
-      </div>
-
     </div>
   );
-}
-
-function ExportCard({ title, desc, icon, onClick }: any) {
-    return (
-        <div onClick={onClick} className="bg-white p-6 rounded-[32px] border-2 border-slate-100 shadow-sm hover:border-blue-600 transition-all cursor-pointer group active:scale-[0.98]">
-            <div className="flex items-center gap-4">
-                <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-blue-50 transition-all">{icon}</div>
-                <div>
-                    <p className="text-xs font-black uppercase text-black">{title}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase italic leading-tight">{desc}</p>
-                </div>
-            </div>
-        </div>
-    );
 }
