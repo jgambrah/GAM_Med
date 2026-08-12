@@ -70,7 +70,7 @@ export default function AnnouncementsHubPage() {
     );
   }, [firestore, userProfile?.hospitalId]);
 
-  const { data: rawAnnouncements, isLoading: areAnnouncementsLoading } = useCollection<any>(announcementsQuery);
+  const { data: rawAnnouncements, isLoading: areAnnouncementsLoading, error: collectionError } = useCollection<any>(announcementsQuery);
 
   const demoAnnouncements: AnnouncementItem[] = useMemo(() => [
     {
