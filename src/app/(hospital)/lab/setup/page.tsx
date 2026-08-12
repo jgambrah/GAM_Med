@@ -6,7 +6,7 @@ import { collection, query, serverTimestamp } from 'firebase/firestore';
 import { 
   FlaskConical, Settings, Search, Filter, Plus, 
   MoreHorizontal, CheckCircle2, TestTubes, Activity, 
-  Edit3, Loader2, ShieldAlert, Package, Beaker 
+  Edit3, Loader2, ShieldAlert, Package, Beaker, X, Clock, Box 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -21,8 +21,12 @@ import { useRouter } from 'next/navigation';
 
 const testFormSchema = z.object({
   name: z.string().min(1, "Test name is required"),
+  testCode: z.string().optional(),
   category: z.string().min(1, "Category is required"),
   price: z.coerce.number().min(0, "Price cannot be negative"),
+  specimenType: z.string().default("Serum"),
+  containerType: z.string().default("SST (Yellow Top)"),
+  turnaroundTime: z.string().optional(),
   referenceRange: z.string().optional(),
   unit: z.string().optional(),
 });
@@ -36,6 +40,9 @@ interface LabTestItem {
   referenceRange?: string;
   unit?: string;
   price: number;
+  specimenType?: string;
+  containerType?: string;
+  turnaroundTime?: string;
   status?: string;
 }
 
@@ -80,6 +87,9 @@ export default function LabTestMenuSetup() {
       category: 'HEMATOLOGY', 
       referenceRange: 'Multiple Parameters', 
       price: 40.00,
+      specimenType: 'Whole Blood',
+      containerType: 'EDTA (Purple Top)',
+      turnaroundTime: '2 Hours',
       status: 'ACTIVE'
     },
     { 
@@ -88,6 +98,9 @@ export default function LabTestMenuSetup() {
       category: 'SEROLOGY', 
       referenceRange: 'Negative', 
       price: 20.00,
+      specimenType: 'Whole Blood',
+      containerType: 'EDTA (Purple Top)',
+      turnaroundTime: '30 Mins',
       status: 'ACTIVE'
     },
     { 
@@ -96,6 +109,9 @@ export default function LabTestMenuSetup() {
       category: 'BIOCHEMISTRY', 
       referenceRange: 'Multiple Parameters', 
       price: 15.00,
+      specimenType: 'Urine',
+      containerType: 'Sterile Container',
+      turnaroundTime: '1 Hour',
       status: 'ACTIVE'
     },
     { 
@@ -104,6 +120,9 @@ export default function LabTestMenuSetup() {
       category: 'BIOCHEMISTRY', 
       referenceRange: 'Multiple Parameters', 
       price: 120.00,
+      specimenType: 'Serum',
+      containerType: 'SST (Yellow Top)',
+      turnaroundTime: '4 Hours',
       status: 'ACTIVE'
     },
     { 
@@ -112,6 +131,9 @@ export default function LabTestMenuSetup() {
       category: 'MICROBIOLOGY', 
       referenceRange: 'No Growth', 
       price: 85.00,
+      specimenType: 'Whole Blood',
+      containerType: 'Sterile Container',
+      turnaroundTime: '48 Hours',
       status: 'ACTIVE'
     },
   ], []);
@@ -119,11 +141,14 @@ export default function LabTestMenuSetup() {
   const labTests: LabTestItem[] = useMemo(() => {
     if (rawTests && rawTests.length > 0) {
       return rawTests.map((t: any, index: number) => ({
-        id: t.id || `TST-${String(index + 1).padStart(3, '0')}`,
+        id: t.testCode || t.id || `TST-${String(index + 1).padStart(3, '0')}`,
         name: t.name,
         category: (t.category || 'HEMATOLOGY').toUpperCase(),
         referenceRange: t.referenceRange ? `${t.referenceRange} ${t.unit || ''}`.trim() : 'Multiple Parameters',
         price: Number(t.price || 0),
+        specimenType: t.specimenType || 'Serum',
+        containerType: t.containerType || 'SST (Yellow Top)',
+        turnaroundTime: t.turnaroundTime || '2 Hours',
         status: 'ACTIVE'
       }));
     }
@@ -141,14 +166,21 @@ export default function LabTestMenuSetup() {
   const form = useForm<TestFormValues>({
     resolver: zodResolver(testFormSchema),
     defaultValues: {
+      name: '',
+      testCode: '',
       category: 'Hematology',
-      price: 0
+      price: 0,
+      specimenType: 'Serum',
+      containerType: 'SST (Yellow Top)',
+      turnaroundTime: '2 Hours',
+      referenceRange: '',
+      unit: ''
     },
   });
 
   const handleAddTest = (values: TestFormValues) => {
     if (!firestore || !hospitalId) {
-      toast({ title: 'Test Added to Catalog', description: `${values.name} configured.` });
+      toast({ title: 'Test Added to Catalog', description: `${values.name} (${values.specimenType}) configured.` });
       setIsAddTestOpen(false);
       form.reset();
       return;
@@ -163,8 +195,8 @@ export default function LabTestMenuSetup() {
     addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/lab_menu`), testData);
 
     toast({
-      title: 'Test Added',
-      description: `${values.name} has been added to the laboratory menu catalog.`,
+      title: 'Test Catalog Updated',
+      description: `${values.name} (${values.specimenType}) configured successfully.`,
     });
     form.reset();
     setIsAddTestOpen(false);
@@ -234,68 +266,189 @@ export default function LabTestMenuSetup() {
                   <Plus className="w-4 h-4" /> ADD TEST TO MENU
                 </button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2 text-violet-600">
-                    <Beaker className="w-5 h-5" /> New Diagnostic Test
-                  </DialogTitle>
-                </DialogHeader>
+              <DialogContent className="sm:max-w-2xl bg-white dark:bg-slate-900 p-0 border border-slate-800 rounded-2xl overflow-hidden">
+                
+                {/* SIGNATURE DARK MODAL HEADER */}
+                <div className="p-6 bg-slate-950 text-white border-b border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-violet-500/20 border border-violet-500/30 rounded-xl text-violet-400">
+                      <FlaskConical className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-violet-400 block">
+                        ENTERPRISE LIS CATALOG
+                      </span>
+                      <h2 className="text-base font-black italic uppercase tracking-wider text-white">
+                        ADD NEW DIAGNOSTIC TEST
+                      </h2>
+                    </div>
+                  </div>
+                </div>
+
+                {/* MODAL FORM BODY */}
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit(handleAddTest)} className="space-y-4">
-                    <FormField control={form.control} name="name" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs font-bold uppercase">Test Name</FormLabel>
-                        <FormControl><Input placeholder="e.g. Full Blood Count" {...field} className="rounded-xl" /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                  <form onSubmit={form.handleSubmit(handleAddTest)} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* Row 1: Test Name & Code */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField control={form.control} name="name" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                            Test Name *
+                          </FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. Full Blood Count" {...field} className="rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs font-bold" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+
+                      <FormField control={form.control} name="testCode" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                            Test Code (LOINC / Internal)
+                          </FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. TST-006 or LOINC-1982-1" {...field} className="rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs font-bold" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+
+                    {/* Row 2: Category & Price */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <FormField control={form.control} name="category" render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs font-bold uppercase">Category</FormLabel>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Category *</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger className="rounded-xl"><SelectValue/></SelectTrigger></FormControl>
-                            <SelectContent>
+                            <FormControl>
+                              <SelectTrigger className="rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs font-bold">
+                                <SelectValue placeholder="Select Category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-slate-900 text-white border-slate-800">
                               <SelectItem value="Hematology">Hematology</SelectItem>
                               <SelectItem value="Biochemistry">Biochemistry</SelectItem>
                               <SelectItem value="Microbiology">Microbiology</SelectItem>
                               <SelectItem value="Serology">Serology</SelectItem>
+                              <SelectItem value="Histopathology">Histopathology</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
                         </FormItem>
                       )} />
+
                       <FormField control={form.control} name="price" render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs font-bold uppercase">Price (GHS)</FormLabel>
-                          <FormControl><Input type="number" step="0.01" {...field} className="rounded-xl" /></FormControl>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Price (GHS) *</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" {...field} className="rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs font-bold" />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* Row 3: Specimen Type & Container Tube */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField control={form.control} name="specimenType" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Specimen Type</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs font-bold">
+                                <SelectValue placeholder="Select Specimen" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-slate-900 text-white border-slate-800">
+                              <SelectItem value="Serum">Serum</SelectItem>
+                              <SelectItem value="Whole Blood">Whole Blood</SelectItem>
+                              <SelectItem value="Plasma">Plasma</SelectItem>
+                              <SelectItem value="Urine">Urine</SelectItem>
+                              <SelectItem value="Stool">Stool</SelectItem>
+                              <SelectItem value="Swab">Swab (Nasal/Throat)</SelectItem>
+                              <SelectItem value="CSF">CSF (Cerebrospinal Fluid)</SelectItem>
+                              <SelectItem value="Sputum">Sputum</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+
+                      <FormField control={form.control} name="containerType" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Tube / Container Type</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs font-bold">
+                                <SelectValue placeholder="Select Container" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-slate-900 text-white border-slate-800">
+                              <SelectItem value="EDTA (Purple Top)">EDTA (Purple Top)</SelectItem>
+                              <SelectItem value="SST (Yellow Top)">SST (Yellow Top)</SelectItem>
+                              <SelectItem value="Sodium Citrate (Light Blue Top)">Sodium Citrate (Light Blue Top)</SelectItem>
+                              <SelectItem value="Sodium Fluoride (Grey Top)">Sodium Fluoride (Grey Top)</SelectItem>
+                              <SelectItem value="Sterile Container">Sterile Container</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+
+                    {/* Row 4: Turnaround Time (TAT) & Reference Range */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField control={form.control} name="turnaroundTime" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Turnaround Time (TAT)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. 2 Hours, 24 Hours, STAT 30 Mins" {...field} className="rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs font-bold" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+
                       <FormField control={form.control} name="referenceRange" render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs font-bold uppercase">Reference Range</FormLabel>
-                          <FormControl><Input placeholder="e.g. 4.5-5.5" {...field} className="rounded-xl" /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="unit" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs font-bold uppercase">Unit</FormLabel>
-                          <FormControl><Input placeholder="e.g. x10^12/L" {...field} className="rounded-xl" /></FormControl>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Reference Range</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. 4.5 - 5.5" {...field} className="rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs font-bold" />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
                     </div>
 
-                    <DialogFooter className="pt-4">
-                      <Button type="submit" disabled={form.formState.isSubmitting} className="bg-violet-600 hover:bg-violet-700 text-white font-black uppercase text-xs">
-                        Save to Menu Catalog
-                      </Button>
+                    {/* Row 5: Unit */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField control={form.control} name="unit" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Unit of Measurement</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. x10^12/L or mg/dL" {...field} className="rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs font-bold" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+
+                    <DialogFooter className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                      <button 
+                        type="button" 
+                        onClick={() => setIsAddTestOpen(false)}
+                        className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="submit" 
+                        disabled={form.formState.isSubmitting} 
+                        className="px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white font-black uppercase text-xs tracking-wider rounded-xl shadow-lg transition-all cursor-pointer flex items-center gap-2"
+                      >
+                        SAVE TO MENU CATALOG
+                      </button>
                     </DialogFooter>
                   </form>
                 </Form>
@@ -424,7 +577,10 @@ export default function LabTestMenuSetup() {
                     Category
                   </th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-                    Reference Range
+                    Specimen / Container
+                  </th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                    TAT & Reference Range
                   </th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                     Price (GHS)
@@ -456,8 +612,19 @@ export default function LabTestMenuSetup() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
+                      <div className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                        <Box className="w-3.5 h-3.5 text-violet-500" /> {test.specimenType}
+                      </div>
+                      <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                        {test.containerType}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
                       <div className="text-xs font-bold text-slate-600 dark:text-slate-300 font-mono">
                         {test.referenceRange}
+                      </div>
+                      <div className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5 flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> TAT: {test.turnaroundTime}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -469,12 +636,13 @@ export default function LabTestMenuSetup() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* ALWAYS VISIBLE ACTION BUTTONS (No hover opacity-0 requirement) */}
+                      <div className="flex items-center justify-end gap-2 text-slate-400">
                         <button 
                           type="button" 
-                          className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950 rounded-lg transition-colors cursor-pointer" 
-                          title="Edit Pricing/Range"
-                          onClick={() => toast({ title: 'Edit Test', description: `Modifying configuration for ${test.name}` })}
+                          className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/60 rounded-lg transition-colors cursor-pointer" 
+                          title="Edit Test Configuration"
+                          onClick={() => toast({ title: 'Edit Test Configuration', description: `Modifying LIS parameters for ${test.name}` })}
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
