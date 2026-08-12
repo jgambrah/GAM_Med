@@ -36,6 +36,13 @@ export default function PersonnelRegisterHub() {
 
   const { data: rawStaff, isLoading: isStaffLoading } = useCollection(staffQuery);
 
+  const formatStaffId = (rawUid: string, department: string, existingStaffId?: string) => {
+    if (existingStaffId) return existingStaffId;
+    const shortString = (rawUid || '00000').substring(0, 5).toUpperCase();
+    const deptPrefix = (department || 'GEN').substring(0, 3).toUpperCase();
+    return `GAM-${deptPrefix}-${shortString}`;
+  };
+
   const demoStaffMembers = useMemo(() => [
     { id: '2NZVRIVE57...', name: 'SAMUEL KORSAH', email: 'sammuelkorsah@gmail.com', role: 'ACCOUNTANT', department: 'FINANCE', license: 'N/A', complete: true },
     { id: 'IYWVZ2S0FY...', name: 'KWAME ADU', email: 'kwameadu@gmail.com', role: 'RADIOLOGIST', department: 'RADIOLOGY', license: '2342', complete: true },
@@ -48,27 +55,38 @@ export default function PersonnelRegisterHub() {
 
   const staffMembers = useMemo(() => {
     if (rawStaff && rawStaff.length > 0) {
-      return rawStaff.map((m: any) => ({
-        id: m.id || 'UID-000',
-        name: (m.fullName || m.name || 'UNNAMED STAFF').toUpperCase(),
-        email: m.email || 'no-email@gam-med.com',
-        role: m.role || 'STAFF',
-        department: (m.department || 'GENERAL').toUpperCase(),
-        license: m.licenseNumber || 'N/A',
-        complete: Boolean(m.onboardingComplete || m.ghanaCardId),
-        raw: m,
-      }));
+      return rawStaff.map((m: any) => {
+        const dept = (m.department || 'GENERAL').toUpperCase();
+        const formattedId = formatStaffId(m.id, dept, m.employeeId || m.staffId);
+        return {
+          id: m.id || 'UID-000',
+          formattedStaffId: formattedId,
+          name: (m.fullName || m.name || 'UNNAMED STAFF').toUpperCase(),
+          email: m.email || 'no-email@gam-med.com',
+          role: m.role || 'STAFF',
+          department: dept,
+          license: m.licenseNumber || 'N/A',
+          complete: Boolean(m.onboardingComplete || m.ghanaCardId),
+          raw: m,
+        };
+      });
     }
-    return demoStaffMembers;
+    return demoStaffMembers.map(s => ({
+      ...s,
+      formattedStaffId: formatStaffId(s.id, s.department),
+    }));
   }, [rawStaff, demoStaffMembers]);
 
   const filteredStaff = useMemo(() => {
     return staffMembers.filter(member => {
+      const q = searchQuery.toLowerCase();
       const queryMatch = !searchQuery || 
-        member.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        member.email.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        member.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        member.role.toLowerCase().includes(searchQuery.toLowerCase());
+        member.name.toLowerCase().includes(q) || 
+        member.email.toLowerCase().includes(q) || 
+        member.id.toLowerCase().includes(q) ||
+        member.formattedStaffId.toLowerCase().includes(q) ||
+        member.role.toLowerCase().includes(q) ||
+        member.department.toLowerCase().includes(q);
 
       if (!queryMatch) return false;
 
@@ -293,9 +311,9 @@ export default function PersonnelRegisterHub() {
                   <span className="font-black text-slate-700 dark:text-slate-300 uppercase">{staff.department}</span>
                 </div>
                 <div className="flex items-center justify-between text-[10px]">
-                  <span className="font-bold text-slate-400 flex items-center gap-1.5"><Fingerprint className="w-3 h-3"/> UID</span>
-                  <span className="font-mono font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[9px] truncate max-w-[120px]" title={staff.id}>
-                    {staff.id}
+                  <span className="font-bold text-slate-400 flex items-center gap-1.5"><Fingerprint className="w-3 h-3"/> STAFF ID</span>
+                  <span className="font-mono font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[9px] truncate max-w-[140px]" title={`UID: ${staff.id}`}>
+                    {staff.formattedStaffId}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-[10px]">
