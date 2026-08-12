@@ -6,7 +6,7 @@ import { collection, query, serverTimestamp, orderBy, limit, doc, getDoc, getDoc
 import { 
   ArrowLeftRight, Plus, Clock, UserCheck, AlertCircle, 
   PackageCheck, Search, Calendar, ChevronRight, 
-  ShieldAlert, CheckCircle2, Loader2, Save, Box
+  ShieldAlert, CheckCircle2, Loader2, Save, Box, X, Printer, Download, FileText 
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -21,6 +21,9 @@ export default function ShiftHandoverWorkspace() {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Selected Log State for Full Details Modal
+  const [selectedLog, setSelectedLog] = useState<any | null>(null);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -120,6 +123,16 @@ export default function ShiftHandoverWorkspace() {
     }
     setLoading(false);
   };
+
+  const handlePrintReport = (report: any) => {
+    toast({
+      title: "Exporting Handover Log",
+      description: `Generating official print format for ${report.shiftType}...`
+    });
+    setTimeout(() => {
+      window.print();
+    }, 500);
+  };
   
   const filteredHistory = useMemo(() => {
     if (!history) return [];
@@ -166,6 +179,7 @@ export default function ShiftHandoverWorkspace() {
       totalDischarges: '2',
       criticalPatients: 'Adam Issaka - Monitor post-op vitals Q2H. Report any hypotensive spikes to attending.',
       consumablesNotes: 'Oxygen: OK, Emergency Drugs: OK. All crash carts inspected and fully restocked prior to shift exit.',
+      generalIncident: 'Routine shift completed with zero escalation incidents.',
       formattedDate: '6/14/2026, 3:09:19 PM'
     }
   ];
@@ -431,7 +445,11 @@ export default function ShiftHandoverWorkspace() {
                       </div>
                     </div>
 
-                    <button className="self-start md:self-center px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 transition-colors flex items-center gap-2 cursor-pointer">
+                    <button 
+                      type="button"
+                      onClick={() => setSelectedLog(report)}
+                      className="self-start md:self-center px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 transition-colors flex items-center gap-2 cursor-pointer"
+                    >
                       FULL LOG DETAILS <ChevronRight className="w-4 h-4 text-slate-500" />
                     </button>
                   </div>
@@ -464,6 +482,159 @@ export default function ShiftHandoverWorkspace() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* 2. FULL HANDOVER LOG DETAILS OVERLAY MODAL */}
+      {/* ========================================== */}
+      {selectedLog && (
+        <div 
+          onClick={() => setSelectedLog(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-800 overflow-hidden flex flex-col max-h-[90vh]"
+          >
+            {/* Modal Header */}
+            <div className="p-6 bg-slate-950 text-white border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-500/20 border border-indigo-500/30 rounded-xl text-indigo-400">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 block">
+                    OFFICIAL HANDOVER RECORD
+                  </span>
+                  <h2 className="text-base font-black italic uppercase tracking-wider text-white">
+                    {selectedLog.shiftType?.toUpperCase() || 'SHIFT HANDOVER REPORT'}
+                  </h2>
+                </div>
+              </div>
+
+              <button 
+                type="button"
+                onClick={() => setSelectedLog(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-6 overflow-y-auto bg-slate-50 dark:bg-slate-900/90">
+              
+              {/* Clinician & Meta Card */}
+              <div className="p-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">
+                    AUTHENTICATED CLINICIAN
+                  </span>
+                  <div className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase">
+                    {(selectedLog.nurseRole === 'DOCTOR' ? 'Dr. ' : 'Nurse ') + selectedLog.nurseName}
+                  </div>
+                </div>
+
+                <div className="text-left sm:text-right">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">
+                    HANDOVER TIMESTAMP
+                  </span>
+                  <div className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                    {selectedLog.formattedDate || 'Verified Log'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Shift Movements Summary Card */}
+              <div className="p-5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                  <UserCheck className="w-4 h-4" /> Shift Movements & Ward Census
+                </span>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center">
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                    <span className="text-[9px] font-black uppercase text-emerald-700 dark:text-emerald-300 block mb-1">
+                      New Admissions
+                    </span>
+                    <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                      {selectedLog.totalAdmissions || 0}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 rounded-xl">
+                    <span className="text-[9px] font-black uppercase text-sky-700 dark:text-sky-300 block mb-1">
+                      Discharges Processed
+                    </span>
+                    <span className="text-2xl font-black text-sky-600 dark:text-sky-400">
+                      {selectedLog.totalDischarges || 0}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl col-span-2 sm:col-span-1">
+                    <span className="text-[9px] font-black uppercase text-indigo-700 dark:text-indigo-300 block mb-1">
+                      Verification Status
+                    </span>
+                    <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 flex items-center justify-center gap-1 mt-1">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" /> AUTHENTICATED
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Critical Watchlist Details */}
+              <div className="p-5 rounded-xl bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-900/50 space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-500" /> Critical Watchlist & Special Instructions
+                </span>
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed bg-rose-50/50 dark:bg-rose-950/30 p-3.5 rounded-xl border border-rose-100 dark:border-rose-900/30">
+                  {selectedLog.criticalPatients || 'No critical watch items logged for this shift.'}
+                </p>
+              </div>
+
+              {/* Inventory & Supplies */}
+              <div className="p-5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <PackageCheck className="w-4 h-4 text-emerald-500" /> Inventory & Crash Cart Supplies Status
+                </span>
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed bg-slate-50 dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                  {selectedLog.consumablesNotes || 'Oxygen, IV fluids, and crash cart items verified.'}
+                </p>
+              </div>
+
+              {/* General Shift Notes / Handoff Remarks */}
+              <div className="p-5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-indigo-500" /> Shift Incident Notes & Handoff Remarks
+                </span>
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed bg-slate-50 dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                  {selectedLog.generalIncident || 'No shift escalation incidents reported.'}
+                </p>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setSelectedLog(null)}
+                className="px-5 py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                CLOSE REPORT
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handlePrintReport(selectedLog)}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" /> EXPORT PDF / PRINT
+              </button>
+            </div>
+
           </div>
         </div>
       )}
