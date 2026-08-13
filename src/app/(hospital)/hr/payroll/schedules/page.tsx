@@ -11,6 +11,13 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 
+// Helper for generating clean, enterprise Reference IDs from raw UIDs
+const formatStaffId = (rawUid: string) => {
+  if (!rawUid) return 'REF-N/A';
+  if (rawUid.startsWith('REF-') || rawUid.startsWith('EMP-') || rawUid.startsWith('GAM-')) return rawUid;
+  return `REF-${rawUid.substring(0, 6).toUpperCase()}`;
+};
+
 function SchedulesContent() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
@@ -61,28 +68,40 @@ function SchedulesContent() {
   const { data: payslipData, isLoading: areSlipsLoading } = useCollection(payslipsQuery);
 
   const demoRawData = useMemo(() => [
-    { id: 'EMP-01', name: 'SAMUEL KORSAH', ssnit: 'C901000045', basic: 8000.00 },
-    { id: 'EMP-02', name: 'MARCUS AMOSAH HENAKU', ssnit: 'C901000089', basic: 15000.00 },
-    { id: 'EMP-03', name: 'JOHN VITALIS', ssnit: 'C901000012', basic: 9500.00 },
-    { id: 'EMP-04', name: 'JAMES OBREMPONG', ssnit: 'C901000034', basic: 8500.00 }, // Defensive calculation fix
-    { id: 'EMP-05', name: 'PHILLAPA FRIMPONG', ssnit: 'C901000055', basic: 5500.00 },
-    { id: 'EMP-06', name: 'JASMINE GAMBRAH', ssnit: 'C901000067', basic: 5500.00 },
-    { id: 'EMP-07', name: 'KWAME ADU', ssnit: 'C901000023', basic: 4500.00 },
-    { id: 'EMP-08', name: 'DR. AMA ADU', ssnit: 'C901000099', basic: 9000.00 },
+    { id: '2nZVRi', name: 'SAMUEL KORSAH', ssnit: 'C901000045', basic: 8000.00 },
+    { id: 'WMiDkA', name: 'MARCUS AMOSAH HENAKU', ssnit: 'C901000089', basic: 15000.00 },
+    { id: 'yQR2pF', name: 'JOHN VITALIS', ssnit: 'C901000012', basic: 9500.00 },
+    { id: 't9KgxW', name: 'JAMES OBREMPONG', ssnit: '', basic: 8500.00 }, // Intentionally empty to showcase defensive MISSING SSNIT badge
+    { id: 'k8LmnP', name: 'PHILLAPA FRIMPONG', ssnit: 'C901000055', basic: 5500.00 },
+    { id: 'j3XyzQ', name: 'JASMINE GAMBRAH', ssnit: 'C901000067', basic: 5500.00 },
+    { id: 'h7AbcD', name: 'KWAME ADU', ssnit: 'C901000023', basic: 4500.00 },
+    { id: 'm9Efgh', name: 'DR. AMA ADU', ssnit: 'C901000099', basic: 9000.00 },
   ], []);
 
   // Defensive calculation helper to prevent NaN errors
   const safeNumber = (val: any) => (isNaN(Number(val)) || val === null || val === undefined ? 0 : Number(val));
+
+  // Validates if string is a legitimate SSNIT / TIN code vs raw DB UID
+  const isValidIdentifier = (val: any) => {
+    if (!val || typeof val !== 'string') return false;
+    const cleaned = val.trim();
+    if (cleaned.length === 0 || cleaned === 'NOT SET' || cleaned === 'N/A') return false;
+    // Firebase UIDs are 28+ chars or random hashes that don't match SSNIT formats
+    if (cleaned.length >= 20 && !cleaned.startsWith('C') && !cleaned.startsWith('S') && !cleaned.startsWith('P')) return false;
+    return true;
+  };
 
   const scheduleData = useMemo(() => {
     if (payslipData && payslipData.length > 0) {
       if (reportType === 'SSNIT' || reportType.includes('SSNIT')) {
         return payslipData.map((s: any) => {
           const b = safeNumber(s.basic);
+          const rawSsnit = s.ssnitNumber || s.ssnit;
           return {
-            id: s.staffNumber || s.staffId?.slice(0, 6) || 'EMP-01',
+            id: s.staffNumber || s.staffId || 'EMP-01',
+            staffId: s.staffId || s.id,
             name: (s.name || "UNKNOWN STAFF").toUpperCase(),
-            ssnit: s.ssnitNumber || 'C901000000',
+            ssnit: isValidIdentifier(rawSsnit) ? rawSsnit.trim() : '',
             basic: b,
             payable: b * 0.185,
           };
@@ -93,10 +112,12 @@ function SchedulesContent() {
         return payslipData.map((s: any) => {
           const b = safeNumber(s.gross || s.basic);
           const paye = safeNumber(s.paye);
+          const rawTin = s.tinNumber || s.tin;
           return {
-            id: s.staffNumber || s.staffId?.slice(0, 6) || 'EMP-01',
+            id: s.staffNumber || s.staffId || 'EMP-01',
+            staffId: s.staffId || s.id,
             name: (s.name || "UNKNOWN STAFF").toUpperCase(),
-            ssnit: s.tinNumber || 'P0000000000',
+            ssnit: isValidIdentifier(rawTin) ? rawTin.trim() : '',
             basic: b,
             payable: paye,
           };
@@ -110,9 +131,10 @@ function SchedulesContent() {
         const b = safeNumber(slip.basic);
         const amt = safeNumber(specD?.amount);
         return {
-          id: slip.staffNumber || slip.staffId?.slice(0, 6) || 'EMP-01',
+          id: slip.staffNumber || slip.staffId || 'EMP-01',
+          staffId: slip.staffId || slip.id,
           name: (slip.name || "UNKNOWN STAFF").toUpperCase(),
-          ssnit: slip.staffNumber || 'REF-001',
+          ssnit: slip.staffNumber || '',
           basic: b,
           payable: amt,
         };
@@ -122,14 +144,23 @@ function SchedulesContent() {
     return demoRawData.map(row => {
       const basic = safeNumber(row.basic);
       const payable = basic * 0.185;
-      return { ...row, basic, payable };
+      return { 
+        ...row, 
+        staffId: row.id,
+        ssnit: isValidIdentifier(row.ssnit) ? row.ssnit.trim() : '',
+        basic, 
+        payable 
+      };
     });
   }, [payslipData, reportType, demoRawData]);
 
   const filteredScheduleData = useMemo(() => {
     return scheduleData.filter(row => {
       const q = searchQuery.toLowerCase();
-      return !searchQuery || row.name.toLowerCase().includes(q) || row.ssnit.toLowerCase().includes(q) || row.id.toLowerCase().includes(q);
+      return !searchQuery || 
+        row.name.toLowerCase().includes(q) || 
+        row.ssnit.toLowerCase().includes(q) || 
+        row.id.toLowerCase().includes(q);
     });
   }, [scheduleData, searchQuery]);
 
@@ -140,7 +171,7 @@ function SchedulesContent() {
     const headers = ["Staff Identity", "SSNIT / Ref Number", "Basic Salary (GHS)", "Total Payable (GHS)"];
     const rows = filteredScheduleData.map(r => [
       `"${r.name}"`,
-      `"${r.ssnit}"`,
+      `"${r.ssnit ? r.ssnit : formatStaffId(r.id || r.staffId)}"`,
       r.basic.toFixed(2),
       r.payable.toFixed(2)
     ]);
@@ -387,11 +418,22 @@ function SchedulesContent() {
                     </div>
                   </td>
 
-                  {/* SSNIT Number */}
+                  {/* SSNIT / REF Number rendering logic */}
                   <td className="px-6 py-4">
-                    <span className="font-mono bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-700 dark:text-slate-300 text-xs font-bold border border-slate-200 dark:border-slate-700">
-                      {row.ssnit}
-                    </span>
+                    {row.ssnit ? (
+                      <span className="font-mono bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-700 shadow-sm">
+                        {row.ssnit}
+                      </span>
+                    ) : (
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className="font-mono bg-rose-50 dark:bg-rose-950 px-2 py-1 rounded text-rose-700 dark:text-rose-300 text-[10px] font-black border border-rose-200 dark:border-rose-800">
+                          MISSING SSNIT
+                        </span>
+                        <span className="text-[9px] font-bold text-slate-400">
+                          {formatStaffId(row.id || row.staffId)}
+                        </span>
+                      </div>
+                    )}
                   </td>
 
                   {/* Basic Salary */}
