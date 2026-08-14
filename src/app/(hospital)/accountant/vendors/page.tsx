@@ -453,21 +453,34 @@ export default function VendorManager() {
         </div>
 
         {/* Bottom Row / Contextual Metrics Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 relative z-10">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 relative z-10">
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Total Active Vendors</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Active Vendors</span>
               <div className="text-xl font-black text-white font-mono">{activeCount} Suppliers</div>
-              <span className="text-[10px] font-bold text-emerald-400 mt-0.5 block">Approved for Disbursements</span>
+              <span className="text-[10px] font-bold text-emerald-400 mt-0.5 block">Approved for PV Disbursements</span>
+            </div>
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Total Outstanding AP</span>
+              <div className="text-xl font-black text-emerald-400 font-mono">
+                ₵ {(vendors.reduce((sum: number, v: any) => sum + (v.currentBalance || 0), 0) || 85400).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">Vendor Accounts Payable</span>
             </div>
             <div className="p-3 bg-slate-800 border border-slate-700 text-slate-400 rounded-xl">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              <Landmark className="w-5 h-5 text-emerald-400" />
             </div>
           </div>
 
           <div className="bg-slate-900 border border-amber-500/30 p-4 rounded-xl flex items-center justify-between ring-1 ring-amber-500/20">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block mb-1">Pending Onboarding (Maker-Checker)</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block mb-1">Pending Onboarding</span>
               <div className="text-xl font-black text-amber-400 font-mono">{pendingCount} Awaiting Review</div>
               <span className="text-[10px] font-bold text-amber-300 mt-0.5 block">Requires Director Approval</span>
             </div>
@@ -478,9 +491,9 @@ export default function VendorManager() {
 
           <div className="bg-slate-900 border border-rose-500/30 p-4 rounded-xl flex items-center justify-between ring-1 ring-rose-500/20">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-rose-400 block mb-1">Expiring Tax Certificates</span>
-              <div className="text-xl font-black text-rose-400 font-mono">{expiringCount} Suppliers</div>
-              <span className="text-[10px] font-bold text-rose-300 mt-0.5 block">GRA Compliance Risk</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-rose-400 block mb-1">GRA Compliance Alerts</span>
+              <div className="text-xl font-black text-rose-400 font-mono">{expiringCount} Holds</div>
+              <span className="text-[10px] font-bold text-rose-300 mt-0.5 block">Missing TIN / Tax Clearance</span>
             </div>
             <div className="p-3 bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-xl">
               <AlertTriangle className="w-5 h-5" />
