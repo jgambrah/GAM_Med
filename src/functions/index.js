@@ -1445,6 +1445,129 @@ exports.aggregateJournalVoucherToLedgerBalances = onDocumentCreated(
   }
 );
 
+/**
+ * Callable Function: Publish Fiscal Budget & Lock Quarterly Ledger Caps
+ * Transitions budget state from DRAFT -> LOCKED_ACTIVE, generating quarterly 
+ * budget documents (e.g. 2026_Q3_4001) in hospitals/{hospitalId}/budgets for 
+ * instant encumbrance evaluation by the Disbursement Portal.
+ */
+exports.publishFiscalBudget = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "User must be logged in.");
+
+  const { fiscalYear, allocations, hospitalId: reqHospitalId } = request.data;
+  const uid = request.auth.uid;
+
+  const userProfileDoc = await db.collection("users").doc(uid).get();
+  if (!userProfileDoc.exists) throw new HttpsError("not-found", "User profile not found.");
+
+  const role = userProfileDoc.data()?.role;
+  if (!['DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(role)) {
+    throw new HttpsError("permission-denied", "Only Medical Directors or Admins can publish fiscal budgets.");
+  }
+
+  const targetHospitalId = reqHospitalId || userProfileDoc.data().hospitalId;
+  if (!targetHospitalId) throw new HttpsError("failed-precondition", "Hospital ID missing.");
+
+  const year = fiscalYear || new Date().getFullYear();
+  const masterRef = db.collection("hospitals").doc(targetHospitalId).collection("fiscal_budgets").doc(`budget_${year}`);
+  const auditLogRef = db.collection("global_audit_logs").doc();
+
+  try {
+    await db.runTransaction(async (transaction) => {
+      // 1. Lock Master Fiscal Budget Document
+      transaction.set(masterRef, {
+        fiscalYear: year,
+        status: "LOCKED_ACTIVE",
+        publishedBy: uid,
+        publishedByName: userProfileDoc.data()?.name || "Medical Director",
+        publishedAt: admin.firestore.FieldValue.serverTimestamp(),
+        allocationsCount: (allocations || []).length
+      }, { merge: true });
+
+      // 2. Generate/Update Quarterly Budget Caps in budgets/{year}_Q{1-4}_{accountCode}
+      (allocations || []).forEach((alloc) => {
+        const accountCode = alloc.accountCode || alloc.accountId;
+        const q1 = Number(alloc.q1) || 0;
+        const q2 = Number(alloc.q2) || 0;
+        const q3 = Number(alloc.q3) || 0;
+        const q4 = Number(alloc.q4) || 0;
+
+        const quarters = [
+          { q: 'Q1', val: q1 },
+          { q: 'Q2', val: q2 },
+          { q: 'Q3', val: q3 },
+          { q: 'Q4', val: q4 }
+        ];
+
+        quarters.forEach(({ q, val }) => {
+          const docId = `${year}_${q}_${accountCode}`;
+          const bRef = db.collection("hospitals").doc(targetHospitalId).collection("budgets").doc(docId);
+          
+          transaction.set(bRef, {
+            fiscalYear: year,
+            quarter: q,
+            accountId: accountCode,
+            accountCode: accountCode,
+            accountName: alloc.accountName || `Account ${accountCode}`,
+            allocatedAmount: val,
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+            status: "LOCKED_ACTIVE"
+          }, { merge: true });
+        });
+      });
+
+      // 3. Audit Trail Log
+      transaction.set(auditLogRef, {
+        type: "FINANCIAL",
+        action: "FISCAL_BUDGET_PUBLISHED",
+        hospitalId: targetHospitalId,
+        fiscalYear: year,
+        publisherId: uid,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+    });
+
+    return { success: true, message: `Fiscal Budget ${year} permanently locked and published to Disbursement Portal.` };
+  } catch (error) {
+    console.error("FATAL: publishFiscalBudget", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "Failed to publish fiscal budget.");
+  }
+});
+
+/**
+ * Callable Function: Request Supplementary Budget Allocation
+ * Allows submitting formal supplementary budget requests for LOCKED_ACTIVE fiscal periods,
+ * producing an audit trail and requiring Medical Director sign-off.
+ */
+exports.requestSupplementaryBudget = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "User must be logged in.");
+
+  const { fiscalYear, quarter, accountCode, supplementaryAmount, justification, hospitalId: reqHospitalId } = request.data;
+  const uid = request.auth.uid;
+
+  const userProfileDoc = await db.collection("users").doc(uid).get();
+  if (!userProfileDoc.exists) throw new HttpsError("not-found", "User profile not found.");
+
+  const targetHospitalId = reqHospitalId || userProfileDoc.data().hospitalId;
+  const suppRef = db.collection("hospitals").doc(targetHospitalId).collection("supplementary_budgets").doc();
+
+  await suppRef.set({
+    fiscalYear: fiscalYear || new Date().getFullYear(),
+    quarter: quarter || 'Q3',
+    accountCode,
+    supplementaryAmount: Number(supplementaryAmount) || 0,
+    justification,
+    requestedBy: uid,
+    requestedByName: userProfileDoc.data()?.name || "Finance Officer",
+    status: "AWAITING_DIRECTOR_APPROVAL",
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  return { success: true, message: "Supplementary budget request submitted to Medical Director for approval." };
+});
+
+
 
 
 
