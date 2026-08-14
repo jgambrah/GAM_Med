@@ -899,3 +899,91 @@ exports.auditPurchaseOrders = onDocumentCreated("hospitals/{hospitalId}/purchase
   return null;
 });
 
+/**
+ * Processes a Payment Voucher creation with Encumbrance Accounting & Race Condition Protection.
+ * Atomically updates the target ledger budget's encumberedAmount using a transaction.
+ */
+exports.submitPaymentVoucherWithEncumbrance = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Login Required');
+  
+  const { hospitalId, pvData, overrideJustification } = request.data;
+  if (!hospitalId || !pvData || !pvData.debitAccountId || !pvData.grossAmount) {
+    throw new HttpsError('invalid-argument', 'Missing required payment voucher data.');
+  }
+
+  const year = new Date().getFullYear();
+  const quarter = `Q${Math.floor(new Date().getMonth() / 3) + 1}`;
+  const budgetDocId = `${year}_${quarter}_${pvData.debitAccountId}`;
+  
+  const budgetRef = db.collection('hospitals').doc(hospitalId).collection('budgets').doc(budgetDocId);
+  const pvCollectionRef = db.collection('hospitals').doc(hospitalId).collection('payment_vouchers');
+
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const budgetDoc = await transaction.get(budgetRef);
+      
+      let allocatedAmount = 150000.00;
+      let postedAmount = 0;
+      let encumberedAmount = 0;
+
+      if (budgetDoc.exists) {
+        const bData = budgetDoc.data();
+        allocatedAmount = bData.allocatedAmount || 0;
+        postedAmount = bData.postedAmount || 0;
+        encumberedAmount = bData.encumberedAmount || 0;
+      }
+
+      const availableBudget = allocatedAmount - (postedAmount + encumberedAmount);
+      const proposedAmount = Number(pvData.grossAmount);
+      const isOverBudget = proposedAmount > availableBudget;
+
+      const newPvRef = pvCollectionRef.doc();
+      const pvStatus = isOverBudget ? 'AWAITING_BUDGET_OVERRIDE' : 'AWAITING_FINANCE_APPROVAL';
+
+      // 1. Set PV document
+      transaction.set(newPvRef, {
+        ...pvData,
+        status: pvStatus,
+        isOverBudget,
+        overrideJustification: isOverBudget ? (overrideJustification || 'Clinical priority override requested.') : null,
+        availableBudgetAtCreation: availableBudget,
+        createdBy: request.auth.uid,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // 2. Encumber the amount on the budget node to prevent race conditions
+      if (budgetDoc.exists) {
+        transaction.update(budgetRef, {
+          encumberedAmount: admin.firestore.FieldValue.increment(proposedAmount),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      } else {
+        transaction.set(budgetRef, {
+          ledgerCode: pvData.debitAccountId,
+          ledgerName: pvData.debitAccountName || 'Expenditure Ledger',
+          period: `${year}-${quarter}`,
+          allocatedAmount: 150000.00,
+          postedAmount: 0,
+          encumberedAmount: proposedAmount,
+          isActive: true,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+
+      return {
+        pvId: newPvRef.id,
+        pvStatus,
+        isOverBudget,
+        availableBudget,
+        newEncumberedAmount: encumberedAmount + proposedAmount
+      };
+    });
+
+    return { success: true, ...result };
+  } catch (error) {
+    console.error("FATAL: submitPaymentVoucherWithEncumbrance", error);
+    throw new HttpsError('internal', error.message || 'Error processing encumbrance accounting transaction.');
+  }
+});
+
+

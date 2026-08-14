@@ -125,20 +125,32 @@ export default function PaymentVoucherManager() {
 
   const pendingPvCount = pendingPvs?.length || 3;
 
+  const [overrideJustification, setOverrideJustification] = useState('');
+
   const selectedBudget = useMemo(() => {
     if (!budgets || !form.debitAccountId) return null;
-    return budgets.find(b => b.accountId === form.debitAccountId);
+    return budgets.find(b => b.accountId === form.debitAccountId || b.ledgerCode === form.debitAccountId);
   }, [budgets, form.debitAccountId]);
 
-  const budgetRemaining = useMemo(() => {
-    if (!selectedBudget) return 45000.00; // Fallback demo limit
-    return (selectedBudget.limit || 0) - (selectedBudget.spent || 0);
+  // Encumbrance Accounting Formula: Available = Allocated - (Posted + Encumbered)
+  const budgetMetrics = useMemo(() => {
+    if (!selectedBudget) {
+      const allocated = 150000.00;
+      const posted = 95000.00;
+      const encumbered = 12000.00;
+      const available = allocated - (posted + encumbered); // 43,000.00
+      return { allocated, posted, encumbered, available };
+    }
+    const allocated = selectedBudget.allocatedAmount || selectedBudget.limit || 150000.00;
+    const posted = selectedBudget.postedAmount || selectedBudget.spent || 0;
+    const encumbered = selectedBudget.encumberedAmount || 0;
+    const available = allocated - (posted + encumbered);
+    return { allocated, posted, encumbered, available };
   }, [selectedBudget]);
 
-  const isOverBudget = useMemo(() => {
-    if (budgetRemaining === null) return false;
-    return form.grossAmount > budgetRemaining;
-  }, [budgetRemaining, form.grossAmount]);
+  const proposedAmount = form.grossAmount;
+  const isOverBudget = proposedAmount > budgetMetrics.available;
+  const overrunAmount = Math.max(0, proposedAmount - budgetMetrics.available);
 
   const vatAmount = form.applyVat ? form.grossAmount * 0.219 : 0;
   const whtAmount = form.grossAmount * form.whtRate;
@@ -183,13 +195,25 @@ export default function PaymentVoucherManager() {
       return;
     }
 
+    if (isOverBudget && !overrideJustification.trim()) {
+      toast({ variant: 'destructive', title: "Justification Required", description: "Budget cap breached. Please enter a clinical/financial justification for the budget override request." });
+      return;
+    }
+
     setProcessing(true);
+
+    const pvStatus = isOverBudget ? 'AWAITING_BUDGET_OVERRIDE' : 'AWAITING_FINANCE_APPROVAL';
 
     if (!firestore || !hospitalId || !user) {
       setTimeout(() => {
         const demoPvNum = `GAM/PV/26/0${Math.floor(100 + Math.random() * 900)}`;
         setForm(prev => ({ ...prev, pvNumber: demoPvNum }));
-        toast({ title: `PV ${demoPvNum} Sent for Approval`, description: "Awaiting review from the internal auditor / checker." });
+        toast({ 
+          title: isOverBudget ? `PV ${demoPvNum} Escalated for Budget Override` : `PV ${demoPvNum} Sent for Approval`, 
+          description: isOverBudget 
+            ? `Voucher exceeds available budget by GHS ${overrunAmount.toFixed(2)}. Escalated to Medical Director.` 
+            : "Awaiting review from the internal auditor / checker." 
+        });
         setProcessing(false);
       }, 1000);
       return;
@@ -232,17 +256,31 @@ export default function PaymentVoucherManager() {
           vendorAccountNumber: selectedVendor?.accountNumber || '',
           attachments: attachedFiles,
           isOverBudget,
+          overrideJustification: isOverBudget ? overrideJustification : null,
+          availableBudgetAtCreation: budgetMetrics.available,
           processedBy: user.uid,
           processedByName: user.displayName || userProfile?.name || 'Accountant',
-          status: 'PENDING_APPROVAL',
+          status: pvStatus,
           createdAt: serverTimestamp()
         });
+
+        // Update encumbered amount on budget node
+        const qtr = `Q${Math.floor(new Date().getMonth() / 3) + 1}`;
+        const bDocId = `${new Date().getFullYear()}_${qtr}_${form.debitAccountId}`;
+        const bRef = doc(firestore, `hospitals/${hospitalId}/budgets`, bDocId);
+        transaction.set(bRef, {
+          encumberedAmount: (selectedBudget?.encumberedAmount || 0) + proposedAmount,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
 
         transaction.update(hospitalDocRef, { pvCounter: (hData?.pvCounter || 0) + 1 });
       });
 
       setForm(prev => ({ ...prev, pvNumber: finalPvNumber }));
-      toast({ title: `PV ${finalPvNumber} Sent for Approval`, description: "Awaiting review from the internal auditor / checker." });
+      toast({ 
+        title: isOverBudget ? `PV ${finalPvNumber} Escalated for Budget Override` : `PV ${finalPvNumber} Sent for Approval`, 
+        description: isOverBudget ? "Escalated to Medical Director for emergency budget sign-off." : "Awaiting review from the internal auditor / checker." 
+      });
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Error', description: e.message });
     } finally {
@@ -409,25 +447,51 @@ export default function PaymentVoucherManager() {
             </div>
           </div>
 
-          {/* Real-Time Budget Guardrail Indicator */}
+          {/* Real-Time Budget Guardrail Indicator (Encumbrance Accounting) */}
           {form.debitAccountId && (
-            <div className={`p-4 rounded-xl border text-xs font-bold flex items-center justify-between transition-all ${
-              isOverBudget 
-                ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300' 
-                : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
-            }`}>
-              <div className="flex items-center gap-2">
-                {isOverBudget ? <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" /> : <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
-                <span>
-                  {isOverBudget 
-                    ? `⚠️ BUDGET EXCEEDED: Amount exceeds allocated budget! Available: GHS ${budgetRemaining.toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
-                    : `✅ BUDGET GUARDRAIL: Available Capacity: GHS ${budgetRemaining.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                  }
-                </span>
+            <div className="space-y-3">
+              <div className={`p-4 rounded-xl border text-xs font-bold transition-all ${
+                isOverBudget 
+                  ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-500 text-rose-700 dark:text-rose-300 animate-pulse' 
+                  : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {isOverBudget ? <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" /> : <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
+                    <span>
+                      {isOverBudget 
+                        ? `⚠️ BUDGET EXCEEDED BY GHS ${overrunAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} - OVERRIDE REQUIRED` 
+                        : `✅ REMAINING BUDGET (NET OF ENCUMBRANCES): GHS ${budgetMetrics.available.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                      }
+                    </span>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${isOverBudget ? 'bg-rose-600 text-white' : 'bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200'}`}>
+                    {isOverBudget ? 'OVERRIDE REQUIRED' : 'PASSED'}
+                  </span>
+                </div>
+                
+                <div className="mt-2 text-[10px] font-mono text-slate-500 dark:text-slate-400 flex flex-wrap gap-3 border-t border-slate-200 dark:border-slate-800 pt-2">
+                  <span>B(Allocated): ₵{budgetMetrics.allocated.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                  <span>E(Posted): ₵{budgetMetrics.posted.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                  <span>E(Encumbered): ₵{budgetMetrics.encumbered.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
               </div>
-              <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${isOverBudget ? 'bg-rose-200 dark:bg-rose-900 text-rose-800 dark:text-rose-200' : 'bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200'}`}>
-                {isOverBudget ? 'OVERRIDE REQUIRED' : 'PASSED'}
-              </span>
+
+              {/* Scenario B: Mandatory Justification for Budget Override */}
+              {isOverBudget && (
+                <div className="p-4 bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 rounded-xl space-y-2">
+                  <label className="text-[10px] font-black text-rose-700 dark:text-rose-400 uppercase tracking-widest block">
+                    CLINICAL & FINANCIAL JUSTIFICATION FOR BUDGET OVERRIDE (MANDATORY)
+                  </label>
+                  <textarea 
+                    required
+                    className="w-full p-3 border border-rose-300 dark:border-rose-800 rounded-xl text-xs font-medium text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-rose-500 h-20"
+                    placeholder="Provide detailed clinical urgency or operational necessity justifying this emergency budget overrun..."
+                    value={overrideJustification}
+                    onChange={e => setOverrideJustification(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -622,14 +686,28 @@ export default function PaymentVoucherManager() {
             )}
           </div>
 
+          {/* Morphing Action Button based on Scenario A vs B */}
           <button
             type="button"
             onClick={handleAuthorizePayment}
             disabled={processing}
-            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className={`w-full py-4 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
+              isOverBudget ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'
+            }`}
           >
-            {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            <span>SEND PV FOR APPROVAL (MAKER-CHECKER)</span>
+            {processing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isOverBudget ? (
+              <>
+                <AlertTriangle className="w-4 h-4" />
+                <span>REQUEST BUDGET OVERRIDE (ESCALATE TO DIRECTOR)</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>SEND PV FOR APPROVAL (MAKER-CHECKER)</span>
+              </>
+            )}
           </button>
         </div>
 
