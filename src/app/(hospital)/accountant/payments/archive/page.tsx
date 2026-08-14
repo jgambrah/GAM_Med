@@ -391,128 +391,141 @@ function PrintablePV({ voucher, hospitalName, user }: { voucher: PaymentVoucherI
   const vat = voucher.vatAmount || 0;
   const wht = voucher.whtAmount || 0;
   const net = voucher.netAmount || (gross + vat - wht);
+  const whtRate = voucher.whtRate ? voucher.whtRate * 100 : 5;
+
+  const dateStr = voucher.createdAt
+    ? format(voucher.createdAt.toDate ? voucher.createdAt.toDate() : new Date(voucher.createdAt), 'PPP')
+    : '2026-08-14';
 
   return (
     <>
-      <div className="flex-grow overflow-y-auto p-6 md:p-8">
-        <div id="printable-voucher-content" className="bg-white text-slate-900 font-serif border-4 border-slate-900 p-8 space-y-6">
+      {/* Web UI Actions - Hidden during print */}
+      <div className="sticky top-0 right-0 flex justify-end gap-2 p-4 bg-slate-100 print:hidden border-b z-20">
+        <button 
+          onClick={handlePrint}
+          className="px-5 py-2.5 bg-indigo-900 hover:bg-indigo-800 text-white font-bold text-xs uppercase rounded-xl shadow transition-all flex items-center gap-2 cursor-pointer"
+        >
+          <Printer className="w-4 h-4" /> Print Voucher
+        </button>
+      </div>
+
+      {/* --- START OF PRINTABLE A4 CONTENT --- */}
+      <div className="flex-grow overflow-y-auto p-8 bg-white print:p-0">
+        <div id="printable-voucher-content" className="p-8 text-black bg-white font-sans print:w-[210mm] print:h-[297mm] print:max-w-none print:max-h-none print:shadow-none print:overflow-visible">
           
-          {/* Header */}
-          <div className="text-center border-b-4 border-slate-900 pb-4 space-y-1">
-            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-wider">{hospitalName}</h1>
-            <div className="inline-block bg-slate-900 text-white font-sans text-xs font-black uppercase tracking-widest px-6 py-1 rounded">
-              OFFICIAL PAYMENT VOUCHER & AUDIT DOSSIER
+          {/* Header Section */}
+          <div className="flex justify-between items-start border-b-4 border-slate-800 pb-6 mb-6">
+            <div>
+              <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">{hospitalName || 'GAM MED HOSPITAL'}</h1>
+              <p className="text-sm text-slate-600 mt-1">Excellence in Healthcare Delivery</p>
+              <p className="text-xs text-slate-500 mt-1">P.O. Box 123, Kumasi, Ghana | GRA TIN: C000984712X</p>
             </div>
-          </div>
-
-          {/* Context Block */}
-          <div className="flex justify-between items-start text-xs font-bold font-sans">
-            <div className="space-y-1">
-              <p className="uppercase"><span className="text-slate-400">Voucher No:</span> <strong className="font-mono text-emerald-700 ml-2">{voucher.pvNumber}</strong></p>
-              <p className="uppercase"><span className="text-slate-400">Date Posted:</span> <strong className="font-mono ml-2">{voucher.createdAt ? format(voucher.createdAt.toDate ? voucher.createdAt.toDate() : new Date(voucher.createdAt), 'PPP') : 'N/A'}</strong></p>
-              <p className="uppercase"><span className="text-slate-400">Payee Entity:</span> <strong className="ml-2 uppercase">{voucher.payee}</strong></p>
-              <p className="uppercase"><span className="text-slate-400">Payment Settlement:</span> <strong className="ml-2">{voucher.paymentMethod || 'GCB Bank Transfer'}</strong></p>
-            </div>
-
-            <div className="text-right font-mono">
-              <div className="border-2 border-slate-900 p-3 bg-slate-50 text-center">
-                <span className="text-[9px] font-black uppercase text-slate-400 block">Currency</span>
-                <span className="text-xl font-black">GHS (₵)</span>
+            <div className="text-right">
+              <h2 className="text-2xl font-bold text-slate-800 tracking-widest">PAYMENT VOUCHER</h2>
+              <div className="mt-2 text-sm bg-slate-100 inline-block p-2 rounded border border-slate-300">
+                <p><span className="font-semibold text-slate-500">PV NO:</span> <span className="font-bold text-indigo-900">{voucher.pvNumber}</span></p>
+                <p><span className="font-semibold text-slate-500">DATE:</span> <span className="font-bold">{dateStr}</span></p>
               </div>
             </div>
           </div>
 
-          {/* Breakdown Table */}
-          <table className="w-full border-2 border-slate-900 font-sans text-xs">
-            <thead className="bg-slate-900 text-white font-black uppercase text-[10px] tracking-widest">
-              <tr>
-                <th className="p-3 text-left border-r border-slate-700">Payment Narration & Accounting Line</th>
-                <th className="p-3 text-right">Amount (GHS)</th>
+          {/* Payee Section */}
+          <div className="mb-6 p-4 border border-slate-300 rounded bg-slate-50">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Payee Details</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-semibold text-slate-600">Official Name:</p>
+                <p className="font-bold text-lg text-slate-900 uppercase">{voucher.payee}</p>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-600">Payee TIN:</p>
+                <p className="font-bold font-mono text-slate-800">C000349182X</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Transaction Description */}
+          <div className="mb-6">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Detailed Narration</h3>
+            <p className="text-sm p-3 border border-slate-300 rounded min-h-[80px] font-medium text-slate-800">
+              {voucher.narration || 'Payment disbursement transaction.'}
+            </p>
+          </div>
+
+          {/* Financial Breakdown Table */}
+          <table className="w-full mb-8 text-sm border-collapse">
+            <thead>
+              <tr className="bg-slate-800 text-white font-bold text-xs uppercase tracking-wider">
+                <th className="p-3 text-left border border-slate-800">Description</th>
+                <th className="p-3 text-right border border-slate-800 w-48">Amount (GHS)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-300 font-bold">
+            <tbody>
               <tr>
-                <td className="p-4 h-24 align-top border-r border-slate-300">
-                  <p className="font-black uppercase">{voucher.narration || 'Disbursement payout'}</p>
-                  <p className="text-[10px] text-slate-500 font-mono mt-2">DEBIT: Expenditure Account ({voucher.debitAccountId || '4001'})</p>
-                  <p className="text-[10px] text-slate-500 font-mono">CREDIT: Bank Cash Account ({voucher.creditAccountId || '1001'})</p>
-                </td>
-                <td className="p-4 text-right font-mono text-sm">
-                  ₵ {gross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <td className="p-3 border border-slate-300 font-medium">Gross Expenditure</td>
+                <td className="p-3 border border-slate-300 text-right font-mono font-bold">
+                  {gross.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
-
-              {vat > 0 && (
-                <tr className="bg-slate-50">
-                  <td className="p-2.5 text-right font-black uppercase text-[10px] border-r border-slate-300">
-                    Add: Statutory VAT & Levies (21.9%)
-                  </td>
-                  <td className="p-2.5 text-right font-mono">
-                    ₵ {vat.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                </tr>
-              )}
-
               {wht > 0 && (
-                <tr className="bg-rose-50 text-rose-800">
-                  <td className="p-2.5 text-right font-black uppercase text-[10px] border-r border-slate-300">
-                    Less: GRA Statutory Withholding Tax ({voucher.whtLabel || '5%'})
+                <tr className="bg-red-50 text-red-900 font-medium">
+                  <td className="p-3 border border-slate-300">
+                    Less: Withholding Tax ({whtRate}%)
                   </td>
-                  <td className="p-2.5 text-right font-mono font-black">
-                    - ₵ {wht.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <td className="p-3 border border-slate-300 text-right font-mono font-bold">
+                    ({wht.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                   </td>
                 </tr>
               )}
-
-              <tr className="bg-slate-900 text-white font-black text-sm">
-                <td className="p-4 text-right uppercase tracking-widest border-r border-slate-800">
-                  NET AMOUNT DISBURSED
-                </td>
-                <td className="p-4 text-right font-mono text-emerald-400 text-base">
-                  ₵ {net.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <tr className="bg-slate-100 font-bold text-lg">
+                <td className="p-3 border border-slate-300 text-right text-slate-900">NET AMOUNT PAYABLE:</td>
+                <td className="p-3 border border-slate-300 text-right font-mono font-black text-indigo-950 border-double border-b-4">
+                  {net.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
             </tbody>
           </table>
 
-          {/* Signatures & Controls */}
-          <div className="grid grid-cols-3 gap-6 pt-6 border-t-2 border-slate-900 font-sans text-[10px] font-bold">
-            <div className="text-center space-y-4">
-              <div className="border-b border-slate-900 pb-1">
-                <p className="font-black uppercase">{voucher.processedByName || 'Marcus Amosah Henaku'}</p>
-              </div>
-              <p className="uppercase text-slate-400">Prepared By (Accountant)</p>
-            </div>
-
-            <div className="text-center space-y-4">
-              <div className="border-b border-slate-900 pb-1">
-                <p className="font-black uppercase text-emerald-700">VERIFIED & PRE-AUDITED</p>
-              </div>
-              <p className="uppercase text-slate-400">Internal Audit Certification</p>
-            </div>
-
-            <div className="text-center space-y-4">
-              <div className="border-b border-slate-900 pb-1">
-                <p className="font-black uppercase">{voucher.approvedByName || 'Dr. Evelyn Baidoo'}</p>
-              </div>
-              <p className="uppercase text-slate-400">Approved By (Medical Director)</p>
+          {/* General Ledger Impact */}
+          <div className="mb-12">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Accounting Distribution</h3>
+            <div className="grid grid-cols-2 gap-4 text-xs font-mono bg-slate-50 p-3 border border-slate-300 rounded">
+              <p><span className="font-bold text-slate-600">Debit (DR):</span> {voucher.debitAccountId || '4001 - Medical Inventory & Supplies'}</p>
+              <p><span className="font-bold text-slate-600">Credit (CR):</span> {voucher.creditAccountId || '1001 - GCB Main Operational Account'}</p>
             </div>
           </div>
 
-          <div className="text-center pt-4 opacity-50 font-sans text-[8px] uppercase tracking-widest border-t">
-            Digitally Sealed Voucher Dossier • GAM Med Financial Ecosystem • JV Ref: JV-{voucher.pvNumber}
+          {/* Signatures & Approvals */}
+          <div className="grid grid-cols-4 gap-4 mt-auto pt-8 border-t border-slate-200">
+            <div className="text-center">
+              <div className="border-b border-slate-400 h-10 mb-2 flex items-end justify-center font-bold text-xs">
+                {voucher.processedByName || 'Marcus A. Henaku'}
+              </div>
+              <p className="text-xs font-bold">{voucher.processedByName || 'Marcus A. Henaku'}</p>
+              <p className="text-xs text-slate-500">Prepared By</p>
+            </div>
+            <div className="text-center">
+              <div className="border-b border-slate-400 h-10 mb-2 flex items-end justify-center font-bold text-xs text-emerald-700">
+                PRE-AUDITED
+              </div>
+              <p className="text-xs font-bold">Internal Audit</p>
+              <p className="text-xs text-slate-500">Checked By</p>
+            </div>
+            <div className="text-center">
+              <div className="border-b border-slate-400 h-10 mb-2 flex items-end justify-center font-bold text-xs">
+                {voucher.approvedByName || 'Dr. Evelyn Baidoo'}
+              </div>
+              <p className="text-xs font-bold">{voucher.approvedByName || 'Dr. Evelyn Baidoo'}</p>
+              <p className="text-xs text-slate-500">Authorized By</p>
+            </div>
+            <div className="text-center">
+              <div className="border-b border-slate-400 h-10 mb-2"></div>
+              <p className="text-xs font-bold text-slate-400 select-none">_________________</p>
+              <p className="text-xs text-slate-500">Receiver's Signature</p>
+            </div>
           </div>
+
         </div>
-      </div>
-
-      <div className="p-4 bg-slate-100 border-t flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={handlePrint}
-          className="px-6 py-2.5 bg-slate-900 hover:bg-emerald-600 text-white font-black text-xs uppercase rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
-        >
-          <Printer className="w-4 h-4" /> PRINT VOUCHER DOSSIER
-        </button>
       </div>
     </>
   );
