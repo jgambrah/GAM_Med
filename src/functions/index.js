@@ -1500,6 +1500,105 @@ exports.verifyTillSession = onCall(GLOBAL_CONFIG, async (request) => {
 });
 
 /**
+ * Callable Function: Generate Corporate Master Invoice & Lock Institutional Schedule Claims
+ * Atomically marks selected claim documents as BILLED with masterInvoiceId,
+ * posts double-entry JV (Debit AR 1200, Credit Unbilled Corporate Revenue 4050),
+ * and logs corporate billing audit trail.
+ */
+exports.generateCorporateInvoice = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "User must be logged in.");
+
+  const { payerId, payerName, claimIds, totalAmount, period, hospitalId: reqHospitalId } = request.data;
+  const uid = request.auth.uid;
+
+  if (!payerId || !claimIds || !Array.isArray(claimIds) || claimIds.length === 0) {
+    throw new HttpsError("invalid-argument", "Payer ID and claim IDs are required.");
+  }
+
+  const userProfileDoc = await db.collection("users").doc(uid).get();
+  if (!userProfileDoc.exists) throw new HttpsError("not-found", "User profile not found.");
+
+  const targetHospitalId = reqHospitalId || userProfileDoc.data().hospitalId;
+  if (!targetHospitalId) throw new HttpsError("failed-precondition", "Hospital ID missing.");
+
+  const invoiceId = `INV-${(payerName || 'CORP').replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase()}-${new Date().toISOString().slice(0,7).replace('-','')}`;
+  const masterInvoiceRef = db.collection("hospitals").doc(targetHospitalId).collection("corporate_invoices").doc(invoiceId);
+  const jvRef = db.collection("hospitals").doc(targetHospitalId).collection("journal_vouchers").doc();
+  const auditLogRef = db.collection("global_audit_logs").doc();
+
+  const billedAmount = Number(totalAmount || 0);
+
+  try {
+    await db.runTransaction(async (transaction) => {
+      // 1. Create Master Corporate Invoice Document
+      transaction.set(masterInvoiceRef, {
+        invoiceId,
+        payerId,
+        payerName: payerName || "Corporate Client",
+        totalAmount: billedAmount,
+        claimCount: claimIds.length,
+        status: "BILLED",
+        billedBy: uid,
+        billedByName: userProfileDoc.data()?.name || "Marcus Amosah Henaku",
+        billedAt: admin.firestore.FieldValue.serverTimestamp(),
+        period: period || new Date().toISOString().slice(0, 7)
+      });
+
+      // 2. Lock each individual claim document to BILLED status
+      for (const claimId of claimIds) {
+        const claimRef = db.collection("hospitals").doc(targetHospitalId).collection("receivables").doc(claimId);
+        transaction.update(claimRef, {
+          status: "BILLED",
+          masterInvoiceId: invoiceId,
+          billedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+
+      // 3. Post Double-Entry Journal Voucher (Debit AR 1200, Credit Revenue 4050)
+      transaction.set(jvRef, {
+        jvNumber: `JV-${invoiceId}`,
+        source: "CORPORATE_BILLING",
+        datePosted: admin.firestore.FieldValue.serverTimestamp(),
+        preparerId: uid,
+        preparerName: userProfileDoc.data()?.name || "Marcus Amosah Henaku",
+        narration: `Corporate Master Invoice ${invoiceId} for ${payerName || 'Corporate Client'}. Total ${claimIds.length} claims. Value: GHS ${billedAmount.toFixed(2)}.`,
+        status: "POSTED",
+        hospitalId: targetHospitalId,
+        period: period || new Date().toISOString().slice(0, 7),
+        entries: [
+          { accountCode: "1200", accountName: `Accounts Receivable - ${payerName || 'Corporate'}`, debit: billedAmount, credit: 0 },
+          { accountCode: "4050", accountName: "Unbilled Corporate Revenue Clearing", debit: 0, credit: billedAmount }
+        ]
+      });
+
+      // 4. Audit Log Entry
+      transaction.set(auditLogRef, {
+        type: "FINANCIAL",
+        action: "CORPORATE_INVOICE_GENERATED",
+        hospitalId: targetHospitalId,
+        invoiceId,
+        payerId,
+        claimCount: claimIds.length,
+        totalAmount: billedAmount,
+        officerId: uid,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+    });
+
+    return {
+      success: true,
+      masterInvoiceId: invoiceId,
+      message: `Master Invoice ${invoiceId} generated for ${claimIds.length} claims totaling GHS ${billedAmount.toFixed(2)}.`
+    };
+  } catch (error) {
+    console.error("FATAL: generateCorporateInvoice", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "Failed to generate corporate invoice.");
+  }
+});
+
+
+/**
  * Cloud Function Trigger: Intercepts every newly posted Journal Voucher
  * and updates the running balance aggregation collection `ledger_balances` in real-time.
  */
