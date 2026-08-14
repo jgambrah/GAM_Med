@@ -62,7 +62,8 @@ export default function SmartDepreciationEngine() {
       limit(10)
     );
   }, [firestore, hospitalId]);
-  const { data: auditTrailRuns, isLoading: isAuditLoading } = useCollection(auditLogsQuery);
+  const { data: rawAuditTrailRuns, isLoading: isAuditLoading, error: auditError } = useCollection(auditLogsQuery);
+  const auditTrailRuns = auditError ? [] : rawAuditTrailRuns;
 
   useEffect(() => {
     const checkPeriodAndAssets = async () => {
