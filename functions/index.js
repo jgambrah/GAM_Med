@@ -2476,3 +2476,155 @@ exports.processLocumShiftDisbursement = onCall(async (request) => {
     message: `Locum Payment Voucher ${pvNumber} created. Net: GHS ${netPayable.toFixed(2)}, GRA 7.5% WHT: GHS ${whtAmount.toFixed(2)}.`
   };
 });
+
+/**
+ * Cloud Function: Atomic Locum PV Generation via Firestore Transaction
+ * Enforces strict GRA TIN compliance check, server-side gross-to-net 7.5% WHT calculation,
+ * shift locks, draft Payment Voucher staging, and master audit logging.
+ */
+exports.generateLocumPaymentVoucher = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated.');
+  }
+
+  const { hospitalId, clinicianId, shiftIds } = request.data || {};
+  const uid = request.auth.uid;
+
+  if (!hospitalId || !clinicianId || !Array.isArray(shiftIds) || shiftIds.length === 0) {
+    throw new HttpsError('invalid-argument', 'Hospital ID, Clinician ID, and shift references are required.');
+  }
+
+  const clinicianRef = db.collection(`hospitals/${hospitalId}/locum_registry`).doc(clinicianId);
+  const pvRef = db.collection(`hospitals/${hospitalId}/payment_vouchers`).doc();
+  const auditLogRef = db.collection(`hospitals/${hospitalId}/audit_logs`).doc();
+
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      // ---------------------------------------------------------
+      // READ PHASE (Must happen before any writes)
+      // ---------------------------------------------------------
+      const clinicianDoc = await transaction.get(clinicianRef);
+      let clinicianData = clinicianDoc.exists ? clinicianDoc.data() : null;
+
+      // Fallback read from users collection if not found in locum_registry
+      if (!clinicianData) {
+        const userDoc = await transaction.get(db.collection('users').doc(clinicianId));
+        if (userDoc.exists) {
+          clinicianData = userDoc.data();
+        }
+      }
+
+      const clinicianName = clinicianData?.name || clinicianData?.displayName || 'Locum Clinician';
+      const clinicianTin = clinicianData?.tin;
+
+      // Strict GRA Compliance Check
+      if (!clinicianTin || clinicianTin === 'MISSING') {
+        throw new HttpsError('failed-precondition', `Cannot generate PV. ${clinicianName} is missing a statutory GRA TIN.`);
+      }
+
+      // Fetch all requested shifts and calculate gross on server
+      let calculatedGross = 0;
+      const shiftDocs = [];
+
+      for (const shiftId of shiftIds) {
+        const shiftRef = db.collection(`hospitals/${hospitalId}/attendance_logs`).doc(shiftId);
+        const shiftDoc = await transaction.get(shiftRef);
+
+        if (!shiftDoc.exists || shiftDoc.data()?.paymentStatus === 'PAID') {
+          throw new HttpsError('aborted', `Shift ${shiftId} is invalid or already paid.`);
+        }
+
+        const shiftData = shiftDoc.data();
+        const hours = Number(shiftData.hoursWorked || shiftData.derivedHours || 0);
+        const rate = Number(shiftData.hourlyRate || shiftData.agreedRate || 80);
+        calculatedGross += hours * rate;
+
+        shiftDocs.push({ ref: shiftRef, data: shiftData });
+      }
+
+      // ---------------------------------------------------------
+      // MATH ENGINE (Gross to Net Conversion with 7.5% GRA WHT)
+      // ---------------------------------------------------------
+      const whtRate = 7.5;
+      const whtAmount = (calculatedGross * whtRate) / 100;
+      const netPayable = calculatedGross - whtAmount;
+
+      const safeGross = Math.round(calculatedGross * 100) / 100;
+      const safeWht = Math.round(whtAmount * 100) / 100;
+      const safeNet = Math.round(netPayable * 100) / 100;
+
+      const pvNumber = `PV-LOC-${Date.now().toString().slice(-6)}`;
+
+      // ---------------------------------------------------------
+      // WRITE PHASE
+      // ---------------------------------------------------------
+      // A. Lock shifts
+      shiftDocs.forEach(shift => {
+        transaction.update(shift.ref, {
+          paymentStatus: 'PAID',
+          status: 'VOUCHER_GENERATED',
+          linkedPvId: pvRef.id,
+          pvReference: pvNumber
+        });
+      });
+
+      // B. Draft Payment Voucher
+      transaction.set(pvRef, {
+        pvNumber,
+        type: 'LOCUM_PAYMENT',
+        payeeId: clinicianId,
+        payee: clinicianName,
+        payeeName: clinicianName,
+        payeeTin: clinicianTin,
+        status: 'DRAFT',
+        grossAmount: safeGross,
+        whtRate: 7.5,
+        whtAmount: safeWht,
+        netAmount: safeNet,
+        glDistribution: [
+          { accountCode: '5100', type: 'DEBIT', amount: safeGross, note: 'Locum Expense Account' },
+          { accountCode: '2250', type: 'CREDIT', amount: safeWht, note: 'Statutory WHT Payable - GRA' },
+          { accountCode: '2150', type: 'CREDIT', amount: safeNet, note: 'AP Locums Clearing Account' }
+        ],
+        generatedBy: uid,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        shiftCount: shiftIds.length
+      });
+
+      // C. Master Audit Log
+      transaction.set(auditLogRef, {
+        type: 'FINANCIAL',
+        action: 'LOCUM_PV_GENERATED',
+        clinicianId,
+        clinicianName,
+        pvId: pvRef.id,
+        pvNumber,
+        grossAmount: safeGross,
+        whtAmount: safeWht,
+        netAmount: safeNet,
+        executedBy: uid,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      return {
+        pvNumber,
+        safeGross,
+        safeWht,
+        safeNet
+      };
+    });
+
+    return {
+      success: true,
+      pvNumber: result.pvNumber,
+      grossAmount: result.safeGross,
+      whtAmount: result.safeWht,
+      netAmount: result.safeNet,
+      message: `Compliant Payment Voucher ${result.pvNumber} generated successfully. Routed to Disbursement Queue.`
+    };
+  } catch (error) {
+    console.error("Locum PV Generation Failed: ", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "Failed to generate the locum voucher.");
+  }
+});

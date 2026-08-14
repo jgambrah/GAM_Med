@@ -244,22 +244,19 @@ export default function LocumPaymentsHub() {
     try {
       if (firestore && hospitalId) {
         const functions = getFunctions();
-        const locumFn = httpsCallable(functions, 'processLocumShiftDisbursement');
+        const generateLocumFn = httpsCallable(functions, 'generateLocumPaymentVoucher');
 
         const shiftIds = locumData.shifts.map(s => s.id);
 
-        const res: any = await locumFn({
+        const res: any = await generateLocumFn({
           hospitalId,
-          locumStaffId: locumData.staffId,
-          staffName: locumData.name,
-          totalHours: locumData.totalHours,
-          derivedRate: locumData.derivedRate,
+          clinicianId: locumData.staffId,
           shiftIds
         });
 
         toast({
-          title: "Statutory Locum PV Created",
-          description: res.data?.message || `PV generated for ${locumData.name}. Net: GHS ${locumData.netPayable.toFixed(2)}, GRA 7.5% WHT: GHS ${locumData.whtAmount.toFixed(2)}.`
+          title: "Statutory Locum PV Generated",
+          description: res.data?.message || `PV ${res.data?.pvNumber} generated for ${locumData.name}. Net: GHS ${locumData.netPayable.toFixed(2)}, GRA 7.5% WHT: GHS ${locumData.whtAmount.toFixed(2)}.`
         });
       } else {
         toast({
