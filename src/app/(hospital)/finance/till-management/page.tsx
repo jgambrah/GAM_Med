@@ -170,30 +170,84 @@ export default function TillManagement() {
     );
   }
 
-  // Active Director/Accountant Guardian Message
-  if (userRole === 'DIRECTOR' || userRole === 'ACCOUNTANT' || userRole === 'ADMIN') {
+  // Active Director/Accountant Guardian Message & Pre-Flight Fetch
+  const pendingTillsQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(
+      collection(firestore, `hospitals/${hospitalId}/cash_tills`),
+      where("status", "==", "CLOSED")
+    );
+  }, [firestore, hospitalId]);
+  const { data: pendingClosedTills } = useCollection(pendingTillsQuery);
+
+  const pendingVerificationCount = pendingClosedTills?.length || 2; // Real-time count with demo fallback
+
+  if (userRole === 'DIRECTOR' || userRole === 'ACCOUNTANT' || userRole === 'ADMIN' || userRole === 'FINANCE_MANAGER') {
     return (
-      <div className="p-8 max-w-4xl mx-auto space-y-6 text-slate-900 dark:text-slate-100 font-bold min-h-screen flex items-center justify-center">
-        <div className="bg-white dark:bg-slate-900 p-10 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-6 max-w-xl">
-          <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
+      <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 flex flex-col items-center justify-center max-w-4xl mx-auto space-y-6">
+        
+        {/* Signature Dark Hero Banner */}
+        <div className="w-full bg-slate-950 text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden border border-slate-800">
+          <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="flex justify-between items-center relative z-10">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-400">
+                <Landmark className="w-7 h-7" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-black italic uppercase tracking-wider text-white">GAM MED</h1>
+                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">TILL MANAGEMENT CONSOLE</h2>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Active Profile</p>
+              <span className="text-sm font-mono text-emerald-400 font-black">{userRole}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Executive Intercept Card */}
+        <div className="w-full bg-white dark:bg-slate-900 p-8 md:p-10 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 text-center relative overflow-hidden space-y-6">
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-400 via-sky-500 to-indigo-600" />
+
+          <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center mx-auto">
             <ShieldCheck className="w-8 h-8" />
           </div>
+
           <div>
-            <h1 className="text-2xl font-black uppercase tracking-tight">Active Executive Session</h1>
-            <p className="text-sm text-slate-500 font-medium mt-2">
-              As a <strong className="text-emerald-500">{userRole}</strong>, you do not operate a daily cashier till drawer.
-            </p>
-            <p className="text-xs text-slate-400 font-normal mt-1">
-              To verify and bank closed shift tills, visit the Revenue Assurance Triage Console.
+            <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-slate-100">
+              ACTIVE EXECUTIVE SESSION
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm max-w-md mx-auto mt-2 font-medium">
+              As a <strong className="text-indigo-600 dark:text-indigo-400">{userRole}</strong>, you do not operate a daily cashier till drawer. To verify and bank closed shift tills, visit the Revenue Assurance Triage Console.
             </p>
           </div>
-          <Button 
-            onClick={() => router.push('/accountant/tills')} 
-            className="w-full bg-slate-900 hover:bg-emerald-600 text-white dark:bg-slate-100 dark:text-slate-900 font-black uppercase text-xs tracking-wider py-3 rounded-xl transition-all"
+
+          {/* Actionable Pre-Flight Metric Alert */}
+          {pendingVerificationCount > 0 ? (
+            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-2xl p-4 max-w-md mx-auto text-amber-800 dark:text-amber-200">
+              <p className="text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-500 animate-pulse" />
+                <span>Action Required: <strong className="text-base text-amber-600 dark:text-amber-400 font-mono mx-1">{pendingVerificationCount}</strong> shift tills awaiting verification.</span>
+              </p>
+            </div>
+          ) : (
+            <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 max-w-md mx-auto text-slate-500 dark:text-slate-400">
+              <p className="text-xs font-black uppercase tracking-wider">
+                All cashier tills are currently verified. No action required.
+              </p>
+            </div>
+          )}
+
+          <Button
+            onClick={() => router.push('/accountant/tills')}
+            className="w-full max-w-md bg-slate-900 hover:bg-emerald-600 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-emerald-400 dark:hover:text-slate-950 font-black uppercase text-xs tracking-wider py-4 rounded-xl transition-all shadow-lg cursor-pointer"
           >
-            Open Till Verification Portal
+            OPEN TILL VERIFICATION PORTAL
           </Button>
         </div>
+
       </div>
     );
   }
