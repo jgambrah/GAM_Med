@@ -242,20 +242,46 @@ export default function InstitutionalSchedule() {
   };
 
   const handleExportCSV = () => {
-    const headers = ['Patient Name', 'Policy Number', 'Service Date', 'Medical Service Rendered', 'Claim Amount (GHS)'];
-    const rows = activeClaims.map(c => [
-      `"${c.patientName}"`,
-      `"${c.policyNumber || 'N/A'}"`,
-      `"${c.createdAt?.toDate ? format(c.createdAt.toDate(), 'yyyy-MM-dd') : '2026-08-14'}"`,
-      `"${c.description || 'General Service'}"`,
-      (Number(c.amount || c.totalAmount || 0)).toFixed(2)
-    ]);
+    const titleHeader = [`"CORPORATE CLAIMS RECONCILIATION DOSSIER"`];
+    const payerMeta = [`"PAYER / CLIENT: ${selectedPayerName.toUpperCase()}"`, `"DATE GENERATED: ${format(new Date(), 'yyyy-MM-dd')}"`, `"PERIOD: ${format(new Date(), 'yyyy-MM')}"`];
+    const emptyRow = [''];
+    const columnHeaders = ['Patient / Staff Name', 'Policy / Member ID', 'Visit Date', 'Medical Service Rendered', 'Claim Value (GHS)', 'Billing Status'];
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const dataRows: string[] = [];
+
+    groupedPatientClaims.forEach(grp => {
+      grp.claims.forEach(c => {
+        dataRows.push([
+          `"${grp.patientName}"`,
+          `"${grp.policyNumber}"`,
+          `"${c.createdAt?.toDate ? format(c.createdAt.toDate(), 'yyyy-MM-dd') : '2026-08-14'}"`,
+          `"${(c.description || 'General Medical Service').replace(/"/g, '""')}"`,
+          (Number(c.amount || c.totalAmount || 0)).toFixed(2),
+          `"PENDING_REMITTANCE"`
+        ].join(','));
+      });
+    });
+
+    const summaryHeader = [
+      `""`, `""`, `""`, `"TOTAL SCHEDULE REMITTANCE DUE:"`,
+      totalScheduleValue.toFixed(2), `""`
+    ].join(',');
+
+    const csvLines = [
+      titleHeader.join(','),
+      payerMeta.join(','),
+      emptyRow.join(','),
+      columnHeaders.join(','),
+      ...dataRows,
+      emptyRow.join(','),
+      summaryHeader
+    ];
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + csvLines.join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Corporate_Claims_Schedule_${selectedPayerName.replace(/\s+/g, '_')}.csv`);
+    link.setAttribute('download', `Corporate_Schedule_${selectedPayerName.replace(/[^a-zA-Z0-9]/g, '_')}_${format(new Date(), 'yyyyMMdd')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
