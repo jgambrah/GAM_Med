@@ -400,6 +400,14 @@ service cloud.firestore {
         allow update: if isDirectorOrAdmin(hospitalId) || isOwner(resource.data.cashierId);
       }
 
+      match /till_sessions/{sessionId} {
+        allow read, list, create, update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isAnyStaff(hospitalId);
+      }
+
+      match /audit_queries/{queryId} {
+        allow read, list, create, update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
       match /depreciation_history/{logId} {
         allow read, write, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }

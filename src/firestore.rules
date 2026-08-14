@@ -381,8 +381,16 @@ service cloud.firestore {
       match /cash_tills/{tillId} {
         allow create: if isAnyStaff(hospitalId) && request.resource.data.cashierId == request.auth.uid;
         allow read: if isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.cashierId == request.auth.uid);
-        allow list: if isDirectorOrAdmin(hospitalId);
+        allow list: if isDirectorOrAdmin(hospitalId); // Only Directors/Admins can see ALL tills.
         allow update: if isDirectorOrAdmin(hospitalId) || isOwner(resource.data.cashierId);
+      }
+
+      match /till_sessions/{sessionId} {
+        allow read, list, create, update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isAnyStaff(hospitalId);
+      }
+
+      match /audit_queries/{queryId} {
+        allow read, list, create, update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
 
       match /depreciation_history/{logId} {
