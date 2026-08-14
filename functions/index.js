@@ -1229,4 +1229,117 @@ exports.authorizeBudgetOverride = onCall(GLOBAL_CONFIG, async (request) => {
   }
 });
 
+/**
+ * 3. POST & DISBURSE PAYMENT VOUCHER (Finance Manager Final Step)
+ * Converts encumbrance into posted expense:
+ * - Decrements encumberedAmount by proposedAmount
+ * - Increments postedAmount by proposedAmount
+ * - Posts double-entry Journal Voucher (JV-PV-[pvNumber]) to General Ledger
+ * - Updates PV status to 'POSTED' or 'PAID'
+ */
+exports.postAndDisbursePaymentVoucher = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "User must be logged in.");
+
+  const { hospitalId, pvId } = request.data;
+  const uid = request.auth.uid;
+  const targetHospitalId = hospitalId || request.auth.token.hospitalId;
+
+  if (!targetHospitalId || !pvId) {
+    throw new HttpsError("invalid-argument", "Missing hospitalId or pvId.");
+  }
+
+  const userProfileDoc = await db.collection("users").doc(uid).get();
+  if (!userProfileDoc.exists) throw new HttpsError("not-found", "User profile not found.");
+
+  const pvRef = db.collection("hospitals").doc(targetHospitalId).collection("payment_vouchers").doc(pvId);
+  const auditLogRef = db.collection("global_audit_logs").doc();
+  const jvRef = db.collection("hospitals").doc(targetHospitalId).collection("journal_entries").doc();
+
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const pvDoc = await transaction.get(pvRef);
+      if (!pvDoc.exists) throw new HttpsError("not-found", "Payment Voucher document not found.");
+
+      const pvData = pvDoc.data();
+      if (!['AWAITING_FINANCE_APPROVAL', 'APPROVED'].includes(pvData.status)) {
+        throw new HttpsError("failed-precondition", "Voucher is not in an approvable state.");
+      }
+
+      const grossAmount = Number(pvData.grossAmount) || 0;
+      const netAmount = Number(pvData.netAmount) || grossAmount;
+      const vatAmount = Number(pvData.vatAmount) || 0;
+      const whtAmount = Number(pvData.whtAmount) || 0;
+
+      const ledgerCode = pvData.debitAccountId;
+      const year = new Date().getFullYear();
+      const quarter = `Q${Math.floor(new Date().getMonth() / 3) + 1}`;
+      const periodDocId = `${year}_${quarter}_${ledgerCode}`;
+      const budgetRef = db.collection("hospitals").doc(targetHospitalId).collection("budgets").doc(periodDocId);
+
+      const budgetDoc = await transaction.get(budgetRef);
+
+      // A. Convert Encumbrance to Posted Expense
+      if (budgetDoc.exists) {
+        transaction.update(budgetRef, {
+          encumberedAmount: admin.firestore.FieldValue.increment(-grossAmount),
+          postedAmount: admin.firestore.FieldValue.increment(grossAmount),
+          lastModifiedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+
+      // B. Create Double-Entry Journal Voucher (JV-PV-XXXX)
+      const jvNumber = `JV-${pvData.pvNumber || pvId.slice(-6)}`;
+      transaction.set(jvRef, {
+        jvNumber,
+        pvId,
+        narration: `Automated Ledger Posting for PV ${pvData.pvNumber}: ${pvData.narration}`,
+        totalAmount: grossAmount + vatAmount,
+        hospitalId: targetHospitalId,
+        createdBy: uid,
+        createdByName: userProfileDoc.data()?.name || "Finance Manager",
+        status: "AUTHORIZED",
+        source: "SYSTEM",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        lines: [
+          { accountId: pvData.debitAccountId, accountName: pvData.debitAccountName || 'Expenditure Account', debit: grossAmount, credit: 0 },
+          ...(vatAmount > 0 ? [{ accountId: '2004', accountName: 'Input VAT Receivable', debit: vatAmount, credit: 0 }] : []),
+          ...(whtAmount > 0 ? [{ accountId: '2005', accountName: 'GRA WHT Payable', debit: 0, credit: whtAmount }] : []),
+          { accountId: pvData.creditAccountId, accountName: pvData.creditAccountName || 'Bank/Cash Account', debit: 0, credit: netAmount }
+        ]
+      });
+
+      // C. Update PV status to POSTED
+      transaction.update(pvRef, {
+        status: "POSTED",
+        reconciled: false,
+        postedBy: uid,
+        postedByName: userProfileDoc.data()?.name || "Finance Manager",
+        postedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // D. Immutable Financial Audit Log
+      transaction.set(auditLogRef, {
+        type: "FINANCIAL",
+        action: "PV_POSTED_AND_DISBURSED",
+        hospitalId: targetHospitalId,
+        pvId,
+        pvNumber: pvData.pvNumber,
+        grossAmount,
+        netAmount,
+        financeManagerId: uid,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      return { jvNumber, status: "POSTED" };
+    });
+
+    return { success: true, message: `Payment Voucher posted to General Ledger under ${result.jvNumber}.`, ...result };
+  } catch (error) {
+    console.error("FATAL: postAndDisbursePaymentVoucher", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "An error occurred while posting the payment voucher.");
+  }
+});
+
+
 
