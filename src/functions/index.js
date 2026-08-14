@@ -1568,16 +1568,21 @@ exports.requestSupplementaryBudget = onCall(GLOBAL_CONFIG, async (request) => {
 });
 
 /**
- * Callable Function: Submit Audit Query Clarification & Resubmit Voucher
- * Updates the audit_queries document status to CLARIFICATION_SUBMITTED,
- * attaches financial officer comments/documents, and pushes the Payment Voucher 
- * back into the Medical Director / Auditor approval queue (status: AWAITING_FINANCE_APPROVAL).
+ * Callable Function: Submit Audit Query Clarification & Resubmit Source Document
+ * Atomically updates audit_queries, sets hasPendingClarification: true on the source document
+ * (PAYMENT_VOUCHER, NHIS_BATCH, or JOURNAL_VOUCHER), and routes it back into the Executive approval queue.
  */
-exports.submitClarification = onCall(GLOBAL_CONFIG, async (request) => {
-  if (!request.auth) throw new HttpsError("unauthenticated", "User must be logged in.");
+exports.submitAuditClarification = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be logged in to respond to queries.");
+  }
 
-  const { queryId, sourceDocumentId, clarificationText, attachedFileUrls, hospitalId: reqHospitalId } = request.data;
+  const { queryId, financeResponse, attachedFileUrls, hospitalId: reqHospitalId } = request.data;
   const uid = request.auth.uid;
+
+  if (!queryId || !financeResponse) {
+    throw new HttpsError("invalid-argument", "Query ID and a written response are required.");
+  }
 
   const userProfileDoc = await db.collection("users").doc(uid).get();
   if (!userProfileDoc.exists) throw new HttpsError("not-found", "User profile not found.");
@@ -1585,49 +1590,76 @@ exports.submitClarification = onCall(GLOBAL_CONFIG, async (request) => {
   const targetHospitalId = reqHospitalId || userProfileDoc.data().hospitalId;
   if (!targetHospitalId) throw new HttpsError("failed-precondition", "Hospital ID missing.");
 
-  const pvRef = db.collection("hospitals").doc(targetHospitalId).collection("payment_vouchers").doc(sourceDocumentId);
-  const queryRef = db.collection("hospitals").doc(targetHospitalId).collection("audit_queries").doc(queryId || sourceDocumentId);
+  const queryRef = db.collection("hospitals").doc(targetHospitalId).collection("audit_queries").doc(queryId);
   const auditLogRef = db.collection("global_audit_logs").doc();
 
   try {
     await db.runTransaction(async (transaction) => {
-      // 1. Update Audit Query document
-      transaction.set(queryRef, {
+      // 1. READS MUST COME FIRST
+      const queryDoc = await transaction.get(queryRef);
+      if (!queryDoc.exists) {
+        throw new HttpsError("not-found", "Audit query document not found.");
+      }
+
+      const queryData = queryDoc.data();
+      const sourceType = queryData.sourceType || "PAYMENT_VOUCHER";
+      const sourceDocumentId = queryData.sourceDocumentId || queryId;
+
+      let sourceCollection = "payment_vouchers";
+      if (sourceType === "NHIS_BATCH") sourceCollection = "claim_batches";
+      else if (sourceType === "JOURNAL_VOUCHER") sourceCollection = "journal_vouchers";
+
+      const sourceRef = db.collection("hospitals").doc(targetHospitalId).collection(sourceCollection).doc(sourceDocumentId);
+      const sourceDoc = await transaction.get(sourceRef);
+
+      if (!sourceDoc.exists) {
+        throw new HttpsError("not-found", `The original source document (${sourceDocumentId}) could not be found.`);
+      }
+
+      // 2. WRITES MUST COME LAST
+      // A. Update Audit Query Document
+      transaction.update(queryRef, {
         status: "CLARIFICATION_SUBMITTED",
+        financeResponse,
+        attachedFileUrls: attachedFileUrls || [],
         respondedBy: uid,
         respondedByName: userProfileDoc.data()?.name || "Marcus Amosah Henaku",
-        financeResponse: clarificationText,
-        attachedFileUrls: attachedFileUrls || [],
         respondedAt: admin.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-
-      // 2. Return Payment Voucher back to AWAITING_APPROVAL queue
-      transaction.update(pvRef, {
-        status: "AWAITING_FINANCE_APPROVAL",
-        auditClarified: true,
-        lastClarificationText: clarificationText,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
 
-      // 3. Log Audit Trail
+      // B. Update Source Document (Push back to approval queue with clarification badge)
+      transaction.update(sourceRef, {
+        status: "AWAITING_FINANCE_APPROVAL",
+        hasPendingClarification: true,
+        auditClarified: true,
+        lastClarificationText: financeResponse,
+        lastClarifiedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // C. Immutable Financial Audit Log
       transaction.set(auditLogRef, {
         type: "FINANCIAL",
-        action: "AUDIT_QUERY_CLARIFIED",
+        action: "AUDIT_CLARIFICATION_SUBMITTED",
         hospitalId: targetHospitalId,
+        queryId,
         sourceDocumentId,
-        queryId: queryRef.id,
-        respondedBy: uid,
+        sourceType,
+        officerId: uid,
         timestamp: admin.firestore.FieldValue.serverTimestamp()
       });
     });
 
-    return { success: true, message: `Clarification submitted. PV ${sourceDocumentId} returned to approval queue.` };
+    return {
+      success: true,
+      message: "Clarification submitted successfully. Document returned to the approval queue."
+    };
   } catch (error) {
-    console.error("FATAL: submitClarification", error);
+    console.error("FATAL: submitAuditClarification", error);
     if (error instanceof HttpsError) throw error;
-    throw new HttpsError("internal", error.message || "Failed to submit clarification.");
+    throw new HttpsError("internal", error.message || "An error occurred while submitting the clarification.");
   }
 });
+
 
 
 

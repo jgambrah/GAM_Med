@@ -94,6 +94,7 @@ export default function AuditorQueryLog() {
         const pvRef = doc(firestore, `hospitals/${hospitalId}/payment_vouchers`, pv.id);
         await updateDoc(pvRef, {
           status: 'AWAITING_FINANCE_APPROVAL',
+          hasPendingClarification: true,
           auditClarified: true,
           lastClarificationText: text,
           updatedAt: serverTimestamp()
