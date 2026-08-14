@@ -143,6 +143,18 @@ export default function TillManagement() {
     }
   };
 
+  // Active Director/Accountant Guardian Message & Pre-Flight Fetch
+  const pendingTillsQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(
+      collection(firestore, `hospitals/${hospitalId}/cash_tills`),
+      where("status", "==", "CLOSED")
+    );
+  }, [firestore, hospitalId]);
+  const { data: pendingClosedTills } = useCollection(pendingTillsQuery);
+
+  const pendingVerificationCount = pendingClosedTills?.length || 2; // Real-time count with demo fallback
+
   const isLoading = isUserLoading || isProfileLoading || arePaymentsLoading;
   const userName = user?.displayName || userProfile?.name || 'SARAH OSEI';
   const userInitials = userName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || 'SO';
@@ -169,18 +181,6 @@ export default function TillManagement() {
       </div>
     );
   }
-
-  // Active Director/Accountant Guardian Message & Pre-Flight Fetch
-  const pendingTillsQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return query(
-      collection(firestore, `hospitals/${hospitalId}/cash_tills`),
-      where("status", "==", "CLOSED")
-    );
-  }, [firestore, hospitalId]);
-  const { data: pendingClosedTills } = useCollection(pendingTillsQuery);
-
-  const pendingVerificationCount = pendingClosedTills?.length || 2; // Real-time count with demo fallback
 
   if (userRole === 'DIRECTOR' || userRole === 'ACCOUNTANT' || userRole === 'ADMIN' || userRole === 'FINANCE_MANAGER') {
     return (
