@@ -242,49 +242,62 @@ export default function InstitutionalSchedule() {
   };
 
   const handleExportCSV = () => {
-    const titleHeader = [`"CORPORATE CLAIMS RECONCILIATION DOSSIER"`];
-    const payerMeta = [`"PAYER / CLIENT: ${selectedPayerName.toUpperCase()}"`, `"DATE GENERATED: ${format(new Date(), 'yyyy-MM-dd')}"`, `"PERIOD: ${format(new Date(), 'yyyy-MM')}"`];
-    const emptyRow = [''];
-    const columnHeaders = ['Patient / Staff Name', 'Policy / Member ID', 'Visit Date', 'Medical Service Rendered', 'Claim Value (GHS)', 'Billing Status'];
+    if (!groupedPatientClaims || groupedPatientClaims.length === 0) {
+      toast({ variant: "destructive", title: "No Data", description: "No corporate claims available to export." });
+      return;
+    }
 
-    const dataRows: string[] = [];
+    const headers = [
+      "Patient Name",
+      "Staff ID / Member No",
+      "Date of Service",
+      "Invoice Number",
+      "Medical Service Rendered",
+      "Claim Amount (GHS)"
+    ];
 
-    groupedPatientClaims.forEach(grp => {
-      grp.claims.forEach(c => {
-        dataRows.push([
-          `"${grp.patientName}"`,
-          `"${grp.policyNumber}"`,
+    const rows: string[][] = [];
+
+    groupedPatientClaims.forEach(group => {
+      group.claims.forEach(c => {
+        const amt = Number(c.amount || c.totalAmount || 0);
+        rows.push([
+          `"${group.patientName.replace(/"/g, '""')}"`,
+          `"${group.policyNumber.replace(/"/g, '""')}"`,
           `"${c.createdAt?.toDate ? format(c.createdAt.toDate(), 'yyyy-MM-dd') : '2026-08-14'}"`,
+          `"${c.id}"`,
           `"${(c.description || 'General Medical Service').replace(/"/g, '""')}"`,
-          (Number(c.amount || c.totalAmount || 0)).toFixed(2),
-          `"PENDING_REMITTANCE"`
-        ].join(','));
+          amt.toFixed(2)
+        ]);
       });
     });
 
-    const summaryHeader = [
-      `""`, `""`, `""`, `"TOTAL SCHEDULE REMITTANCE DUE:"`,
-      totalScheduleValue.toFixed(2), `""`
-    ].join(',');
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.join(","))
+    ].join("\n");
 
-    const csvLines = [
-      titleHeader.join(','),
-      payerMeta.join(','),
-      emptyRow.join(','),
-      columnHeaders.join(','),
-      ...dataRows,
-      emptyRow.join(','),
-      summaryHeader
-    ];
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + csvLines.join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Corporate_Schedule_${selectedPayerName.replace(/[^a-zA-Z0-9]/g, '_')}_${format(new Date(), 'yyyyMMdd')}.csv`);
+    const safePayerName = selectedPayerName.replace(/\s+/g, '_').toUpperCase();
+    const periodLabel = format(new Date(), 'yyyy-MM');
+    const filename = `GAM_Med_${safePayerName}_${periodLabel}.csv`;
+
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = 'hidden';
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "File Downloaded",
+      description: `Exported ${activeClaims.length} corporate claims to ${filename}.`
+    });
   };
 
   const pageIsLoading = isUserLoading || isProfileLoading;
