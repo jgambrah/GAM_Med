@@ -389,6 +389,10 @@ service cloud.firestore {
         allow read, write, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
 
+      match /depreciation_runs/{runId} {
+        allow read, write, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
       match /payroll_items/{itemId} {
         allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
