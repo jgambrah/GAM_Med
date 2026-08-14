@@ -986,4 +986,215 @@ exports.submitPaymentVoucherWithEncumbrance = onCall(GLOBAL_CONFIG, async (reque
   }
 });
 
+/**
+ * 1. REQUEST BUDGET OVERRIDE (Callable Function with Atomic Encumbrance Transaction)
+ */
+exports.requestBudgetOverride = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "User must be logged in to request overrides.");
+
+  const { hospitalId, pvId, ledgerCode, period, amount, justification } = request.data;
+  const uid = request.auth.uid;
+  const targetHospitalId = hospitalId || request.auth.token.hospitalId;
+
+  if (!targetHospitalId || !pvId || !ledgerCode || !amount) {
+    throw new HttpsError("invalid-argument", "Missing required payment voucher override parameters.");
+  }
+
+  const budgetRef = db.collection("hospitals").doc(targetHospitalId).collection("budgets").doc(`${period || '2026_Q3'}_${ledgerCode}`);
+  const pvRef = db.collection("hospitals").doc(targetHospitalId).collection("payment_vouchers").doc(pvId);
+  const auditLogRef = db.collection("global_audit_logs").doc();
+
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const budgetDoc = await transaction.get(budgetRef);
+      const pvDoc = await transaction.get(pvRef);
+
+      if (!pvDoc.exists) throw new HttpsError("not-found", "Payment voucher not found.");
+
+      const pvData = pvDoc.data();
+      if (pvData?.status !== "DRAFT" && pvData?.status !== "AWAITING_FINANCE_APPROVAL") {
+        throw new HttpsError("failed-precondition", "Voucher is not in DRAFT or PENDING state.");
+      }
+
+      let allocatedAmount = 150000.00;
+      let postedAmount = 0;
+      let encumberedAmount = 0;
+
+      if (budgetDoc.exists) {
+        const bData = budgetDoc.data();
+        allocatedAmount = bData.allocatedAmount || 150000.00;
+        postedAmount = bData.postedAmount || 0;
+        encumberedAmount = bData.encumberedAmount || 0;
+      }
+
+      const availableBudget = allocatedAmount - (postedAmount + encumberedAmount);
+
+      // Increase encumbrance atomically
+      const newEncumberedAmount = encumberedAmount + Number(amount);
+
+      if (budgetDoc.exists) {
+        transaction.update(budgetRef, {
+          encumberedAmount: newEncumberedAmount,
+          lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } else {
+        transaction.set(budgetRef, {
+          ledgerCode,
+          period: period || '2026_Q3',
+          allocatedAmount,
+          postedAmount,
+          encumberedAmount: newEncumberedAmount,
+          isActive: true,
+          lastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+
+      transaction.update(pvRef, {
+        status: "AWAITING_BUDGET_OVERRIDE",
+        overrideJustification: justification || "Clinical emergency override requested.",
+        submittedBy: uid,
+        submittedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      transaction.set(auditLogRef, {
+        type: "FINANCIAL",
+        action: "BUDGET_OVERRIDE_REQUESTED",
+        hospitalId: targetHospitalId,
+        pvId: pvId,
+        ledgerCode: ledgerCode,
+        requestedAmount: Number(amount),
+        makerId: uid,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return { availableBudget, newEncumberedAmount };
+    });
+
+    return { 
+      success: true, 
+      message: "Budget override requested and safely encumbered.",
+      ...result 
+    };
+
+  } catch (error) {
+    console.error("FATAL: requestBudgetOverride", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "An error occurred while processing the transaction.");
+  }
+});
+
+/**
+ * 2. AUTHORIZE BUDGET OVERRIDE (Executive Director Tier)
+ */
+exports.authorizeBudgetOverride = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "User must be logged in to authorize overrides.");
+  
+  const { hospitalId, pvId, action, overrideNotes, supplementaryAllocation = 0 } = request.data;
+  const uid = request.auth.uid;
+  const targetHospitalId = hospitalId || request.auth.token.hospitalId;
+
+  if (!targetHospitalId || !pvId || !['APPROVE', 'REJECT'].includes(action)) {
+    throw new HttpsError("invalid-argument", "Missing required authorization parameters.");
+  }
+
+  const userProfileDoc = await db.collection("users").doc(uid).get();
+  if (!userProfileDoc.exists) throw new HttpsError("not-found", "User profile not found.");
+  const role = userProfileDoc.data()?.role;
+  if (!['DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(role)) {
+    throw new HttpsError("permission-denied", "Only Medical Directors and Executive Admins can authorize budget overrides.");
+  }
+
+  const pvRef = db.collection("hospitals").doc(targetHospitalId).collection("payment_vouchers").doc(pvId);
+  const auditLogRef = db.collection("global_audit_logs").doc();
+
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const pvDoc = await transaction.get(pvRef);
+      if (!pvDoc.exists) throw new HttpsError("not-found", "Payment Voucher document not found.");
+
+      const pvData = pvDoc.data();
+      if (pvData.status !== "AWAITING_BUDGET_OVERRIDE") {
+        throw new HttpsError("failed-precondition", "Voucher is not in AWAITING_BUDGET_OVERRIDE state.");
+      }
+
+      const ledgerCode = pvData.debitAccountId;
+      const proposedAmount = pvData.grossAmount || 0;
+      const year = new Date().getFullYear();
+      const quarter = `Q${Math.floor(new Date().getMonth() / 3) + 1}`;
+      const periodDocId = `${year}_${quarter}_${ledgerCode}`;
+      const budgetRef = db.collection("hospitals").doc(targetHospitalId).collection("budgets").doc(periodDocId);
+
+      const budgetDoc = await transaction.get(budgetRef);
+
+      if (action === 'APPROVE') {
+        if (budgetDoc.exists) {
+          const injectAmount = Number(supplementaryAllocation) > 0 ? Number(supplementaryAllocation) : (proposedAmount - (pvData.availableBudgetAtCreation || 0));
+          transaction.update(budgetRef, {
+            allocatedAmount: admin.firestore.FieldValue.increment(Math.max(0, injectAmount)),
+            lastModifiedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+        }
+
+        transaction.update(pvRef, {
+          status: "AWAITING_FINANCE_APPROVAL",
+          budgetOverrideAuthorizedBy: uid,
+          budgetOverrideAuthorizedByName: userProfileDoc.data()?.name || "Medical Director",
+          budgetOverrideNotes: overrideNotes || "Executive Budget Override Granted",
+          budgetOverrideAuthorizedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        transaction.set(auditLogRef, {
+          type: "FINANCIAL",
+          action: "BUDGET_OVERRIDE_AUTHORIZED",
+          hospitalId: targetHospitalId,
+          pvId,
+          ledgerCode,
+          authorizedAmount: proposedAmount,
+          directorId: uid,
+          directorName: userProfileDoc.data()?.name || "Medical Director",
+          notes: overrideNotes || "Executive Budget Override Granted",
+          timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        return { pvStatus: "AWAITING_FINANCE_APPROVAL", message: "Budget override authorized by Medical Director. PV routed for finance processing." };
+
+      } else {
+        if (budgetDoc.exists) {
+          transaction.update(budgetRef, {
+            encumberedAmount: admin.firestore.FieldValue.increment(-proposedAmount),
+            lastModifiedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+        }
+
+        transaction.update(pvRef, {
+          status: "QUERIED",
+          budgetOverrideRejectedBy: uid,
+          budgetOverrideRejectedByName: userProfileDoc.data()?.name || "Medical Director",
+          auditComment: overrideNotes || "Budget Override Rejected by Executive Tier",
+          rejectedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        transaction.set(auditLogRef, {
+          type: "FINANCIAL",
+          action: "BUDGET_OVERRIDE_REJECTED",
+          hospitalId: targetHospitalId,
+          pvId,
+          ledgerCode,
+          directorId: uid,
+          timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        return { pvStatus: "QUERIED", message: "Budget override request rejected by Medical Director. Encumbered funds released." };
+      }
+    });
+
+    return { success: true, ...result };
+  } catch (error) {
+    console.error("FATAL: authorizeBudgetOverride", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "An error occurred while authorizing the budget override.");
+  }
+});
+
+
 
