@@ -609,6 +609,11 @@ service cloud.firestore {
         allow write, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
 
+      match /infrastructure_nodes/{nodeId} {
+        allow read, list: if isSuperAdmin() || isAnyStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
        match /billing_items/{itemId} {
         allow create: if isSuperAdmin() || isAnyStaff(hospitalId);
         allow get, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || getCallingUserRole() in ['CASHIER', 'LAB_TECH', 'RADIOLOGIST'];
