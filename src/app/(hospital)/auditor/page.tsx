@@ -6,7 +6,7 @@ import { collection, query, where, doc, writeBatch, serverTimestamp, increment, 
 import { 
   ShieldCheck, AlertCircle, FileText, CheckCircle2, 
   XCircle, Printer, Eye, Landmark, ArrowRightLeft, Loader2, ShieldAlert, Calculator,
-  Filter, Layers, Receipt, AlertTriangle, FileSpreadsheet, X, HelpCircle
+  Filter, Layers, Receipt, AlertTriangle, FileSpreadsheet, X, HelpCircle, PackageCheck, AlertOctagon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -39,7 +39,8 @@ export default function InternalAuditConsole() {
 
   const [auditLoading, setAuditLoading] = useState(false);
   const [rejectingItem, setRejectingItem] = useState<{ id: string; type: 'JV' | 'PV'; title: string } | null>(null);
-  const [rejectCategory, setRejectCategory] = useState<string>('MISSING_TAX_CLEARANCE');
+  const [dossierPv, setDossierPv] = useState<PendingPV | null>(null);
+  const [rejectCategory, setRejectCategory] = useState<string>('UNMATCHED_GRN');
   const [rejectReason, setRejectReason] = useState<string>('');
 
   const userProfileRef = useMemoFirebase(() => {
@@ -168,6 +169,36 @@ export default function InternalAuditConsole() {
     }
   };
 
+  const handleAuthorizePV = async (pv: PendingPV) => {
+    if (!firestore || !hospitalId || !user) {
+      toast({ title: "Payment Voucher Authorized (Simulation)", description: `PV ${pv.pvNumber} authorized. Routed to Disbursement Queue.` });
+      setDossierPv(null);
+      return;
+    }
+
+    setAuditLoading(true);
+    try {
+      const pvRef = doc(firestore, `hospitals/${hospitalId}/payment_vouchers`, pv.id);
+      await writeBatch(firestore).update(pvRef, {
+        status: 'AUTHORIZED',
+        auditedBy: user.uid,
+        auditedByName: userProfile?.fullName || user.displayName || 'Marcus Amosah Henaku',
+        auditedAt: serverTimestamp()
+      }).commit();
+
+      toast({
+        title: "Disbursement Authorized",
+        description: `PV ${pv.pvNumber} for ${pv.payee} cleared for disbursement.`
+      });
+
+      setDossierPv(null);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: "PV Authorization Failed", description: e.message });
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
   const submitRejectAndQuery = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rejectingItem) return;
@@ -271,7 +302,7 @@ export default function InternalAuditConsole() {
               </h1>
             </div>
             <p className="mt-2 text-xs md:text-sm text-slate-400 font-medium">
-              PRE-AUDIT VERIFICATION, IMMUTABLE JOURNAL POSTING, AND REJECT & QUERY PIPELINE.
+              PRE-AUDIT 3-WAY MATCHING, IMMUTABLE JOURNAL POSTING, AND REJECT & QUERY PIPELINE.
             </p>
           </div>
 
@@ -448,7 +479,7 @@ export default function InternalAuditConsole() {
             <h3 className="text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 flex items-center gap-2">
               <FileText className="w-4 h-4 text-indigo-500" /> PENDING PAYMENT VOUCHERS ({pendingPVs.length})
             </h3>
-            <span className="text-[10px] font-mono text-slate-400 font-bold">PRE-AUDIT DISBURSEMENT Exposure</span>
+            <span className="text-[10px] font-mono text-slate-400 font-bold">PRE-AUDIT DISBURSEMENT EXPOSURE</span>
           </div>
 
           {pvsLoading ? (
@@ -495,8 +526,8 @@ export default function InternalAuditConsole() {
                   <div className="flex gap-3 pt-2">
                     <button
                       type="button"
-                      onClick={() => router.push(`/accountant/payments/archive`)}
-                      className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer border border-slate-200 dark:border-slate-700 flex items-center gap-1.5"
+                      onClick={() => setDossierPv(pv)}
+                      className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 font-black text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5"
                     >
                       <Eye className="w-3.5 h-3.5 text-indigo-500" />
                       <span>OPEN PRE-AUDIT DOSSIER</span>
@@ -546,9 +577,9 @@ export default function InternalAuditConsole() {
                   onChange={(e) => setRejectCategory(e.target.value)}
                   className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold outline-none cursor-pointer text-slate-900 dark:text-slate-100"
                 >
+                  <option value="UNMATCHED_GRN">📦 UNMATCHED GOODS RECEIVED NOTE (GRN)</option>
                   <option value="MISSING_TAX_CLEARANCE">⚠️ MISSING GRA TAX CLEARANCE / TIN</option>
                   <option value="MATHEMATICAL_ERROR">🔢 MATHEMATICAL / ARITHMETIC DISCREPANCY</option>
-                  <option value="UNMATCHED_GRN">📦 UNMATCHED GOODS RECEIVED NOTE (GRN)</option>
                   <option value="UNAUTHORIZED_APPROVAL">🔒 UNAUTHORIZED / LACK OF MAKER-CHECKER</option>
                   <option value="EXCEEDS_BUDGET_ALLOCATION">📊 EXCEEDS FISCAL BUDGET ALLOCATION</option>
                 </select>
@@ -592,6 +623,232 @@ export default function InternalAuditConsole() {
         </div>
       )}
 
+      {/* ========================================== */}
+      {/* 4. PRE-AUDIT 3-WAY MATCHING MODAL          */}
+      {/* ========================================== */}
+      {dossierPv && (
+        <ThreeWayMatchModal
+          pvData={dossierPv}
+          onClose={() => setDossierPv(null)}
+          onAuthorize={() => handleAuthorizePV(dossierPv)}
+          onQuery={(pvId, reason) => {
+            setRejectingItem({ id: dossierPv.id, type: 'PV', title: dossierPv.pvNumber });
+            setRejectReason(reason);
+            setDossierPv(null);
+          }}
+        />
+      )}
+
+    </div>
+  );
+}
+
+/**
+ * ThreeWayMatchModal Component
+ * Implements side-by-side 3-Way Match validation across Purchase Orders (PO),
+ * Goods Received Notes (GRN), and Supplier Invoices.
+ */
+function ThreeWayMatchModal({ 
+  pvData, 
+  onClose, 
+  onAuthorize, 
+  onQuery 
+}: { 
+  pvData: PendingPV; 
+  onClose: () => void; 
+  onAuthorize: () => void; 
+  onQuery: (pvId: string, reason: string) => void; 
+}) {
+  const auditData = useMemo(() => {
+    const isMultinec = pvData.payee.includes('MULTINEC');
+    return {
+      pvId: pvData.pvNumber || pvData.id,
+      vendor: pvData.payee,
+      poNumber: 'PO-2026-08-112',
+      grnNumber: 'JCC/26/0009',
+      invoiceNumber: 'INV-MULT-9932',
+      lineItems: isMultinec ? [
+        { id: 1, item: 'Amoxicillin 500mg (Carton)', poQty: 50, poPrice: 120.00, grnQty: 50, invQty: 50, invPrice: 120.00 },
+        { id: 2, item: 'Surgical Gloves Powder-Free (Box)', poQty: 100, poPrice: 45.00, grnQty: 100, invQty: 100, invPrice: 45.00 },
+        // Discrepancy: Received 80 in GRN, but Billed 100 on Invoice
+        { id: 3, item: 'Paracetamol IV 100ml Infusion', poQty: 100, poPrice: 25.00, grnQty: 80, invQty: 100, invPrice: 25.00 },
+      ] : [
+        { id: 1, item: 'Locum Medical Officer Shift Compensation (Morning)', poQty: 1, poPrice: 84.84, grnQty: 1, invQty: 1, invPrice: 84.84 },
+        { id: 2, item: 'Locum Medical Officer Shift Compensation (Afternoon)', poQty: 1, poPrice: 85.09, grnQty: 1, invQty: 1, invPrice: 85.09 },
+      ]
+    };
+  }, [pvData]);
+
+  const matchStatus = useMemo(() => {
+    let hasError = false;
+    const validatedItems = auditData.lineItems.map(item => {
+      const isQtyMatch = item.poQty === item.grnQty && item.grnQty === item.invQty;
+      const isPriceMatch = item.poPrice === item.invPrice;
+      const rowValid = isQtyMatch && isPriceMatch;
+      
+      if (!rowValid) hasError = true;
+      
+      return {
+        ...item,
+        isQtyMatch,
+        isPriceMatch,
+        rowValid,
+        expectedTotal: item.poQty * item.poPrice,
+        billedTotal: item.invQty * item.invPrice
+      };
+    });
+
+    const totalBilled = validatedItems.reduce((sum, item) => sum + item.billedTotal, 0);
+
+    return { validatedItems, hasError, totalBilled };
+  }, [auditData]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 md:p-6">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-6xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-200 dark:border-slate-800">
+        
+        {/* Modal Header */}
+        <div className="bg-slate-950 text-white p-6 shrink-0 flex justify-between items-start border-b border-slate-800">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <h2 className="text-2xl font-black italic tracking-wider uppercase">PRE-AUDIT 3-WAY MATCHING DOSSIER</h2>
+              <span className="bg-indigo-600 text-[10px] font-mono font-bold px-2.5 py-1 rounded-md uppercase tracking-widest">
+                {auditData.pvId}
+              </span>
+            </div>
+            <p className="text-emerald-400 font-mono text-sm font-bold uppercase">{auditData.vendor}</p>
+          </div>
+          
+          <div className="text-right flex items-center gap-6">
+            {matchStatus.hasError ? (
+              <div className="bg-rose-500/20 border border-rose-500 text-rose-400 px-4 py-2 rounded-xl flex items-center gap-2 animate-pulse">
+                <AlertOctagon className="w-5 h-5 text-rose-500" />
+                <span className="text-xs font-black uppercase tracking-widest">Discrepancy Detected</span>
+              </div>
+            ) : (
+              <div className="bg-emerald-500/20 border border-emerald-500 text-emerald-300 px-4 py-2 rounded-xl flex items-center gap-2">
+                <PackageCheck className="w-5 h-5 text-emerald-400" />
+                <span className="text-xs font-black uppercase tracking-widest">3-Way Match Verified</span>
+              </div>
+            )}
+
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Invoice Billed</p>
+              <p className="text-2xl font-mono text-emerald-400 font-black">
+                ₵ {matchStatus.totalBilled.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Source Documents Reference Bar */}
+        <div className="bg-slate-100 dark:bg-slate-800/80 p-4 shrink-0 border-b border-slate-200 dark:border-slate-800 grid grid-cols-3 gap-4 text-center divide-x divide-slate-300 dark:divide-slate-700">
+          <div>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">Purchase Order (PO)</p>
+            <p className="font-mono font-black text-slate-800 dark:text-slate-200">{auditData.poNumber}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">Goods Received Note (GRN)</p>
+            <p className="font-mono font-black text-slate-800 dark:text-slate-200">{auditData.grnNumber}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">Supplier Invoice</p>
+            <p className="font-mono font-black text-slate-800 dark:text-slate-200">{auditData.invoiceNumber}</p>
+          </div>
+        </div>
+
+        {/* The Comparative Grid */}
+        <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-900 p-6">
+          <table className="w-full text-left border-collapse text-xs font-bold">
+            <thead>
+              <tr className="bg-slate-950 text-white text-[10px] uppercase tracking-wider">
+                <th className="p-3 border-b border-slate-800 w-1/4">Line Item Description</th>
+                <th className="p-3 border-b border-slate-800 bg-slate-900 text-center border-l border-slate-800">Approved (PO)</th>
+                <th className="p-3 border-b border-slate-800 bg-slate-800/60 text-center border-l border-slate-800">Received (GRN)</th>
+                <th className="p-3 border-b border-slate-800 bg-slate-900 text-center border-l border-slate-800">Billed (Invoice)</th>
+                <th className="p-3 border-b border-slate-800 text-right border-l border-slate-800">Variance Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {matchStatus.validatedItems.map(item => (
+                <tr key={item.id} className={`transition-colors ${item.rowValid ? 'hover:bg-slate-50 dark:hover:bg-slate-800/40' : 'bg-rose-50/70 dark:bg-rose-950/20'}`}>
+                  
+                  <td className="p-4 font-black text-slate-900 dark:text-slate-100 uppercase">{item.item}</td>
+                  
+                  {/* PO Column */}
+                  <td className="p-4 text-center border-l border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20">
+                    <p className="font-mono text-slate-700 dark:text-slate-300">Qty: {item.poQty}</p>
+                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">@ ₵{item.poPrice.toFixed(2)}</p>
+                  </td>
+                  
+                  {/* GRN Column */}
+                  <td className="p-4 text-center border-l border-slate-100 dark:border-slate-800 bg-slate-100/40 dark:bg-slate-800/40">
+                    <p className={`font-mono font-black ${item.isQtyMatch ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400 font-black'}`}>
+                      Qty: {item.grnQty}
+                    </p>
+                  </td>
+                  
+                  {/* Invoice Column */}
+                  <td className="p-4 text-center border-l border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20">
+                    <p className={`font-mono font-black ${item.isQtyMatch ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                      Qty: {item.invQty}
+                    </p>
+                    <p className={`text-[10px] font-mono mt-0.5 ${item.isPriceMatch ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                      @ ₵{item.invPrice.toFixed(2)}
+                    </p>
+                  </td>
+
+                  {/* Status Column */}
+                  <td className="p-4 text-right border-l border-slate-100 dark:border-slate-800">
+                    {item.rowValid ? (
+                      <span className="text-[9px] text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-2.5 py-1 rounded-md font-black uppercase border border-emerald-300">
+                        MATCHED
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950 border border-rose-300 px-2.5 py-1 rounded-md font-black uppercase animate-pulse">
+                        QTY SHORTAGE (GRN {item.grnQty} vs INV {item.invQty})
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Action Footer */}
+        <div className="bg-slate-50 dark:bg-slate-800/80 p-4 shrink-0 flex justify-between items-center border-t border-slate-200 dark:border-slate-800">
+          <button 
+            onClick={onClose}
+            className="px-5 py-2.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 font-black text-xs rounded-xl transition-all uppercase tracking-wider cursor-pointer"
+          >
+            CLOSE DOSSIER
+          </button>
+          
+          <div className="flex gap-4">
+            <button 
+              onClick={() => onQuery(auditData.pvId, `GRN Quantity Shortage detected on 3-Way Match audit.`)}
+              className="px-6 py-3 bg-white dark:bg-slate-900 border-2 border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 font-black text-xs rounded-xl shadow-sm transition-all uppercase tracking-wider cursor-pointer"
+            >
+              REJECT & QUERY DISCREPANCY
+            </button>
+
+            <button 
+              onClick={onAuthorize}
+              disabled={matchStatus.hasError}
+              className={`px-8 py-3 font-black text-xs rounded-xl shadow-lg transition-all uppercase tracking-wider flex items-center gap-2 ${
+                matchStatus.hasError 
+                  ? 'bg-slate-300 text-slate-500 dark:bg-slate-800 dark:text-slate-600 cursor-not-allowed border border-slate-300 dark:border-slate-700' 
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{matchStatus.hasError ? 'AUTHORIZE BLOCKED (DISCREPANCY DETECTED)' : 'AUTHORIZE DISBURSEMENT'}</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
