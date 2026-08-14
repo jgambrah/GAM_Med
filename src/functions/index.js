@@ -1,8 +1,8 @@
-
 // Version 2.2 - Permissions Bound & Logic Synchronized
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 const { addDays } = require("date-fns");
 const axios = require("axios");
@@ -2729,4 +2729,103 @@ exports.runMonthlyAssetDepreciation = onCall(async (request) => {
     throw new HttpsError("internal", error.message || "Failed to execute asset depreciation batch.");
   }
 });
+
+/**
+ * 7. scheduledMonthlyAssetDepreciationCron
+ * Firebase Scheduled Cloud Function (Cron Job).
+ * Trigger: 11:59 PM on the last day of every month.
+ * Automatically calculates straight-line depreciation and posts double-entry Journal Vouchers:
+ * Debit: 6500 - Depreciation Expense
+ * Credit: 1550 - Accumulated Depreciation: Medical Eq.
+ */
+exports.scheduledMonthlyAssetDepreciationCron = onSchedule({
+  schedule: "59 23 28-31 * *",
+  timeZone: "Africa/Accra",
+}, async (event) => {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  // Ensure it only executes on the actual last day of the month
+  if (tomorrow.getDate() !== 1) {
+    console.log("Skipping depreciation cron: Not the last day of the month.");
+    return;
+  }
+
+  const periodKey = today.toISOString().substring(0, 7);
+  console.log(`Running scheduled monthly depreciation cron for period ${periodKey}...`);
+
+  try {
+    const hospitalsSnap = await db.collection("hospitals").get();
+
+    for (const hospitalDoc of hospitalsSnap.docs) {
+      const hospitalId = hospitalDoc.id;
+      const assetsSnap = await db.collection(`hospitals/${hospitalId}/assets`).get();
+
+      if (assetsSnap.empty) continue;
+
+      let processedCount = 0;
+      let totalDepreciation = 0;
+      const batch = db.batch();
+
+      assetsSnap.docs.forEach((docSnap) => {
+        const asset = docSnap.data();
+        const status = asset.status || 'ACTIVE';
+        if (!['ACTIVE', 'OPERATIONAL'].includes(status)) return;
+
+        const cost = Number(asset.purchasePrice || asset.cost || 0);
+        const salvage = Number(asset.salvageValue || 0);
+        const usefulLifeYears = Number(asset.usefulLife || asset.usefulLifeYears || 5);
+        const totalMonths = usefulLifeYears * 12;
+
+        const monthlyDepr = Math.max(0, (cost - salvage) / totalMonths);
+        const currentAccum = Number(asset.accumulatedDepreciation || asset.accumDepr || 0);
+        const maxDepr = cost - salvage;
+
+        if (currentAccum < maxDepr && asset.lastDepreciationPeriod !== periodKey) {
+          const actualDepr = Math.min(monthlyDepr, maxDepr - currentAccum);
+          const newAccum = currentAccum + actualDepr;
+          const newNbv = Math.max(0, cost - newAccum);
+
+          batch.update(docSnap.ref, {
+            accumulatedDepreciation: newAccum,
+            accumDepr: newAccum,
+            nbv: newNbv,
+            netBookValue: newNbv,
+            lastDepreciationPeriod: periodKey,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+
+          totalDepreciation += actualDepr;
+          processedCount++;
+        }
+      });
+
+      if (processedCount > 0) {
+        const jvRef = db.collection(`hospitals/${hospitalId}/journal_entries`).doc();
+        const jvNumber = `JV-DEP-${periodKey.replace('-', '')}-${Math.floor(100 + Math.random() * 900)}`;
+
+        batch.set(jvRef, {
+          jvNumber,
+          narration: `Automated Monthly Asset Depreciation Batch for ${periodKey}`,
+          totalAmount: totalDepreciation,
+          status: 'AUTHORIZED',
+          createdByName: 'CRON DEPRECIATION ENGINE',
+          createdBy: 'SYSTEM_CRON',
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          lines: [
+            { accountId: '6500', accountName: '6500 - Depreciation Expense', debit: totalDepreciation, credit: 0 },
+            { accountId: '1550', accountName: '1550 - Accumulated Depreciation: Medical Eq.', debit: 0, credit: totalDepreciation }
+          ]
+        });
+      }
+
+      await batch.commit();
+      console.log(`Hospital ${hospitalId}: Depreciated ${processedCount} assets. Total: ₵${totalDepreciation.toFixed(2)}`);
+    }
+  } catch (error) {
+    console.error("Scheduled Asset Depreciation Cron Failed:", error);
+  }
+});
+
 
