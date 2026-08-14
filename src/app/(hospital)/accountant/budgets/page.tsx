@@ -20,6 +20,7 @@ export default function BudgetingConsoleHub() {
   const { toast } = useToast();
 
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [limitInput, setLimitInput] = useState('');
   
@@ -309,40 +310,99 @@ export default function BudgetingConsoleHub() {
             </p>
           </div>
 
-          {/* Active User Context & Actions */}
-          <div className="flex flex-wrap items-center gap-4 self-start xl:self-auto">
-            <div className="hidden md:flex items-center gap-3 bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2.5">
-              <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-white text-xs">
-                {userInitials}
+            {/* Active User Context & Actions */}
+            <div className="flex flex-wrap items-center gap-3 self-start xl:self-auto">
+              <div className="hidden md:flex items-center gap-3 bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2.5">
+                <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-white text-xs">
+                  {userInitials}
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-white tracking-wide uppercase">{userName}</div>
+                  <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">FINANCE CONTROLLER</div>
+                </div>
               </div>
-              <div>
-                <div className="text-[11px] font-bold text-white tracking-wide uppercase">{userName}</div>
-                <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">FINANCE CONTROLLER</div>
-              </div>
-            </div>
 
-            {/* In-Banner Tab Controls */}
-            <div className="flex items-center bg-slate-900 border border-slate-800 p-1 rounded-xl">
-              <button 
-                type="button"
-                onClick={() => setActiveTab('allocation')}
-                className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-                  activeTab === 'allocation' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                ALLOCATION SETUP
-              </button>
-              <button 
-                type="button"
-                onClick={() => setActiveTab('variance')}
-                className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-                  activeTab === 'variance' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                VARIANCE REPORT
-              </button>
+              {/* Publish Fiscal Budget Button */}
+              {isDirectorOrAdmin && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsSaving(true);
+                    try {
+                      const flatAllocations = budgetRows.map(row => ({
+                        ledgerCode: row.accountCode,
+                        department: row.category,
+                        quarter: 'Q3',
+                        amount: row.limit
+                      }));
+
+                      if (firestore && hospitalId) {
+                        const masterRef = doc(firestore, `hospitals/${hospitalId}/fiscal_budgets`, `budget_2026`);
+                        await setDoc(masterRef, {
+                          fiscalYear: '2026',
+                          status: 'LOCKED_ACTIVE',
+                          publishedBy: user?.uid || 'DIRECTOR',
+                          publishedByName: userName,
+                          publishedAt: serverTimestamp()
+                        }, { merge: true });
+
+                        for (const item of flatAllocations) {
+                          const docId = `2026_Q3_${item.ledgerCode}`;
+                          const bRef = doc(firestore, `hospitals/${hospitalId}/budgets`, docId);
+                          await setDoc(bRef, {
+                            fiscalYear: '2026',
+                            quarter: 'Q3',
+                            ledgerCode: item.ledgerCode,
+                            department: item.department,
+                            allocatedAmount: item.amount,
+                            postedAmount: 0,
+                            encumberedAmount: 0,
+                            status: 'LOCKED_ACTIVE',
+                            publishedAt: serverTimestamp()
+                          }, { merge: true });
+                        }
+                      }
+
+                      toast({
+                        title: "Fiscal Budget FY2026 Published",
+                        description: "Allocations permanently locked. Disbursement Portal guardrails are now ACTIVE."
+                      });
+                    } catch (e: any) {
+                      toast({ variant: "destructive", title: "Publication Failed", description: e.message });
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                  disabled={isSaving}
+                  className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-lg"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Target className="w-4 h-4" />}
+                  <span>PUBLISH FISCAL BUDGET</span>
+                </button>
+              )}
+
+              {/* In-Banner Tab Controls */}
+              <div className="flex items-center bg-slate-900 border border-slate-800 p-1 rounded-xl">
+                <button 
+                  type="button"
+                  onClick={() => setActiveTab('allocation')}
+                  className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    activeTab === 'allocation' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  ALLOCATION SETUP
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setActiveTab('variance')}
+                  className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    activeTab === 'variance' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  VARIANCE REPORT
+                </button>
+              </div>
             </div>
-          </div>
         </div>
 
         {/* Bottom Row / Grid: Integrated Financial Telemetry */}
