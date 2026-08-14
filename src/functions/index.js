@@ -2828,4 +2828,65 @@ exports.scheduledMonthlyAssetDepreciationCron = onSchedule({
   }
 });
 
+/**
+ * 8. setUserRoleCustomClaims
+ * Programmatically assigns role custom claims in Firebase Auth & updates Firestore /users/{uid}
+ * Guard: Requires caller to be DIRECTOR, ADMIN, SUPER_ADMIN, or CHIEF_AUDITOR.
+ */
+exports.setUserRoleCustomClaims = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Login Required');
+  }
+
+  const callerRole = request.auth.token?.role;
+  const isAuthorizedCaller = ['DIRECTOR', 'ADMIN', 'SUPER_ADMIN', 'CHIEF_AUDITOR'].includes(callerRole);
+
+  if (!isAuthorizedCaller) {
+    throw new HttpsError('permission-denied', 'Only Hospital Administrators or Directors can elevate user roles.');
+  }
+
+  const { targetUid, targetEmail, newRole, hospitalId } = request.data || {};
+
+  if ((!targetUid && !targetEmail) || !newRole) {
+    throw new HttpsError('invalid-argument', 'Missing targetUid/targetEmail or newRole.');
+  }
+
+  try {
+    let userRecord;
+    if (targetEmail) {
+      userRecord = await admin.auth().getUserByEmail(targetEmail);
+    } else {
+      userRecord = await admin.auth().getUser(targetUid);
+    }
+
+    const uid = userRecord.uid;
+    const effectiveHospitalId = hospitalId || request.auth.token?.hospitalId;
+
+    // Set Firebase Auth Custom Claims
+    await admin.auth().setCustomUserClaims(uid, {
+      ...userRecord.customClaims,
+      role: newRole,
+      hospitalId: effectiveHospitalId
+    });
+
+    // Update Firestore User Profile
+    await db.collection('users').doc(uid).set({
+      role: newRole,
+      hospitalId: effectiveHospitalId,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    return {
+      success: true,
+      uid,
+      role: newRole,
+      message: `Role successfully updated to ${newRole}. User must log out and log back in to refresh JWT claims.`
+    };
+  } catch (error) {
+    console.error("setUserRoleCustomClaims error:", error);
+    throw new HttpsError('internal', error.message || 'Failed to update custom claims.');
+  }
+});
+
+
 
