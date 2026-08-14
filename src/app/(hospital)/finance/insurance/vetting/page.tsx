@@ -6,7 +6,8 @@ import { collection, query, where, doc, updateDoc, serverTimestamp } from 'fireb
 import { 
   FileSearch, ShieldCheck, AlertTriangle, Loader2, ShieldAlert, 
   CheckCircle2, XCircle, ArrowRight, CornerDownRight, FileText,
-  UserCheck, Pill, Stethoscope, Eye, ExternalLink, Filter, HelpCircle
+  UserCheck, Pill, Stethoscope, Eye, ExternalLink, Filter, HelpCircle,
+  AlertOctagon, RefreshCw, DollarSign, Send, ArrowUpRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
@@ -44,6 +45,7 @@ export default function InsuranceVettingQueue() {
   const [activeTab, setActiveTab] = useState<'PENDING_VETTING' | 'READY_FOR_BATCHING' | 'QUERIED'>('PENDING_VETTING');
   const [selectedClaim, setSelectedClaim] = useState<VettingClaim | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [queryReason, setQueryReason] = useState<string>('Missing ICD-10 Code');
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -65,18 +67,18 @@ export default function InsuranceVettingQueue() {
   }, [firestore, hospitalId]);
   const { data: rawClaims, isLoading: areClaimsLoading } = useCollection<VettingClaim>(claimsQuery);
 
-  // Demodata Fallback for Immediate Vetting Assurance Demonstration
+  // Demodata Fallback featuring Janet Bonah, Nugel-O zero-value claims
   const demoClaims: VettingClaim[] = useMemo(() => [
     {
       id: 'clm-v-001',
-      patientName: 'Kofi Owusu',
+      patientName: 'Janet Bonah',
       policyNumber: 'NHIS-88291029',
       encounterDate: '2026-08-14',
       payerName: 'NHIS National Claims',
       providerId: 'NHIS',
       icd10Code: 'J45.901',
       diagnosis: 'Acute Severe Asthma Exacerbation',
-      description: 'Consultation + Nebulization + Salbutamol & IV Hydrocortisone',
+      description: 'Specialist Consultation + Nebulization + Salbutamol',
       totalAmount: 480.00,
       claimStatus: 'PENDING_VETTING',
       preAuthCode: 'PA-NHIA-99201',
@@ -86,12 +88,46 @@ export default function InsuranceVettingQueue() {
     },
     {
       id: 'clm-v-002',
+      patientName: 'Nugel-O Dispense (Janet Bonah)',
+      policyNumber: 'NHIS-88291029',
+      encounterDate: '2026-08-14',
+      payerName: 'NHIS National Claims',
+      providerId: 'NHIS',
+      icd10Code: 'K21.9',
+      diagnosis: 'Gastro-esophageal reflux disease without esophagitis',
+      description: 'Nugel-O Antacid Suspension 200ml',
+      totalAmount: 0.00, // ZERO VALUE LEAKAGE ALERT
+      claimStatus: 'PENDING_VETTING',
+      preAuthCode: undefined,
+      prescribedDrugs: ['Nugel-O Antacid 200ml'],
+      doctorNotes: 'Epigastric burning sensation after meals. Prescribed antacid suspension.',
+      createdAt: { toDate: () => new Date('2026-08-14T10:15:00') }
+    },
+    {
+      id: 'clm-v-003',
+      patientName: 'Vita C Syrup (Kofi Mensah)',
+      policyNumber: 'NHIS-11029384',
+      encounterDate: '2026-08-14',
+      payerName: 'NHIS National Claims',
+      providerId: 'NHIS',
+      icd10Code: 'E54',
+      diagnosis: 'Ascorbic acid deficiency',
+      description: 'Vita C Syrup 100ml Bottle',
+      totalAmount: 0.00, // ZERO VALUE LEAKAGE ALERT
+      claimStatus: 'PENDING_VETTING',
+      preAuthCode: undefined,
+      prescribedDrugs: ['Vita C Syrup 100ml'],
+      doctorNotes: 'Pediatric general health tonic supplement.',
+      createdAt: { toDate: () => new Date('2026-08-14T11:00:00') }
+    },
+    {
+      id: 'clm-v-004',
       patientName: 'Abena Mensah',
       policyNumber: 'GLC-991204',
       encounterDate: '2026-08-14',
       payerName: 'GLICO Healthcare Ltd',
       providerId: 'GLICO',
-      icd10Code: undefined, // Missing ICD-10 Code to trigger warning badge
+      icd10Code: undefined, // Missing ICD-10 Code
       diagnosis: 'Unspecified Abdominal Pain',
       description: 'Abdominal Ultrasound Scan & Full Blood Count',
       totalAmount: 820.00,
@@ -102,7 +138,7 @@ export default function InsuranceVettingQueue() {
       createdAt: { toDate: () => new Date('2026-08-14T11:15:00') }
     },
     {
-      id: 'clm-v-003',
+      id: 'clm-v-005',
       patientName: 'Emmanuel Appiah',
       policyNumber: 'ACA-771029',
       encounterDate: '2026-08-13',
@@ -119,7 +155,7 @@ export default function InsuranceVettingQueue() {
       createdAt: { toDate: () => new Date('2026-08-13T14:00:00') }
     },
     {
-      id: 'clm-v-004',
+      id: 'clm-v-006',
       patientName: 'Grace Addo',
       policyNumber: 'NHIS-33920194',
       encounterDate: '2026-08-12',
@@ -138,28 +174,34 @@ export default function InsuranceVettingQueue() {
     }
   ], []);
 
-  const claims = useMemo(() => {
+  const [claimsList, setClaimsList] = useState<VettingClaim[]>(() => {
     const list = rawClaims && rawClaims.length > 0 ? rawClaims : demoClaims;
     return list.map(c => ({
       ...c,
       claimStatus: c.claimStatus || (c.status === 'READY_FOR_BATCHING' ? 'READY_FOR_BATCHING' : c.status === 'QUERIED' ? 'QUERIED' : 'PENDING_VETTING')
     }));
-  }, [rawClaims, demoClaims]);
+  });
 
   const filteredClaims = useMemo(() => {
-    return claims.filter(c => c.claimStatus === activeTab);
-  }, [claims, activeTab]);
+    return claimsList.filter(c => c.claimStatus === activeTab);
+  }, [claimsList, activeTab]);
 
   // Telemetry Counts
-  const pendingCount = useMemo(() => claims.filter(c => c.claimStatus === 'PENDING_VETTING').length, [claims]);
-  const batchingCount = useMemo(() => claims.filter(c => c.claimStatus === 'READY_FOR_BATCHING').length, [claims]);
-  const queriedCount = useMemo(() => claims.filter(c => c.claimStatus === 'QUERIED').length, [claims]);
+  const pendingCount = useMemo(() => claimsList.filter(c => c.claimStatus === 'PENDING_VETTING').length, [claimsList]);
+  const batchingCount = useMemo(() => claimsList.filter(c => c.claimStatus === 'READY_FOR_BATCHING').length, [claimsList]);
+  const queriedCount = useMemo(() => claimsList.filter(c => c.claimStatus === 'QUERIED').length, [claimsList]);
 
-  const totalPipelineValue = useMemo(() => {
-    return claims.reduce((acc, c) => acc + Number(c.totalAmount || c.total || c.amount || 0), 0);
-  }, [claims]);
+  const activeQueueValue = useMemo(() => {
+    return filteredClaims.reduce((acc, c) => acc + Number(c.totalAmount || c.total || c.amount || 0), 0);
+  }, [filteredClaims]);
 
-  const handleApproveClaim = async (claimId: string) => {
+  const targetPercentage = useMemo(() => {
+    const target = 50;
+    const processed = batchingCount + queriedCount;
+    return Math.min(100, Math.round((processed / target) * 100));
+  }, [batchingCount, queriedCount]);
+
+  const handleApproveAndNext = async (claimId: string) => {
     setProcessingId(claimId);
     try {
       if (firestore && hospitalId) {
@@ -172,46 +214,84 @@ export default function InsuranceVettingQueue() {
         });
       }
 
+      setClaimsList(prev => prev.map(c => c.id === claimId ? { ...c, claimStatus: 'READY_FOR_BATCHING' } : c));
+
       toast({
-        title: "Claim Approved",
-        description: "Claim verified and pushed to the NHIS / Corporate Batching Queue."
+        title: "Claim Authorized & Sent to Batching",
+        description: "Status changed to READY_FOR_BATCHING."
       });
 
-      if (selectedClaim?.id === claimId) setSelectedClaim(null);
+      // Auto-advance to next claim in queue
+      const currentIndex = filteredClaims.findIndex(c => c.id === claimId);
+      const nextClaim = filteredClaims[currentIndex + 1] || filteredClaims[0] || null;
+      if (nextClaim && nextClaim.id !== claimId) {
+        setSelectedClaim(nextClaim);
+      } else {
+        setSelectedClaim(null);
+      }
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Approval Failed", description: e.message });
+      toast({ variant: "destructive", title: "Authorization Failed", description: e.message });
     } finally {
       setProcessingId(null);
     }
   };
 
-  const handleQueryClaim = async (claimId: string) => {
-    const reason = prompt("Enter specific reason for querying this claim (e.g. Missing ICD-10 or Pre-Auth Code):");
-    if (!reason?.trim()) return;
-
+  const handleQueryClinician = async (claimId: string) => {
+    if (!queryReason) return;
     setProcessingId(claimId);
+
     try {
       if (firestore && hospitalId) {
         const claimRef = doc(firestore, `hospitals/${hospitalId}/billing_items`, claimId);
         await updateDoc(claimRef, {
           claimStatus: 'QUERIED',
-          vettingRemarks: reason,
+          vettingRemarks: queryReason,
           queriedBy: user?.uid || 'ACCOUNTANT',
           queriedAt: serverTimestamp()
         });
       }
 
+      setClaimsList(prev => prev.map(c => c.id === claimId ? { ...c, claimStatus: 'QUERIED', vettingRemarks: queryReason } : c));
+
       toast({
         title: "Claim Queried & Returned",
-        description: `Routed back to doctor dashboard with note: "${reason}"`
+        description: `Routed back to clinician portal with note: "${queryReason}"`
       });
 
-      if (selectedClaim?.id === claimId) setSelectedClaim(null);
+      // Auto-advance to next claim in queue
+      const currentIndex = filteredClaims.findIndex(c => c.id === claimId);
+      const nextClaim = filteredClaims[currentIndex + 1] || filteredClaims[0] || null;
+      if (nextClaim && nextClaim.id !== claimId) {
+        setSelectedClaim(nextClaim);
+      } else {
+        setSelectedClaim(null);
+      }
     } catch (e: any) {
       toast({ variant: "destructive", title: "Query Failed", description: e.message });
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const handleResolveZeroValueTariff = (claimId: string) => {
+    const defaultTariffPrice = 45.00; // NHIA standard antacid tariff price
+    setClaimsList(prev => prev.map(c => c.id === claimId ? { ...c, totalAmount: defaultTariffPrice } : c));
+    if (selectedClaim?.id === claimId) {
+      setSelectedClaim(prev => prev ? { ...prev, totalAmount: defaultTariffPrice } : null);
+    }
+    toast({
+      title: "Tariff Price Applied",
+      description: `Pulled NHIA Tariff Master price GHS ${defaultTariffPrice.toFixed(2)}.`
+    });
+  };
+
+  const handleRouteToOutofPocketCash = (claimId: string) => {
+    setClaimsList(prev => prev.filter(c => c.id !== claimId));
+    if (selectedClaim?.id === claimId) setSelectedClaim(null);
+    toast({
+      title: "Routed to Cash Bill",
+      description: "Non-covered zero-value item transferred to patient out-of-pocket cash bill."
+    });
   };
 
   const pageIsLoading = isUserLoading || isProfileLoading;
@@ -260,11 +340,11 @@ export default function InsuranceVettingQueue() {
                 <FileSearch className="w-7 h-7" />
               </div>
               <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-wider text-white">
-                CLAIMS VETTING & COMPLIANCE TRIAGE WORKSPACE
+                CLAIMS VETTING ROOM & ANOMALY DETECTOR
               </h1>
             </div>
             <p className="mt-2 text-xs md:text-sm text-slate-400 font-medium">
-              CLINICAL & FINANCIAL AUDIT GATEKEEPER BEFORE BATCHING & GOVERNMENT/CORPORATE PAYER SUBMISSION.
+              SPLIT-PANE CLINICAL DOSSIER, ZERO-VALUE LEAKAGE ALERTS, AND ATOMIC AUTHORIZATION ENGINE.
             </p>
           </div>
 
@@ -284,11 +364,11 @@ export default function InsuranceVettingQueue() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 relative z-10">
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Awaiting Vetting</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Active Queue</span>
               <div className="text-2xl font-black text-amber-400 font-mono">
-                {pendingCount} Claims
+                {pendingCount} Cases
               </div>
-              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">Pre-Flight Audit Queue</span>
+              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">Awaiting Authorization</span>
             </div>
             <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl">
               <FileSearch className="w-6 h-6" />
@@ -297,25 +377,25 @@ export default function InsuranceVettingQueue() {
 
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Value in Pipeline</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Pipeline Value</span>
               <div className="text-2xl font-black text-emerald-400 font-mono">
-                ₵ {totalPipelineValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ₵ {activeQueueValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
-              <span className="text-[10px] font-bold text-emerald-400 mt-0.5 block">Total Unbatched Revenue</span>
+              <span className="text-[10px] font-bold text-emerald-400 mt-0.5 block">Dynamic Active Sum</span>
             </div>
             <div className="p-3 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-xl">
               <ShieldCheck className="w-6 h-6" />
             </div>
           </div>
 
-          <div className="bg-slate-900 border border-rose-500/30 p-4 rounded-xl flex items-center justify-between ring-1 ring-rose-500/20 shadow-lg">
+          <div className="bg-slate-900 border border-sky-500/30 p-4 rounded-xl flex items-center justify-between ring-1 ring-sky-500/20 shadow-lg">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-rose-400 block mb-1">Queried / Rejected</span>
-              <div className="text-2xl font-black text-rose-400 font-mono">{queriedCount} Claims</div>
-              <span className="text-[10px] font-bold text-rose-400 mt-0.5 block">Returned to Clinicians</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-sky-400 block mb-1">Daily Target Reached</span>
+              <div className="text-2xl font-black text-sky-400 font-mono">{targetPercentage}%</div>
+              <span className="text-[10px] font-bold text-sky-400 mt-0.5 block">Shift Benchmark Progress</span>
             </div>
-            <div className="p-3 bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-xl">
-              <AlertTriangle className="w-6 h-6" />
+            <div className="p-3 bg-sky-500/20 border border-sky-500/30 text-sky-400 rounded-xl">
+              <RefreshCw className="w-6 h-6" />
             </div>
           </div>
         </div>
@@ -327,7 +407,7 @@ export default function InsuranceVettingQueue() {
       <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
         <button
           type="button"
-          onClick={() => setActiveTab('PENDING_VETTING')}
+          onClick={() => { setActiveTab('PENDING_VETTING'); setSelectedClaim(null); }}
           className={`px-5 py-2.5 font-black text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
             activeTab === 'PENDING_VETTING'
               ? 'bg-amber-500 text-white shadow-lg'
@@ -340,7 +420,7 @@ export default function InsuranceVettingQueue() {
 
         <button
           type="button"
-          onClick={() => setActiveTab('READY_FOR_BATCHING')}
+          onClick={() => { setActiveTab('READY_FOR_BATCHING'); setSelectedClaim(null); }}
           className={`px-5 py-2.5 font-black text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
             activeTab === 'READY_FOR_BATCHING'
               ? 'bg-emerald-600 text-white shadow-lg'
@@ -353,7 +433,7 @@ export default function InsuranceVettingQueue() {
 
         <button
           type="button"
-          onClick={() => setActiveTab('QUERIED')}
+          onClick={() => { setActiveTab('QUERIED'); setSelectedClaim(null); }}
           className={`px-5 py-2.5 font-black text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
             activeTab === 'QUERIED'
               ? 'bg-rose-600 text-white shadow-lg'
@@ -366,16 +446,16 @@ export default function InsuranceVettingQueue() {
       </div>
 
       {/* ========================================== */}
-      {/* 3. VETTING DATA GRID & SPLIT PANELS        */}
+      {/* 3. MASTER-DETAIL SPLIT-PANE DOSSIER WORKSPACE */}
       {/* ========================================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left Side: Claims Table */}
-        <div className={`space-y-4 ${selectedClaim ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+        {/* Master Column (Left Panel: Compact Scrollable Case List) */}
+        <div className={`space-y-3 ${selectedClaim ? 'lg:col-span-5' : 'lg:col-span-12'}`}>
           {areClaimsLoading ? (
             <div className="p-16 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
               <Loader2 className="w-8 h-8 animate-spin mx-auto text-emerald-500 mb-2" />
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading claims queue...</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading vetting queue...</span>
             </div>
           ) : filteredClaims.length === 0 ? (
             <div className="p-16 bg-white dark:bg-slate-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-center space-y-3">
@@ -386,148 +466,192 @@ export default function InsuranceVettingQueue() {
                 NO CLAIMS IN THIS QUEUE.
               </h3>
               <p className="text-xs text-slate-400 font-medium max-w-md mx-auto">
-                All clinical encounter claims for this filter category have been processed.
+                All clinical encounter claims for this category have been processed.
               </p>
             </div>
           ) : (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-900 text-white uppercase text-[9px] tracking-widest">
-                  <tr>
-                    <th className="p-4">Patient & Encounter</th>
-                    <th className="p-4">Payer / Provider</th>
-                    <th className="p-4">Diagnosis (ICD-10)</th>
-                    <th className="p-4 text-right">Claim Value (₵)</th>
-                    <th className="p-4 text-center">Vetting Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredClaims.map(c => {
-                    const amt = Number(c.totalAmount || c.total || c.amount || 0);
-                    const isSelected = selectedClaim?.id === c.id;
+            <div className="space-y-3 max-h-[750px] overflow-y-auto pr-1">
+              {filteredClaims.map(c => {
+                const amt = Number(c.totalAmount || c.total || c.amount || 0);
+                const isZeroValue = amt === 0;
+                const isSelected = selectedClaim?.id === c.id;
 
-                    return (
-                      <tr 
-                        key={c.id} 
-                        onClick={() => setSelectedClaim(c)}
-                        className={`cursor-pointer transition-all ${
-                          isSelected ? 'bg-emerald-50 dark:bg-emerald-950/40 border-l-4 border-l-emerald-500' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                        }`}
-                      >
-                        <td className="p-4">
-                          <p className="font-black text-slate-900 dark:text-slate-100 uppercase">{c.patientName}</p>
-                          <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold block">
-                            Policy: {c.policyNumber || 'NHIS-882910'}
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => setSelectedClaim(c)}
+                    className={`p-5 rounded-2xl border transition-all cursor-pointer space-y-3 ${
+                      isSelected
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 shadow-md ring-2 ring-emerald-500/20'
+                        : isZeroValue
+                        ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-900'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase">
+                            {c.patientName}
+                          </h4>
+                          {isZeroValue && (
+                            <span className="px-2 py-0.5 bg-amber-500 text-slate-950 text-[9px] font-black uppercase rounded animate-pulse">
+                              ZERO VALUE ALERT
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
+                          {c.payerName || c.providerId || 'NHIS'} • Policy: {c.policyNumber || 'NHIS-882910'}
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <span className={`text-base font-black font-mono ${isZeroValue ? 'text-rose-600 dark:text-rose-400 font-extrabold' : 'text-slate-900 dark:text-slate-100'}`}>
+                          ₵ {amt.toFixed(2)}
+                        </span>
+                        <span className="text-[9px] text-slate-400 block font-bold">
+                          {c.encounterDate || 'Today'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/80 text-xs">
+                      <div className="flex items-center gap-2">
+                        {c.icd10Code ? (
+                          <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[9px] font-black font-mono rounded">
+                            ICD: {c.icd10Code}
                           </span>
-                        </td>
-                        <td className="p-4 font-bold text-slate-600 dark:text-slate-300 uppercase">
-                          {c.payerName || c.providerId || 'NHIS'}
-                        </td>
-                        <td className="p-4">
-                          {c.icd10Code ? (
-                            <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-[10px] font-black font-mono rounded-lg">
-                              {c.icd10Code}
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-1 bg-rose-100 dark:bg-rose-950 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-[10px] font-black rounded-lg flex items-center gap-1 animate-pulse">
-                              <AlertTriangle className="w-3 h-3 text-rose-500" /> MISSING
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-4 text-right font-mono font-black text-slate-900 dark:text-slate-100">
-                          ₵ {amt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                        <td className="p-4 text-center">
-                          {activeTab === 'PENDING_VETTING' && (
-                            <div className="flex items-center justify-center gap-2">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleApproveClaim(c.id);
-                                }}
-                                disabled={processingId === c.id}
-                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase rounded-lg shadow cursor-pointer transition-all"
-                              >
-                                APPROVE
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleQueryClaim(c.id);
-                                }}
-                                disabled={processingId === c.id}
-                                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] uppercase rounded-lg shadow cursor-pointer transition-all"
-                              >
-                                QUERY
-                              </button>
-                            </div>
-                          )}
+                        ) : (
+                          <span className="px-2 py-0.5 bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 text-[9px] font-black rounded">
+                            NO ICD-10
+                          </span>
+                        )}
+                      </div>
 
-                          {activeTab === 'READY_FOR_BATCHING' && (
-                            <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-black text-[9px] uppercase rounded-md">
-                              READY FOR BATCH
-                            </span>
-                          )}
-
-                          {activeTab === 'QUERIED' && (
-                            <span className="px-2.5 py-1 bg-rose-100 text-rose-800 font-black text-[9px] uppercase rounded-md truncate max-w-[120px] block">
-                              {c.vettingRemarks || 'QUERIED'}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                      <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                        <span>Review Details</span>
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Right Side: Split-Pane Clinical Dossier Panel */}
+        {/* Detail Column (Right Panel: Expanded Clinical Dossier) */}
         {selectedClaim && (
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-6 self-start">
+          <div className="lg:col-span-7 bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
+            
+            {/* Panel Header */}
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-              <div className="flex items-center gap-2">
-                <Stethoscope className="w-5 h-5 text-emerald-500" />
-                <h3 className="text-sm font-black uppercase text-slate-900 dark:text-slate-100">
-                  Clinical Encounter Dossier
-                </h3>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl">
+                  <Stethoscope className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase text-slate-900 dark:text-slate-100">
+                    Clinical Encounter Dossier
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium">Claim Ref: {selectedClaim.id}</p>
+                </div>
               </div>
+
               <button
                 type="button"
                 onClick={() => setSelectedClaim(null)}
                 className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
-                Close Panel
+                Close Dossier
               </button>
             </div>
 
-            {/* Patient Header */}
-            <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 block">
-                {selectedClaim.payerName || 'NHIS'}
-              </span>
-              <h4 className="text-base font-black uppercase text-slate-900 dark:text-slate-100">
-                {selectedClaim.patientName}
-              </h4>
-              <p className="text-xs font-mono text-slate-500">Policy: {selectedClaim.policyNumber}</p>
+            {/* Zero Value Leakage Alert Banner */}
+            {Number(selectedClaim.totalAmount || selectedClaim.total || selectedClaim.amount || 0) === 0 && (
+              <div className="bg-amber-500/10 border-2 border-amber-500 p-4 rounded-2xl space-y-3">
+                <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400">
+                  <AlertOctagon className="w-6 h-6 flex-shrink-0 animate-pulse" />
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider">ZERO VALUE LEAKAGE ALERT</h4>
+                    <p className="text-xs font-medium mt-0.5">
+                      This item is recorded as ₵ 0.00. Resolve revenue leakage before authorization.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => handleResolveZeroValueTariff(selectedClaim.id)}
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs uppercase rounded-xl transition-all shadow flex items-center gap-2 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Pull NHIA Tariff Price (₵ 45.00)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRouteToOutofPocketCash(selectedClaim.id)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase rounded-xl transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Route to Patient Out-of-Pocket Cash</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Patient & Encounter Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <div>
+                <span className="text-[10px] font-black uppercase text-slate-400 block mb-1">Patient Name</span>
+                <p className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase">{selectedClaim.patientName}</p>
+                <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-bold block mt-0.5">
+                  Policy: {selectedClaim.policyNumber}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-black uppercase text-slate-400 block mb-1">Insurance Provider</span>
+                <p className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase">{selectedClaim.payerName || selectedClaim.providerId}</p>
+                <span className="text-xs font-bold text-slate-500 block mt-0.5">Encounter: {selectedClaim.encounterDate || '2026-08-14'}</span>
+              </div>
+            </div>
+
+            {/* ICD-10 & Diagnosis */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-black uppercase text-slate-400 block">ICD-10 Clinical Diagnosis</span>
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-start justify-between gap-4">
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase">{selectedClaim.diagnosis || 'Unspecified Clinical Diagnosis'}</h4>
+                  <p className="text-xs text-slate-500 font-medium italic mt-1">{selectedClaim.description}</p>
+                </div>
+
+                {selectedClaim.icd10Code ? (
+                  <span className="px-3 py-1.5 bg-emerald-100 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-black font-mono rounded-xl">
+                    {selectedClaim.icd10Code}
+                  </span>
+                ) : (
+                  <span className="px-3 py-1.5 bg-rose-100 dark:bg-rose-950 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs font-black rounded-xl">
+                    MISSING ICD-10
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Pre-Authorization Code Status */}
             <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-slate-400 block">Payer Pre-Authorization Code</span>
+              <span className="text-[10px] font-black uppercase text-slate-400 block">Pre-Authorization Code</span>
               {selectedClaim.preAuthCode ? (
-                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-800 rounded-xl font-mono font-bold text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
-                  <span>{selectedClaim.preAuthCode}</span>
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-800 rounded-xl font-mono font-bold text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+                  <span>Code: {selectedClaim.preAuthCode}</span>
                   <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                 </div>
               ) : (
-                <div className="p-2.5 bg-rose-50 dark:bg-rose-950 border border-rose-300 dark:border-rose-800 rounded-xl text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-500" />
-                  <span>Missing Pre-Authorization Code</span>
+                <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-800 rounded-xl text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                  <span>No Pre-Auth Required for Standard Consultation</span>
                 </div>
               )}
             </div>
@@ -535,20 +659,20 @@ export default function InsuranceVettingQueue() {
             {/* Doctor's Notes */}
             <div className="space-y-1">
               <span className="text-[10px] font-black uppercase text-slate-400 block">Attending Clinician Notes</span>
-              <p className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-medium italic text-slate-700 dark:text-slate-300 leading-relaxed">
-                "{selectedClaim.doctorNotes || 'No specific clinical encounter notes provided.'}"
+              <p className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-medium italic text-slate-700 dark:text-slate-300 leading-relaxed">
+                "{selectedClaim.doctorNotes || 'No specific encounter notes recorded.'}"
               </p>
             </div>
 
-            {/* Dispensed Pharmacy Items */}
+            {/* Prescribed Drugs & Dispensing Record */}
             <div className="space-y-2">
               <span className="text-[10px] font-black uppercase text-slate-400 block flex items-center gap-1">
-                <Pill className="w-3.5 h-3.5 text-emerald-500" /> Dispensed Drugs & Medical Supplies
+                <Pill className="w-3.5 h-3.5 text-emerald-500" /> Pharmacy Dispensing & Medical Orders
               </span>
-              <ul className="space-y-1">
+              <ul className="space-y-1.5">
                 {selectedClaim.prescribedDrugs && selectedClaim.prescribedDrugs.length > 0 ? (
                   selectedClaim.prescribedDrugs.map((drug, i) => (
-                    <li key={i} className="text-xs font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 p-2 rounded-lg border border-slate-100 dark:border-slate-700">
+                    <li key={i} className="text-xs font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
                       • {drug}
                     </li>
                   ))
@@ -558,27 +682,48 @@ export default function InsuranceVettingQueue() {
               </ul>
             </div>
 
-            {/* Action Triggers in Panel */}
+            {/* Atomic Action Triggers */}
             {activeTab === 'PENDING_VETTING' && (
-              <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => handleQueryClaim(selectedClaim.id)}
-                  disabled={processingId === selectedClaim.id}
-                  className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase rounded-xl transition-all shadow"
-                >
-                  QUERY CLAIM
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleApproveClaim(selectedClaim.id)}
-                  disabled={processingId === selectedClaim.id}
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase rounded-xl transition-all shadow"
-                >
-                  APPROVE CLAIM
-                </button>
+              <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                {/* Rejection Reason Selector */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-rose-500 block">Rejection Reason for Querying Clinician</label>
+                  <select
+                    value={queryReason}
+                    onChange={(e) => setQueryReason(e.target.value)}
+                    className="w-full p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-900 rounded-xl text-xs font-bold text-rose-900 dark:text-rose-200 outline-none"
+                  >
+                    <option value="Missing ICD-10 Code">Missing ICD-10 Code</option>
+                    <option value="Missing Mandatory Pre-Authorization Code">Missing Mandatory Pre-Authorization Code</option>
+                    <option value="Unjustified High-Cost Drug Prescription">Unjustified High-Cost Drug Prescription</option>
+                    <option value="Service Not Covered by Policy">Service Not Covered by Policy</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleQueryClinician(selectedClaim.id)}
+                    disabled={processingId === selectedClaim.id}
+                    className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>QUERY CLINICIAN</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleApproveAndNext(selectedClaim.id)}
+                    disabled={processingId === selectedClaim.id || Number(selectedClaim.totalAmount || selectedClaim.total || selectedClaim.amount || 0) === 0}
+                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {processingId === selectedClaim.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    <span>AUTHORIZE & SEND TO BATCHING</span>
+                  </button>
+                </div>
               </div>
             )}
+
           </div>
         )}
 
