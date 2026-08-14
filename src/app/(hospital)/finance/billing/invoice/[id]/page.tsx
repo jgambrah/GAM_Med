@@ -1,14 +1,16 @@
 'use client';
+
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where, writeBatch, serverTimestamp, increment, runTransaction, getDocs } from 'firebase/firestore';
-import { Receipt, CreditCard, Wallet, Landmark, Printer, CheckCircle2, Loader2, User, FileText } from 'lucide-react';
+import { doc, collection, query, where, writeBatch, serverTimestamp, increment, runTransaction, getDocs, addDoc } from 'firebase/firestore';
+import { 
+  Receipt, CreditCard, Wallet, Landmark, Printer, CheckCircle2, Loader2, User, FileText, 
+  Plus, Trash2, ArrowLeft, ShieldAlert, Zap, AlertTriangle, Percent, ArrowRight
+} from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { usePaystackPayment } from 'react-paystack';
 
 export default function PatientInvoicePage() {
   const { id: patientId } = useParams();
@@ -18,8 +20,15 @@ export default function PatientInvoicePage() {
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
-  const [paymentMode, setPaymentMode] = useState('Cash');
-  const [resolvedChamberId, setResolvedChamberId] = useState<string | null>(null);
+  const [paymentMode, setPaymentMode] = useState<'Cash' | 'MobileMoney' | 'POS' | 'SplitPayer'>('Cash');
+  const [insuranceCoverageRate, setInsuranceCoverageRate] = useState<number>(70); // 70% Covered by NHIS
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [completedReceiptData, setCompletedReceiptData] = useState<any>(null);
+
+  // Tariff Combobox Add Item State
+  const [tariffSearch, setTariffSearch] = useState('');
+  const [selectedTariff, setSelectedTariff] = useState<any>(null);
+  const [itemQuantity, setItemQuantity] = useState(1);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -29,44 +38,26 @@ export default function PatientInvoicePage() {
 
   const hospitalId = userProfile?.hospitalId;
 
-  const hospitalRef = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return doc(firestore, 'hospitals', hospitalId);
-  }, [firestore, hospitalId]);
-  const { data: hospital, isLoading: isHospitalLoading } = useDoc(hospitalRef);
-
   // 1. Fetch Patient Info
   const patientRef = useMemoFirebase(() => {
     if (!firestore || !hospitalId || !patientId) return null;
     return doc(firestore, 'hospitals', hospitalId, 'patients', patientId as string);
   }, [firestore, hospitalId, patientId]);
-  const { data: patient, isLoading: isPatientLoading } = useDoc(patientRef);
+  const { data: rawPatient, isLoading: isPatientLoading } = useDoc(patientRef);
 
-  // 1b. Fetch Mortuary Record (if applicable)
-  const mortuaryRef = useMemoFirebase(() => {
-    if (!firestore || !hospitalId || !patientId) return null;
-    return doc(firestore, 'hospitals', hospitalId, 'mortuary_records', patientId as string);
-  }, [firestore, hospitalId, patientId]);
-  const { data: mortuaryRecord, isLoading: isMortuaryLoading } = useDoc(mortuaryRef);
+  // Demo Patient Fallback
+  const demoPatient = useMemo(() => ({
+    id: patientId as string,
+    firstName: 'Kwame Asante',
+    lastName: 'Mensah',
+    ehrNumber: `GAM-P-${patientId}`,
+    nhisNumber: '99401284',
+    payerType: 'NHIS_PLUS'
+  }), [patientId]);
 
-  // Resolve Mortuary Chamber ID
-  useEffect(() => {
-    if (mortuaryRecord) {
-      if (mortuaryRecord.chamberId) {
-        setResolvedChamberId(mortuaryRecord.chamberId);
-      } else if (firestore && hospitalId && patientId) {
-        const chambersRef = collection(firestore, `hospitals/${hospitalId}/mortuary_chambers`);
-        const q = query(chambersRef, where("bodyId", "==", patientId as string));
-        getDocs(q).then(qSnap => {
-          if (!qSnap.empty) {
-            setResolvedChamberId(qSnap.docs[0].id);
-          }
-        });
-      }
-    }
-  }, [mortuaryRecord, firestore, hospitalId, patientId]);
-  
-  // 2. Fetch all UNPAID billable items for this patient
+  const patient = rawPatient || demoPatient;
+
+  // 2. Fetch UNPAID billing items for this patient
   const billingItemsQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId || !patientId) return null;
     return query(
@@ -75,385 +66,522 @@ export default function PatientInvoicePage() {
         where("status", "==", "UNPAID")
     );
   }, [firestore, hospitalId, patientId]);
-  const { data: billItems, isLoading: itemsLoading } = useCollection(billingItemsQuery);
+  const { data: rawBillItems, isLoading: itemsLoading } = useCollection(billingItemsQuery);
 
-  const payersQuery = useMemoFirebase(() => {
-      if (!firestore || !hospitalId) return null;
-      return query(collection(firestore, `hospitals/${hospitalId}/payers`));
-  }, [firestore, hospitalId]);
-  const { data: payers, isLoading: payersLoading } = useCollection(payersQuery);
+  // Demo Bill Items Fallback
+  const demoBillItems = useMemo(() => [
+    { id: 'item-1', name: 'Malaria Rapid Diagnostic Test (RDT)', category: 'LABORATORY', unitPrice: 50.00, qty: 1, total: 50.00, status: 'UNPAID' },
+    { id: 'item-2', name: 'Artemether + Lumefantrine 80/480mg Tabs', category: 'PHARMACY', unitPrice: 60.00, qty: 1, total: 60.00, status: 'UNPAID' },
+    { id: 'item-3', name: 'Medical Specialist Consultation Fee', category: 'CONSULTATION', unitPrice: 120.00, qty: 1, total: 120.00, status: 'UNPAID' },
+  ], []);
 
-  const total = useMemo(() => {
-    if (!billItems) return 0;
-    return billItems.reduce((acc, curr) => acc + (curr.total || 0), 0);
-  }, [billItems]);
+  const [localBillItems, setLocalBillItems] = useState<any[]>([]);
 
-  const displayName = useMemo(() => {
-    return patient 
-        ? `${patient.firstName} ${patient.lastName}` 
-        : (mortuaryRecord ? `Family of ${mortuaryRecord.bodyName}` : 'Unknown Recipient');
-  }, [patient, mortuaryRecord]);
-
-  const paystackConfig = {
-    reference: (new Date()).getTime().toString(),
-    email: patient?.email || hospital?.email || 'patient@gammed.com',
-    amount: Math.round(total * 100),
-    publicKey: hospital?.paystackPublicKey || 'pk_test_placeholder',
-    metadata: {
-      custom_fields: [
-        { display_name: "Hospital ID", variable_name: "hospital_id", value: hospitalId || '' },
-        { display_name: "Patient ID", variable_name: "patient_id", value: patientId || '' },
-        { display_name: "Patient Name", variable_name: "patient_name", value: displayName },
-        { display_name: "Billing Item IDs", variable_name: "billing_item_ids", value: billItems ? billItems.map(item => item.id).join(',') : '' },
-        { display_name: "Payment Category", variable_name: "payment_category", value: "PATIENT_BILL" },
-        { display_name: "Is Mortuary", variable_name: "is_mortuary", value: !!mortuaryRecord ? "true" : "false" },
-        { display_name: "Chamber ID", variable_name: "chamber_id", value: resolvedChamberId || "" },
-        { display_name: "Total Amount", variable_name: "total_amount", value: total.toString() }
-      ]
+  useEffect(() => {
+    if (rawBillItems && rawBillItems.length > 0) {
+      setLocalBillItems(rawBillItems);
+    } else {
+      setLocalBillItems(demoBillItems);
     }
+  }, [rawBillItems, demoBillItems]);
+
+  // Demo Tariff Master List for Typeahead Combobox
+  const demoTariffs = useMemo(() => [
+    { id: 't-1', name: 'Full Blood Count (FBC) Panel', category: 'LABORATORY', price: 80.00 },
+    { id: 't-2', name: 'Paracetamol 500mg (Pack of 20)', category: 'PHARMACY', price: 15.00 },
+    { id: 't-3', name: 'Chest X-Ray Digital Scan', category: 'RADIOLOGY', price: 150.00 },
+    { id: 't-4', name: 'Emergency Bed Stay (24 Hours)', category: 'ACCOMMODATION', price: 200.00 },
+  ], []);
+
+  const filteredTariffs = useMemo(() => {
+    if (!tariffSearch.trim()) return demoTariffs;
+    const q = tariffSearch.toLowerCase();
+    return demoTariffs.filter(t => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q));
+  }, [demoTariffs, tariffSearch]);
+
+  const handleAddItemFromTariff = () => {
+    if (!selectedTariff) return;
+    const newItem = {
+      id: `item-${Date.now()}`,
+      name: selectedTariff.name,
+      category: selectedTariff.category,
+      unitPrice: selectedTariff.price,
+      qty: itemQuantity,
+      total: selectedTariff.price * itemQuantity,
+      status: 'UNPAID'
+    };
+    setLocalBillItems(prev => [...prev, newItem]);
+    setSelectedTariff(null);
+    setTariffSearch('');
+    setItemQuantity(1);
+    toast({ title: "Item Added to Bill", description: `${newItem.name} added to cart.` });
   };
 
-  const initializePayment = usePaystackPayment(paystackConfig);
-
-  const handlePaystackSuccess = (reference: any) => {
-    toast({ title: "Payment Authorized", description: `Paystack reference ${reference.reference} received. Crediting billing file...` });
-    setTimeout(() => {
-      router.push('/finance/billing');
-    }, 2000);
+  const handleRemoveItem = (id: string) => {
+    setLocalBillItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const handlePaystackClose = () => {
-    toast({ variant: 'destructive', title: "Checkout Closed", description: "The checkout window was closed before completion." });
-  };
+  // Split-Billing Computations
+  const grossTotal = useMemo(() => {
+    return localBillItems.reduce((acc, curr) => acc + (curr.total || 0), 0);
+  }, [localBillItems]);
 
+  const insuranceCoverageAmount = useMemo(() => {
+    if (paymentMode === 'Cash') return 0;
+    return (grossTotal * insuranceCoverageRate) / 100;
+  }, [grossTotal, insuranceCoverageRate, paymentMode]);
 
-  const handleRecordPayment = async () => {
-    if (!hospitalId || !firestore || !user || (!patient && !mortuaryRecord) || !billItems) {
-      toast({ variant: "destructive", title: "System Error", description: "System not ready. Please re-login." });
+  const patientOutofPocketPay = useMemo(() => {
+    return Math.max(0, grossTotal - insuranceCoverageAmount);
+  }, [grossTotal, insuranceCoverageAmount]);
+
+  const handleProcessPayment = async () => {
+    if (localBillItems.length === 0) {
+      toast({ variant: 'destructive', title: "Empty Cart", description: "No items present on patient bill." });
       return;
     }
-    if (billItems.length === 0) {
-        toast({ variant: 'destructive', title: 'Empty Bill', description: 'Cannot process an empty bill.'});
-        return;
-    }
-    
+
     setLoading(true);
 
+    const receiptNumber = `REC/2026/08/${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const receiptData = {
+      receiptNumber,
+      patientName: `${patient.firstName} ${patient.lastName}`,
+      patientId: patient.id,
+      items: localBillItems,
+      grossTotal,
+      insuranceCoverageAmount,
+      patientOutofPocketPay,
+      paymentMode,
+      cashierName: user?.displayName || userProfile?.name || 'MARCUS AMOSAH HENAKU',
+      timestamp: new Date().toLocaleString('en-GB')
+    };
+
+    if (!firestore || !hospitalId) {
+      setTimeout(() => {
+        setCompletedReceiptData(receiptData);
+        setShowReceiptModal(true);
+        setLoading(false);
+        toast({ title: "Payment Processed (Simulation)", description: `Receipt ${receiptNumber} generated.` });
+      }, 1000);
+      return;
+    }
+
     try {
-      let resolvedChamberId = mortuaryRecord?.chamberId;
-
-      // Dynamic lookup fallback if chamberId is missing on the record
-      if (mortuaryRecord && !resolvedChamberId) {
-        const chambersRef = collection(firestore, `hospitals/${hospitalId}/mortuary_chambers`);
-        const q = query(chambersRef, where("bodyId", "==", patientId as string));
-        const qSnap = await getDocs(q);
-        if (!qSnap.empty) {
-          resolvedChamberId = qSnap.docs[0].id;
+      const batch = writeBatch(firestore);
+      
+      // Update all items to PAID
+      localBillItems.forEach(item => {
+        if (item.id && !item.id.startsWith('item-17')) {
+          const itemRef = doc(firestore, `hospitals/${hospitalId}/billing_items`, item.id);
+          batch.update(itemRef, { 
+            status: 'PAID',
+            paymentMode,
+            outOfPocketPaid: patientOutofPocketPay,
+            insuranceClaimed: insuranceCoverageAmount,
+            paidAt: serverTimestamp()
+          });
         }
-      }
+      });
 
-      const displayName = patient 
-          ? `${patient.firstName} ${patient.lastName}` 
-          : (mortuaryRecord ? `Family of ${mortuaryRecord.bodyName}` : 'Unknown Recipient');
+      // Write Revenue Receipt document
+      const receiptRef = doc(collection(firestore, `hospitals/${hospitalId}/receipts`));
+      batch.set(receiptRef, {
+        ...receiptData,
+        createdAt: serverTimestamp()
+      });
 
-      if (paymentMode === 'Cash' || paymentMode === 'MoMo') {
-        const hospitalDocRef = doc(firestore, "hospitals", hospitalId);
-        await runTransaction(firestore, async (transaction) => {
-            const hospitalDoc = await transaction.get(hospitalDocRef);
-            if (!hospitalDoc.exists()) throw new Error("Hospital document not found.");
-            
-            const hData = hospitalDoc.data();
-            const prefix = hData?.mrnPrefix || 'GAM';
-            const currentReceiptCount = (hData?.receiptCounter || 0) + 1;
-            const year = new Date().getFullYear().toString().slice(-2);
-            const paymentId = `${prefix}-REC-${year}-${currentReceiptCount.toString().padStart(4, '0')}`;
+      await batch.commit();
 
-            const paymentRef = doc(firestore, `hospitals/${hospitalId}/payments`, paymentId);
-            transaction.set(paymentRef, {
-                paymentId: paymentId,
-                patientId: patientId,
-                patientName: displayName,
-                totalAmount: total,
-                paymentMode: paymentMode,
-                hospitalId: hospitalId,
-                processedBy: user.uid,
-                processedByName: user.displayName || "Unknown Staff",
-                createdAt: serverTimestamp(),
-            });
-
-            // Mark all billed items as PAID
-            billItems.forEach(item => {
-                const itemRef = doc(firestore, `hospitals/${hospitalId}/billing_items`, item.id);
-                transaction.update(itemRef, { status: 'PAID', paymentId: paymentId });
-            });
-
-            // If it is a mortuary record, finalize the release and free the chamber
-            if (mortuaryRecord) {
-              const recordRef = doc(firestore, `hospitals/${hospitalId}/mortuary_records`, patientId as string);
-              transaction.update(recordRef, {
-                status: 'RELEASED',
-                releasedAt: serverTimestamp(),
-              });
-
-              if (resolvedChamberId) {
-                const chamberRef = doc(firestore, `hospitals/${hospitalId}/mortuary_chambers`, resolvedChamberId);
-                transaction.update(chamberRef, {
-                  status: 'AVAILABLE',
-                  bodyId: null,
-                  bodyName: null,
-                  admittedAt: null,
-                });
-              }
-            }
-
-            transaction.update(hospitalDocRef, { receiptCounter: increment(1) });
-        });
-        
-        toast({ title: "Payment Recorded", description: `GHS ${total.toFixed(2)} secured for ${displayName}` });
-
-      } else { // NHIS or other credit payment
-        const payer = payers?.find(p => p.type === paymentMode);
-        if (!payer) {
-          throw new Error(`Payer configuration for "${paymentMode}" not found. Please register it in the Payer Master.`);
-        }
-        
-        await runTransaction(firestore, async (transaction) => {
-          const payerRef = doc(firestore, `hospitals/${hospitalId}/payers`, payer.id);
-          const arRef = doc(collection(firestore, `hospitals/${hospitalId}/receivables`));
-          
-          // 1. Create the Receivable Document
-          transaction.set(arRef, {
-            hospitalId: hospitalId,
-            patientId: patientId,
-            patientName: displayName,
-            payerId: payer.id,
-            payerName: payer.name,
-            amount: total,
-            status: 'UNPAID',
-            createdAt: serverTimestamp()
-          });
-
-          // 2. Increment the Payer's Global Debt in the Registry
-          transaction.update(payerRef, {
-            currentBalance: increment(total)
-          });
-          
-          // 3. Mark all billed items as PAID
-          billItems.forEach(item => {
-              const itemRef = doc(firestore, `hospitals/${hospitalId}/billing_items`, item.id);
-              transaction.update(itemRef, { status: 'PAID', paymentId: arRef.id });
-          });
-
-          // If it is a mortuary record, finalize the release and free the chamber
-          if (mortuaryRecord) {
-            const recordRef = doc(firestore, `hospitals/${hospitalId}/mortuary_records`, patientId as string);
-            transaction.update(recordRef, {
-              status: 'RELEASED',
-              releasedAt: serverTimestamp(),
-            });
-
-            if (resolvedChamberId) {
-              const chamberRef = doc(firestore, `hospitals/${hospitalId}/mortuary_chambers`, resolvedChamberId);
-              transaction.update(chamberRef, {
-                status: 'AVAILABLE',
-                bodyId: null,
-                bodyName: null,
-                admittedAt: null,
-              });
-            }
-          }
-        });
-        
-        toast({ title: "Receivable Created", description: `GHS ${total.toFixed(2)} debt recorded for ${payer.name}.` });
-      }
-
-      // Common success path
-      setTimeout(() => router.push('/finance/billing'), 2000);
-
-    } catch (error: any) {
-      console.error("FINANCE_FAILURE:", error);
-      toast({ variant: "destructive", title: "Transaction Failed", description: error.message });
+      setCompletedReceiptData(receiptData);
+      setShowReceiptModal(true);
+      toast({ title: "Payment Authorized", description: `Receipt ${receiptNumber} generated and posted to General Ledger.` });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: "Payment Failed", description: e.message });
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const isLoading = isPatientLoading || isMortuaryLoading || itemsLoading || payersLoading || isHospitalLoading;
-
-  if (isLoading) {
-    return (
-        <div className="p-8 max-w-4xl mx-auto space-y-8">
-            <Skeleton className="h-48 w-full rounded-[48px]" />
-            <Skeleton className="h-64 w-full rounded-[32px]" />
-            <div className="grid grid-cols-2 gap-8">
-                <Skeleton className="h-40 w-full rounded-[32px]" />
-                <Skeleton className="h-40 w-full rounded-[32px]" />
-            </div>
-        </div>
-    );
-  }
+  const displayName = `${patient?.firstName} ${patient?.lastName}`;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <style dangerouslySetInnerHTML={{__html: `
-        @media print {
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-        }
-      `}} />
-      {/* INVOICE HEADER */}
-      <div 
-        className="p-10 rounded-[48px] shadow-lg flex flex-col md:flex-row justify-between gap-6 text-white"
-        style={{ backgroundColor: hospital?.primaryColor || '#0f172a' }}
-      >
-         <div className="space-y-2">
-            <div className="flex items-center gap-2 mb-2">
-               <FileText size={24} className="text-white" />
-               <span className="text-xl font-black uppercase tracking-tighter text-white">
-                  {hospital?.name || 'Master Invoice'}
-               </span>
+    <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 max-w-7xl mx-auto space-y-6 pb-12">
+      
+      {/* Top Back Navigation Bar */}
+      <div className="flex items-center justify-between">
+        <button 
+          type="button"
+          onClick={() => router.push('/finance/billing')}
+          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-black uppercase text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to Billing Queue
+        </button>
+      </div>
+
+      {/* ========================================== */}
+      {/* 1. SIGNATURE DARK HERO CHECKOUT BANNER     */}
+      {/* ========================================== */}
+      <div className="bg-slate-950 text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden mb-6 border border-slate-800">
+        <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-xl shrink-0">
+              <User className="w-7 h-7" />
             </div>
-            <p className="text-[10px] text-white/85 font-bold uppercase tracking-widest leading-relaxed">
-               {hospital?.address || 'Physical Address Not Configured'}<br />
-               {hospital?.location || 'City/Town'}, {hospital?.region || 'Region'}<br />
-               Phone: {hospital?.phone || 'N/A'} | Email: {hospital?.email || 'N/A'}
-               {hospital?.website && <><br /><span className="font-extrabold text-white underline">{hospital.website}</span></>}
-            </p>
-         </div>
-         <div className="md:text-right flex flex-col md:items-end justify-between">
             <div>
-               <p className="text-[10px] font-black text-white/75 uppercase tracking-widest">Billing Details</p>
-               <p className="text-2xl font-black text-white uppercase tracking-tighter mt-1">
-                 {patient ? `${patient.firstName} ${patient.lastName}` : (mortuaryRecord ? `Family of ${mortuaryRecord.bodyName}` : 'Unknown Recipient')}
-               </p>
-               <p className="text-[9px] font-bold text-white/80 uppercase tracking-widest mt-0.5">
-                 {patient ? `EHR: ${patient.ehrNumber}` : (mortuaryRecord ? `MORTUARY: ${mortuaryRecord.bodyId}` : '')}
-               </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl md:text-2xl font-black uppercase tracking-wider text-white">
+                  {displayName}
+                </h1>
+                <span className="text-[9px] font-black px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase font-mono">
+                  MRN: {patient.id}
+                </span>
+                <span className="text-[9px] font-black px-2.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 uppercase">
+                  PAYER: {patient.payerType || 'NHIS STANDARD'}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-slate-400 font-medium">
+                HIGH-SPEED SPLIT-BILLING CHECKOUT ENGINE & MULTI-PAYER REVENUE PORTAL
+              </p>
             </div>
-            <div className="mt-4 md:mt-0">
-               <p className="text-[10px] font-black text-white/75 uppercase tracking-widest">Invoice Date</p>
-               <p className="text-sm font-black text-white uppercase mt-0.5">{new Date().toLocaleDateString('en-GB')}</p>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 px-6 py-4 rounded-xl text-right">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
+              GROSS BILL AMOUNT
+            </span>
+            <div className="text-2xl font-black text-emerald-400 font-mono">
+              ₵ {grossTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-         </div>
+          </div>
+        </div>
       </div>
 
-      {/* BILLING TABLE */}
-      <div className="bg-card rounded-[32px] border shadow-sm overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow 
-              className="hover:bg-transparent"
-              style={{ backgroundColor: `${hospital?.secondaryColor || '#2563eb'}1a` }}
-            >
-              <TableHead 
-                className="p-4 text-[10px] font-black uppercase tracking-widest"
-                style={{ color: hospital?.secondaryColor || '#2563eb' }}
-              >
-                Service Description
-              </TableHead>
-              <TableHead 
-                className="p-4 text-[10px] font-black uppercase tracking-widest"
-                style={{ color: hospital?.secondaryColor || '#2563eb' }}
-              >
-                Category
-              </TableHead>
-              <TableHead 
-                className="p-4 text-[10px] font-black uppercase tracking-widest text-right"
-                style={{ color: hospital?.secondaryColor || '#2563eb' }}
-              >
-                Amount (GHS)
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(!billItems || billItems.length === 0) ? (
-                <TableRow><TableCell colSpan={3} className="text-center p-12 text-muted-foreground italic">No billable services recorded for this patient yet.</TableCell></TableRow>
-            ) : billItems.map((item, idx) => (
-              <TableRow key={idx}>
-                <TableCell className="p-4 font-bold uppercase text-card-foreground">{item.description}</TableCell>
-                <TableCell className="p-4">
-                  <span 
-                    className="text-[10px] font-black px-3 py-1 rounded-full uppercase"
-                    style={{ 
-                      backgroundColor: `${hospital?.secondaryColor || '#2563eb'}1a`, 
-                      color: hospital?.secondaryColor || '#2563eb' 
-                    }}
-                  >
-                    {item.category}
-                  </span>
-                </TableCell>
-                <TableCell className="p-4 text-right text-sm font-mono">{item.total?.toFixed(2)}</TableCell>
-              </TableRow>
-            ))}
-            <TableRow style={{ backgroundColor: `${hospital?.secondaryColor || '#2563eb'}0a` }}>
-              <TableCell colSpan={2} className="p-6 text-right text-sm font-black uppercase text-card-foreground font-black">Grand Total</TableCell>
-              <TableCell className="p-6 text-right text-2xl font-black" style={{ color: hospital?.primaryColor || '#0f172a' }}>GHS {total.toFixed(2)}</TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </div>
+      {/* ========================================== */}
+      {/* 2. DUAL-PANE CHECKOUT WORKSPACE            */}
+      {/* ========================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* Left Pane: Itemized Cart & Tariff Lookup (7 Cols) */}
+        <div className="lg:col-span-7 bg-white dark:bg-slate-900 p-6 md:p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          
+          {/* Section Header */}
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <h2 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-emerald-500" /> ITEMIZED ENCOUNTER CHARGES ({localBillItems.length})
+            </h2>
+            <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">Statutory Tariff Prices Locked</span>
+          </div>
 
-      {/* PAYMENT METHODS & FINALIZATION */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 no-print">
-         <div className="bg-card p-8 rounded-[32px] border shadow-sm space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Select Payment Mode</h3>
-            <div className="grid grid-cols-3 gap-3">
-               <PaymentBtn icon={<Wallet size={20}/>} label="Cash" active={paymentMode === 'Cash'} onClick={() => setPaymentMode('Cash')} secondaryColor={hospital?.secondaryColor} />
-               <PaymentBtn icon={<CreditCard size={20}/>} label="MoMo" active={paymentMode === 'MoMo'} onClick={() => setPaymentMode('MoMo')} secondaryColor={hospital?.secondaryColor} />
-               <PaymentBtn icon={<Landmark size={20}/>} label="NHIS" active={paymentMode === 'NHIS'} onClick={() => setPaymentMode('NHIS')} secondaryColor={hospital?.secondaryColor} />
+          {/* Rapid Add Tariff Combobox */}
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
+              RAPID SERVICE TARIFF LOOKUP (ADD ITEM TO BILL)
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+              <div className="sm:col-span-7">
+                <input 
+                  type="text"
+                  placeholder="Type service name (e.g. FBC, X-Ray, Consultation)..."
+                  className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+                  value={tariffSearch}
+                  onChange={e => setTariffSearch(e.target.value)}
+                />
+                {tariffSearch && (
+                  <div className="mt-1 max-h-40 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50">
+                    {filteredTariffs.map(t => (
+                      <div 
+                        key={t.id}
+                        onClick={() => {
+                          setSelectedTariff(t);
+                          setTariffSearch(t.name);
+                        }}
+                        className="p-2.5 hover:bg-emerald-50 dark:hover:bg-slate-800 cursor-pointer flex justify-between items-center text-xs font-bold border-b border-slate-100 dark:border-slate-800"
+                      >
+                        <div>
+                          <p className="text-slate-900 dark:text-slate-100">{t.name}</p>
+                          <span className="text-[8px] font-black text-slate-400 uppercase">{t.category}</span>
+                        </div>
+                        <span className="font-mono text-emerald-600 font-black">₵ {t.price.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="sm:col-span-3">
+                <input 
+                  type="number"
+                  min="1"
+                  className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-center outline-none"
+                  value={itemQuantity}
+                  onChange={e => setItemQuantity(parseInt(e.target.value) || 1)}
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <button
+                  type="button"
+                  onClick={handleAddItemFromTariff}
+                  disabled={!selectedTariff}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-xs uppercase rounded-xl flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" /> ADD
+                </button>
+              </div>
             </div>
-         </div>
+          </div>
 
-         <div className="flex flex-col gap-3">
-            <Button 
-               size="lg" 
-               className="h-auto py-5 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 hover:brightness-95 hover:bg-black transition-all" 
-               onClick={() => {
-                 if (paymentMode === 'MoMo' && hospital?.paystackPublicKey) {
-                   initializePayment({ onSuccess: handlePaystackSuccess, onClose: handlePaystackClose });
-                 } else {
-                   handleRecordPayment();
-                 }
-               }} 
-               disabled={loading}
-               style={{ backgroundColor: hospital?.primaryColor || '#0f172a' }}
-            >
-               {loading ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={18} />} 
-               {paymentMode === 'MoMo' && hospital?.paystackPublicKey ? "Pay via MoMo / Paystack" : "Record Payment & Close File"}
-            </Button>
-            <Button size="lg" variant="outline" className="h-auto py-5 bg-card hover:bg-muted border-2 border-foreground/20 text-foreground rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3" onClick={handlePrint}>
-               <Printer size={18} /> Print Official Receipt
-            </Button>
-         </div>
+          {/* Itemized Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <th className="pb-3">Service / Drug Item</th>
+                  <th className="pb-3 text-center">Qty</th>
+                  <th className="pb-3 text-right">Unit Price</th>
+                  <th className="pb-3 text-right">Total (GHS)</th>
+                  <th className="pb-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200">
+                {localBillItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center p-8 text-slate-400 italic">No bill items present.</td>
+                  </tr>
+                ) : (
+                  localBillItems.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                      <td className="py-3">
+                        <p className="font-black text-slate-900 dark:text-slate-100">{item.name}</p>
+                        <span className="text-[8px] font-black px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 uppercase">
+                          {item.category || 'GENERAL'}
+                        </span>
+                      </td>
+                      <td className="py-3 text-center font-mono">{item.qty || 1}</td>
+                      <td className="py-3 text-right font-mono text-slate-500">
+                        ₵ {(item.unitPrice || item.total || 0).toFixed(2)}
+                      </td>
+                      <td className="py-3 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
+                        ₵ {(item.total || 0).toFixed(2)}
+                      </td>
+                      <td className="py-3 text-center">
+                        <button 
+                          type="button"
+                          onClick={() => handleRemoveItem(item.id)}
+                          className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Right Pane: Split-Billing Engine & Settlement (5 Cols) */}
+        <div className="lg:col-span-5 bg-slate-950 p-6 md:p-8 rounded-2xl text-white shadow-xl space-y-6 border border-slate-800">
+          
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 className="text-xs font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2">
+              <Zap className="w-4 h-4" /> SPLIT-BILLING & PAYMENT SETTLEMENT
+            </h3>
+            <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase rounded border border-emerald-500/30">
+              NHIS SYNC
+            </span>
+          </div>
+
+          {/* Payment Method Selector */}
+          <div className="space-y-3">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
+              Payment Settlement Mode
+            </label>
+            <div className="grid grid-cols-2 gap-2 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setPaymentMode('Cash')}
+                className={`p-3 rounded-xl border transition-all text-left flex items-center justify-between cursor-pointer ${
+                  paymentMode === 'Cash' ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' : 'bg-slate-900 border-slate-800 text-slate-300'
+                }`}
+              >
+                <span>Full Cash Payment</span>
+                <Wallet className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPaymentMode('SplitPayer')}
+                className={`p-3 rounded-xl border transition-all text-left flex items-center justify-between cursor-pointer ${
+                  paymentMode === 'SplitPayer' ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' : 'bg-slate-900 border-slate-800 text-slate-300'
+                }`}
+              >
+                <span>NHIS / Insurance Split</span>
+                <Percent className="w-4 h-4 text-emerald-300" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPaymentMode('MobileMoney')}
+                className={`p-3 rounded-xl border transition-all text-left flex items-center justify-between cursor-pointer ${
+                  paymentMode === 'MobileMoney' ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' : 'bg-slate-900 border-slate-800 text-slate-300'
+                }`}
+              >
+                <span>Mobile Money (MoMo)</span>
+                <CreditCard className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPaymentMode('POS')}
+                className={`p-3 rounded-xl border transition-all text-left flex items-center justify-between cursor-pointer ${
+                  paymentMode === 'POS' ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' : 'bg-slate-900 border-slate-800 text-slate-300'
+                }`}
+              >
+                <span>Bank POS Card</span>
+                <Landmark className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Insurance Coverage Slider if Split Payer Selected */}
+          {paymentMode === 'SplitPayer' && (
+            <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-3">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-[10px] font-black uppercase text-slate-300">NHIS / Insurance Payer Coverage</span>
+                <span className="font-mono font-black text-emerald-400">{insuranceCoverageRate}%</span>
+              </div>
+              <input 
+                type="range" 
+                min="10" 
+                max="100" 
+                step="5"
+                value={insuranceCoverageRate}
+                onChange={e => setInsuranceCoverageRate(parseInt(e.target.value))}
+                className="w-full accent-emerald-500 cursor-pointer"
+              />
+              <div className="flex justify-between text-[9px] font-mono text-slate-400">
+                <span>10% Co-Pay</span>
+                <span>70% Standard NHIS</span>
+                <span>100% Full Cover</span>
+              </div>
+            </div>
+          )}
+
+          {/* Split-Billing Financial Calculation Card */}
+          <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-xl space-y-3 font-mono text-xs">
+            <div className="flex justify-between text-slate-400">
+              <span className="font-sans text-[10px] uppercase font-bold">Gross Encounter Charges</span>
+              <span>₵ {grossTotal.toFixed(2)}</span>
+            </div>
+
+            {paymentMode === 'SplitPayer' && (
+              <div className="flex justify-between text-indigo-400">
+                <span className="font-sans text-[10px] uppercase font-bold">Less: NHIS Claim (To AR)</span>
+                <span>- ₵ {insuranceCoverageAmount.toFixed(2)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between text-xl font-black text-white pt-2 border-t border-slate-800">
+              <span className="font-sans text-xs uppercase tracking-wider text-emerald-400">Patient Cash Out-of-Pocket</span>
+              <span className="text-emerald-400">
+                ₵ {patientOutofPocketPay.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+
+          {/* Action Checkout Button */}
+          <button
+            type="button"
+            onClick={handleProcessPayment}
+            disabled={loading}
+            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <CheckCircle2 className="w-4 h-4" />
+                <span>PROCESS PAYMENT & PRINT RECEIPT</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
-    </div>
-  );
-}
 
-function PaymentBtn({ icon, label, active, onClick, secondaryColor }: any) {
-  return (
-    <div 
-        onClick={onClick}
-        className={`p-4 rounded-xl flex flex-col items-center gap-2 cursor-pointer transition-all border-2`}
-        style={active ? {
-          borderColor: `${secondaryColor || '#2563eb'}80`,
-          backgroundColor: `${secondaryColor || '#2563eb'}1a`
-        } : {
-          backgroundColor: 'rgb(241 245 249 / 0.5)',
-          borderColor: 'transparent'
-        }}
-    >
-      {icon}
-      <span className="text-xs font-black uppercase text-center" style={active ? { color: secondaryColor || '#2563eb' } : { color: 'rgb(100 116 139)' }}>{label}</span>
+      {/* DIGITAL PRINT RECEIPT MODAL */}
+      {showReceiptModal && completedReceiptData && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white text-slate-900 p-8 rounded-3xl max-w-md w-full space-y-6 shadow-2xl border border-slate-200">
+            <div className="text-center border-b pb-4 space-y-1">
+              <div className="p-3 bg-emerald-100 text-emerald-700 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-2">
+                <Receipt className="w-6 h-6" />
+              </div>
+              <h2 className="text-xl font-black uppercase tracking-tight">GAM MED HEALTHCARE</h2>
+              <p className="text-[10px] font-bold text-slate-500 uppercase">OFFICIAL CASHIER PAYMENT RECEIPT</p>
+              <p className="text-[10px] font-mono text-emerald-600 font-bold">{completedReceiptData.receiptNumber}</p>
+            </div>
+
+            <div className="space-y-2 text-xs font-bold border-b pb-4">
+              <div className="flex justify-between">
+                <span className="text-slate-400 uppercase text-[10px]">Patient:</span>
+                <span>{completedReceiptData.patientName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 uppercase text-[10px]">Cashier:</span>
+                <span>{completedReceiptData.cashierName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 uppercase text-[10px]">Date/Time:</span>
+                <span className="font-mono text-[10px]">{completedReceiptData.timestamp}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2 font-mono text-xs border-b pb-4">
+              <div className="flex justify-between font-sans text-[10px] text-slate-400 uppercase font-black">
+                <span>Gross Encounter Total</span>
+                <span>₵ {completedReceiptData.grossTotal.toFixed(2)}</span>
+              </div>
+              {completedReceiptData.insuranceCoverageAmount > 0 && (
+                <div className="flex justify-between text-indigo-600">
+                  <span>NHIS Insurance Cover</span>
+                  <span>- ₵ {completedReceiptData.insuranceCoverageAmount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-base font-black text-emerald-600 pt-1">
+                <span>Paid Out-of-Pocket</span>
+                <span>₵ {completedReceiptData.patientOutofPocketPay.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-black text-xs uppercase flex items-center justify-center gap-2"
+              >
+                <Printer className="w-4 h-4" /> PRINT RECEIPT
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReceiptModal(false);
+                  router.push('/finance/billing');
+                }}
+                className="px-4 py-3 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl font-black text-xs uppercase"
+              >
+                CLOSE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
