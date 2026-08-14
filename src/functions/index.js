@@ -2628,3 +2628,105 @@ exports.generateLocumPaymentVoucher = onCall(async (request) => {
     throw new HttpsError("internal", error.message || "Failed to generate the locum voucher.");
   }
 });
+
+/**
+ * 6. runMonthlyAssetDepreciation
+ * Automates monthly straight-line depreciation across active fixed assets and posts GL entries.
+ * Formula: Monthly Depr = (Purchase Cost - Salvage Value) / (Useful Life in Years * 12)
+ * Debit 6500 Depreciation Expense, Credit 1550 Accumulated Depreciation
+ */
+exports.runMonthlyAssetDepreciation = onCall(async (request) => {
+  const { auth, data } = request;
+  if (!auth) {
+    throw new HttpsError("unauthenticated", "Authentication is required.");
+  }
+
+  const { hospitalId } = data || {};
+  const targetHospitalId = hospitalId || auth.token?.hospitalId;
+
+  if (!targetHospitalId) {
+    throw new HttpsError("invalid-argument", "Hospital ID is required.");
+  }
+
+  const periodKey = new Date().toISOString().substring(0, 7);
+
+  try {
+    const assetsSnap = await db.collection(`hospitals/${targetHospitalId}/assets`)
+      .get();
+
+    if (assetsSnap.empty) {
+      return { success: true, processedCount: 0, totalDepreciation: 0, message: "No active assets to depreciate." };
+    }
+
+    let processedCount = 0;
+    let totalDepreciation = 0;
+    const batch = db.batch();
+
+    assetsSnap.docs.forEach(docSnap => {
+      const asset = docSnap.data();
+      const status = asset.status || 'ACTIVE';
+      if (!['ACTIVE', 'OPERATIONAL'].includes(status)) return;
+
+      const cost = Number(asset.purchasePrice || asset.cost || 0);
+      const salvage = Number(asset.salvageValue || 0);
+      const usefulLifeYears = Number(asset.usefulLife || 5);
+      const totalMonths = usefulLifeYears * 12;
+
+      const monthlyDepr = Math.max(0, (cost - salvage) / totalMonths);
+      const currentAccum = Number(asset.accumulatedDepreciation || asset.accumDepr || 0);
+      const maxDepr = cost - salvage;
+
+      if (currentAccum < maxDepr && asset.lastDepreciationPeriod !== periodKey) {
+        const actualDepr = Math.min(monthlyDepr, maxDepr - currentAccum);
+        const newAccum = currentAccum + actualDepr;
+        const newNbv = Math.max(0, cost - newAccum);
+
+        batch.update(docSnap.ref, {
+          accumulatedDepreciation: newAccum,
+          accumDepr: newAccum,
+          nbv: newNbv,
+          netBookValue: newNbv,
+          lastDepreciationPeriod: periodKey,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        totalDepreciation += actualDepr;
+        processedCount++;
+      }
+    });
+
+    if (processedCount > 0) {
+      const jvRef = db.collection(`hospitals/${targetHospitalId}/journal_entries`).doc();
+      const jvNumber = `JV-DEP-${periodKey.replace('-', '')}-${Math.floor(100 + Math.random() * 900)}`;
+
+      batch.set(jvRef, {
+        jvNumber,
+        narration: `Automated Monthly Asset Depreciation Batch for ${periodKey}`,
+        totalAmount: totalDepreciation,
+        status: 'AUTHORIZED',
+        createdByName: 'SYSTEM DEPRECIATION ENGINE',
+        createdBy: auth.uid,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        lines: [
+          { accountId: '6500', accountName: '6500 - Depreciation Expense', debit: totalDepreciation, credit: 0 },
+          { accountId: '1550', accountName: '1550 - Accumulated Depreciation (Medical & Capital Eq.)', debit: 0, credit: totalDepreciation }
+        ]
+      });
+    }
+
+    await batch.commit();
+
+    return {
+      success: true,
+      processedCount,
+      totalDepreciation,
+      periodKey,
+      message: `Monthly Depreciation Batch completed. Processed ${processedCount} assets totalling GHS ${totalDepreciation.toFixed(2)}.`
+    };
+  } catch (error) {
+    console.error("Monthly Asset Depreciation Error: ", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "Failed to execute asset depreciation batch.");
+  }
+});
+

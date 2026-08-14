@@ -1,70 +1,54 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useDoc } from '@/firebase';
-import { collection, query, serverTimestamp, doc, writeBatch, increment } from 'firebase/firestore';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import {
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, doc, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { 
   Building2, Truck, Zap, Activity,
   Plus, Search, TrendingDown, Wrench,
   ShieldCheck, Calculator, Calendar, Loader2, ShieldAlert,
-  Filter, CheckCircle2, FileText, MoreHorizontal, Edit3
+  Filter, CheckCircle2, FileText, Eye, AlertCircle, X, Layers, Wallet, HardDrive, CheckSquare
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useRouter } from 'next/navigation';
-import { ASSET_GROUPS, PPE_SUB_DIVISIONS } from '@/lib/constants';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
-const assetGroupIds = ASSET_GROUPS.map(g => g.id) as [string, ...string[]];
+type FixedAsset = {
+  id: string;
+  tag: string;
+  name: string;
+  category: 'MEDICAL_EQ' | 'IT_INFRA' | 'MOTOR_VEHICLES' | 'FURNITURE' | 'PPE';
+  purchaseDate: string;
+  cost: number;
+  accumDepr: number;
+  nbv: number;
+  usefulLifeYears: number;
+  salvageValue: number;
+  status: 'ACTIVE' | 'MAINTENANCE' | 'DISPOSED';
+};
 
-const assetSchema = z.object({
-  name: z.string().min(1, "Asset Name is required."),
-  category: z.enum(assetGroupIds, { required_error: "Category is required."}),
-  subDivision: z.string().optional(),
-  tagId: z.string().min(1, "Asset Tag ID is required."),
-  purchaseDate: z.string().min(1, "Purchase Date is required."),
-  purchasePrice: z.coerce.number().min(0, "Purchase Price must be a positive number."),
-  usefulLife: z.coerce.number().min(1, "Useful Life must be at least 1 year."),
-  salvageValue: z.coerce.number().min(0, "Salvage Value cannot be negative."),
-  status: z.string().min(1, "Status is required."),
-}).refine(data => {
-  if (data.category === 'PPE' && !data.subDivision) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Sub-Division is required for PPE assets.",
-  path: ["subDivision"],
-});
-
-type AssetFormValues = z.infer<typeof assetSchema>;
-
-export default function FixedAssetManagementPage() {
+export default function FixedAssetRegisterConsole() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
-  const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('ALL');
-  
+  const { toast } = useToast();
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [isCapitalizeOpen, setIsCapitalizeOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedAssetForDossier, setSelectedAssetForDossier] = useState<FixedAsset | null>(null);
+
+  // New Asset Form State
+  const [newTag, setNewTag] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newCategory, setNewCategory] = useState<'MEDICAL_EQ' | 'IT_INFRA' | 'MOTOR_VEHICLES' | 'FURNITURE'>('MEDICAL_EQ');
+  const [newCost, setNewCost] = useState('');
+  const [newUsefulLife, setNewUsefulLife] = useState('5');
+  const [newSalvageValue, setNewSalvageValue] = useState('0');
+  const [newPurchaseDate, setNewPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
+
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
@@ -73,143 +57,170 @@ export default function FixedAssetManagementPage() {
 
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'SUPER_ADMIN'].includes(userRole || 'DIRECTOR');
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'SUPER_ADMIN'].includes(userRole || '');
 
+  // 1. Listen for Fixed Assets collection
   const assetsQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
-    return query(collection(firestore, 'hospitals', hospitalId, 'assets'));
+    return query(collection(firestore, `hospitals/${hospitalId}/assets`));
   }, [firestore, hospitalId]);
-  const { data: rawAssets, isLoading: areAssetsLoading } = useCollection(assetsQuery);
+  const { data: rawAssets, isLoading: isAssetsLoading } = useCollection(assetsQuery);
 
-  const coaQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return query(collection(firestore, `hospitals/${hospitalId}/chart_of_accounts`));
-  }, [firestore, hospitalId]);
-  const { data: coa } = useCollection(coaQuery);
-
-  const [periodMonth, setPeriodMonth] = useState(() => new Date().getMonth());
-  const [periodYear, setPeriodYear] = useState(() => new Date().getFullYear());
-
-  const periodKey = useMemo(() => {
-    return `${periodYear}-${String(periodMonth + 1).padStart(2, '0')}`;
-  }, [periodMonth, periodYear]);
-
-  const demoAssets = useMemo(() => [
-    {
-      id: 'ast-1',
-      name: '250kVA Perkins Generator',
-      tagId: 'GEN-2024-001',
-      category: 'PPE',
-      subDivision: 'PLANT_MACHINERY',
-      purchaseDate: '2024-01-15',
-      purchasePrice: 95000000.00,
-      usefulLife: 10,
-      salvageValue: 5000000.00,
-      accumulatedDepreciation: 14490033.66,
-      status: 'OPERATIONAL'
-    },
-    {
-      id: 'ast-2',
-      name: 'Toyota Hilux Ambulance 4x4',
-      tagId: 'AMB-2025-002',
-      category: 'PPE',
-      subDivision: 'MOTOR_VEHICLES',
-      purchaseDate: '2025-03-10',
-      purchasePrice: 35000000.00,
-      usefulLife: 5,
-      salvageValue: 2000000.00,
-      accumulatedDepreciation: 5173928.35,
-      status: 'OPERATIONAL'
-    },
-    {
-      id: 'ast-3',
-      name: 'Mindray DC-70 Ultrasound System',
-      tagId: 'RAD-2026-009',
-      category: 'PPE',
-      subDivision: 'MEDICAL_EQUIPMENT',
-      purchaseDate: '2026-02-01',
-      purchasePrice: 280000.00,
-      usefulLife: 7,
-      salvageValue: 10000.00,
-      accumulatedDepreciation: 43914.27,
-      status: 'OPERATIONAL'
-    }
+  // 2. Demo Assets Fallback
+  const demoAssets: FixedAsset[] = useMemo(() => [
+    { id: 'AST-MED-001', tag: 'GAM-US-001', name: 'GE Voluson E8 Ultrasound System', category: 'MEDICAL_EQ', purchaseDate: '2023-01-15', cost: 450000.00, accumDepr: 135000.00, nbv: 315000.00, usefulLifeYears: 10, salvageValue: 10000.00, status: 'ACTIVE' },
+    { id: 'AST-MED-042', tag: 'GAM-XRY-002', name: 'Siemens Mobile X-Ray Machine', category: 'MEDICAL_EQ', purchaseDate: '2024-06-10', cost: 280000.00, accumDepr: 56000.00, nbv: 224000.00, usefulLifeYears: 7, salvageValue: 5000.00, status: 'ACTIVE' },
+    { id: 'AST-VEH-003', tag: 'GAM-AMB-001', name: 'Toyota Hiace Emergency Ambulance (GN-123-25)', category: 'MOTOR_VEHICLES', purchaseDate: '2025-02-20', cost: 650000.00, accumDepr: 162500.00, nbv: 487500.00, usefulLifeYears: 5, salvageValue: 20000.00, status: 'MAINTENANCE' },
+    { id: 'AST-IT-015', tag: 'GAM-SRV-001', name: 'Dell PowerEdge T440 Core Enterprise Server', category: 'IT_INFRA', purchaseDate: '2024-11-05', cost: 85000.00, accumDepr: 42500.00, nbv: 42500.00, usefulLifeYears: 4, salvageValue: 2000.00, status: 'ACTIVE' },
+    { id: 'AST-FUR-008', tag: 'GAM-ICU-009', name: 'Hill-Rom Electric ICU Patient Bed Systems (Set of 4)', category: 'FURNITURE', purchaseDate: '2023-08-12', cost: 120000.00, accumDepr: 36000.00, nbv: 84000.00, usefulLifeYears: 8, salvageValue: 4000.00, status: 'ACTIVE' }
   ], []);
 
-  const calculateDepreciation = (asset: any) => {
-    if (!asset.purchaseDate) return { accumulatedDep: asset.accumulatedDepreciation || 0, netBookValue: asset.purchasePrice || 0 };
-    const purchaseDate = new Date(asset.purchaseDate);
-    const today = new Date();
-    const ageInYears = (today.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-    
-    const yearlyDep = (asset.purchasePrice - (asset.salvageValue || 0)) / (asset.usefulLife || 1);
-    const calculatedAccumulatedDep = Math.min(asset.purchasePrice - (asset.salvageValue || 0), yearlyDep * Math.max(0, ageInYears));
-    const accumulatedDep = asset.accumulatedDepreciation || calculatedAccumulatedDep;
-    const netBookValue = Math.max(0, asset.purchasePrice - accumulatedDep);
-
-    return { accumulatedDep, netBookValue };
-  };
-
-  const calculateMonthlyDep = (asset: any) => {
-    if (!asset.usefulLife || asset.usefulLife <= 0) return 0;
-    const yearlyDep = (asset.purchasePrice - (asset.salvageValue || 0)) / asset.usefulLife;
-    const monthlyDep = yearlyDep / 12;
-    
-    const currentDep = asset.accumulatedDepreciation || 0;
-    const maxDep = asset.purchasePrice - (asset.salvageValue || 0);
-    const remainingDep = maxDep - currentDep;
-    
-    return Math.max(0, Math.min(monthlyDep, remainingDep));
-  };
-
-  const activeAssetsList = useMemo(() => {
-    if (rawAssets && rawAssets.length > 0) return rawAssets;
+  const assets: FixedAsset[] = useMemo(() => {
+    if (rawAssets && rawAssets.length > 0) {
+      return rawAssets.map((docItem: any) => {
+        const cost = Number(docItem.cost || docItem.purchasePrice || 0);
+        const accumDepr = Number(docItem.accumDepr || docItem.accumulatedDepreciation || 0);
+        const nbv = Math.max(0, cost - accumDepr);
+        return {
+          id: docItem.id,
+          tag: docItem.tag || docItem.tagId || `TAG-${docItem.id.slice(0, 5)}`,
+          name: docItem.name || 'Capital Asset',
+          category: (docItem.category || 'MEDICAL_EQ') as any,
+          purchaseDate: docItem.purchaseDate || '2025-01-01',
+          cost,
+          accumDepr,
+          nbv,
+          usefulLifeYears: Number(docItem.usefulLife || docItem.usefulLifeYears || 5),
+          salvageValue: Number(docItem.salvageValue || 0),
+          status: docItem.status === 'OPERATIONAL' ? 'ACTIVE' : (docItem.status || 'ACTIVE') as any
+        };
+      });
+    }
     return demoAssets;
   }, [rawAssets, demoAssets]);
 
-  const filteredAssets = useMemo(() => {
-    return activeAssetsList.filter((asset: any) => {
-      const q = searchQuery.toLowerCase();
-      const matchQuery = !searchQuery ||
-        asset.name.toLowerCase().includes(q) ||
-        asset.tagId.toLowerCase().includes(q) ||
-        asset.category.toLowerCase().includes(q);
-
-      if (!matchQuery) return false;
-      if (categoryFilter !== 'ALL' && asset.category !== categoryFilter) return false;
-      return true;
+  // Balance Sheet Metrics
+  const metrics = useMemo(() => {
+    let totalCost = 0, totalDepr = 0, totalNbv = 0;
+    assets.forEach(a => {
+      if (a.status !== 'DISPOSED') {
+        totalCost += a.cost;
+        totalDepr += a.accumDepr;
+        totalNbv += a.nbv;
+      }
     });
-  }, [activeAssetsList, searchQuery, categoryFilter]);
+    return { totalCost, totalDepr, totalNbv };
+  }, [assets]);
 
-  const eligibleAssets = useMemo(() => {
-    return activeAssetsList.filter((a: any) => 
-      a.status === 'OPERATIONAL' && 
-      a.lastDepreciationPeriod !== periodKey &&
-      calculateMonthlyDep(a) > 0
-    );
-  }, [activeAssetsList, periodKey]);
+  // Filtered Assets
+  const filteredAssets = useMemo(() => {
+    return assets.filter(a => {
+      const q = searchTerm.toLowerCase();
+      const matchesSearch = a.name.toLowerCase().includes(q) || a.tag.toLowerCase().includes(q);
+      const matchesCat = selectedCategory === 'ALL' || a.category === selectedCategory;
+      return matchesSearch && matchesCat;
+    });
+  }, [assets, searchTerm, selectedCategory]);
 
-  // Integrated Telemetry Calculations with STRICT 2-DECIMAL Formatting
-  const telemetry = useMemo(() => {
-    const totalCost = activeAssetsList.reduce((sum, b) => sum + (b.purchasePrice || 0), 0);
-    const totalNBV = activeAssetsList.reduce((sum, b) => sum + calculateDepreciation(b).netBookValue, 0);
-    const maintenanceCount = activeAssetsList.filter((b: any) => b.status === 'MAINTENANCE' || b.status === 'NEEDS_REPAIR').length;
+  const handleCapitalizeAsset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTag || !newName || !newCost) {
+      toast({ variant: 'destructive', title: "Missing Fields", description: "Asset Tag, Name, and Purchase Cost are required." });
+      return;
+    }
 
-    return {
-      totalCostStr: totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      totalNBVStr: totalNBV.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      maintenanceCount,
-      assetCount: activeAssetsList.length,
-    };
-  }, [activeAssetsList]);
+    const costNum = parseFloat(newCost);
+    const lifeNum = parseInt(newUsefulLife) || 5;
+    const salvageNum = parseFloat(newSalvageValue) || 0;
 
-  const isLoading = isUserLoading || isProfileLoading;
+    setIsProcessing(true);
+
+    try {
+      if (firestore && hospitalId && user) {
+        await addDoc(collection(firestore, `hospitals/${hospitalId}/assets`), {
+          tag: newTag.trim().toUpperCase(),
+          tagId: newTag.trim().toUpperCase(),
+          name: newName.trim(),
+          category: newCategory,
+          purchaseDate: newPurchaseDate,
+          purchasePrice: costNum,
+          cost: costNum,
+          accumulatedDepreciation: 0,
+          accumDepr: 0,
+          nbv: costNum,
+          usefulLife: lifeNum,
+          salvageValue: salvageNum,
+          status: 'ACTIVE',
+          capitalizedBy: user.uid,
+          createdAt: serverTimestamp()
+        });
+
+        // Also post capitalization Journal Voucher
+        await addDoc(collection(firestore, `hospitals/${hospitalId}/journal_entries`), {
+          jvNumber: `JV-CAP-${Date.now().toString().slice(-6)}`,
+          narration: `Capitalization of Asset ${newTag.toUpperCase()}: ${newName}`,
+          totalAmount: costNum,
+          status: 'AUTHORIZED',
+          createdByName: userProfile?.fullName || 'Finance Director',
+          createdBy: user.uid,
+          createdAt: serverTimestamp(),
+          lines: [
+            { accountId: '1500', accountName: `1500 - Property, Plant & Equipment (${newCategory})`, debit: costNum, credit: 0 },
+            { accountId: '1010', accountName: '1010 - Main GCB Operations Bank Account', debit: 0, credit: costNum }
+          ]
+        });
+      }
+
+      toast({
+        title: "Asset Capitalized Successfully",
+        description: `${newName} (${newTag.toUpperCase()}) added to Fixed Asset Register for GHS ${costNum.toFixed(2)}.`
+      });
+
+      setIsCapitalizeOpen(false);
+      setNewTag('');
+      setNewName('');
+      setNewCost('');
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: "Capitalization Failed", description: e.message });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRunDepreciationBatch = async () => {
+    setIsProcessing(true);
+
+    try {
+      if (firestore && hospitalId) {
+        const functions = getFunctions();
+        const runDeprFn = httpsCallable(functions, 'runMonthlyAssetDepreciation');
+        const res: any = await runDeprFn({ hospitalId });
+
+        toast({
+          title: "Depreciation Batch Executed",
+          description: res.data?.message || "Monthly depreciation calculated and Journal Vouchers posted to General Ledger."
+        });
+      } else {
+        // Fallback simulation
+        toast({
+          title: "Depreciation Batch Executed (Simulation)",
+          description: "Monthly straight-line depreciation calculated. Posted JV (Debit 6500 / Credit 1550)."
+        });
+      }
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: "Depreciation Run Failed", description: e.message });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const isLoading = isUserLoading || isProfileLoading || isAssetsLoading;
   const userName = user?.displayName || userProfile?.name || 'MARCUS AMOSAH HENAKU';
   const userInitials = userName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || 'MH';
 
   if (isLoading) {
     return (
-      <div className="flex h-full w-full items-center justify-center p-20">
+      <div className="flex h-screen w-full items-center justify-center bg-slate-50 dark:bg-slate-950">
         <Loader2 className="h-16 w-16 animate-spin text-emerald-500" />
       </div>
     );
@@ -221,7 +232,7 @@ export default function FixedAssetManagementPage() {
         <div className="text-center bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md">
           <ShieldAlert className="h-16 w-16 text-rose-500 mx-auto mb-4" />
           <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-slate-100">Access Denied</h1>
-          <p className="text-slate-500 text-sm mt-2">You are not authorized for Fixed Asset Management.</p>
+          <p className="text-slate-500 text-sm mt-2">You are not authorized for Fixed Asset & Depreciation Management.</p>
           <Button onClick={() => router.push('/dashboard')} className="mt-6 bg-slate-900 text-white rounded-xl">
             Return Home
           </Button>
@@ -237,11 +248,11 @@ export default function FixedAssetManagementPage() {
       {/* 1. SIGNATURE DARK HERO COMMAND BANNER      */}
       {/* ========================================== */}
       <div className="bg-slate-950 text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden mb-6 border border-slate-800">
-        {/* Ambient Radial Accent Glows - Emerald/Indigo for Assets */}
+        {/* Ambient Radial Accent Glows */}
         <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 -mb-12 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
 
-        {/* Top Row: Title, Subtitle, and Primary Actions */}
+        {/* Top Row: Title, Subtitle, User Context */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8 relative z-10">
           <div>
             <div className="flex items-center gap-3">
@@ -249,15 +260,15 @@ export default function FixedAssetManagementPage() {
                 <Building2 className="w-7 h-7" />
               </div>
               <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-wider text-white">
-                FIXED ASSET MANAGEMENT
+                FIXED ASSETS & DEPRECIATION REGISTER
               </h1>
             </div>
             <p className="mt-2 text-xs md:text-sm text-slate-400 font-medium">
-              CAPITAL ASSET TRACKING, DEPRECIATION LOGGING, AND NET BOOK VALUE RECONCILIATION.
+              CAPITAL EXPENDITURE TRACKING, STRAIGHT-LINE DEPRECIATION ENGINE, AND BALANCE SHEET NET BOOK VALUE.
             </p>
           </div>
 
-          {/* Active User Context & Actions */}
+          {/* User Context & Action Buttons */}
           <div className="flex flex-wrap items-center gap-3 self-start xl:self-auto">
             <div className="hidden md:flex items-center gap-3 bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2.5">
               <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-white text-xs">
@@ -265,100 +276,70 @@ export default function FixedAssetManagementPage() {
               </div>
               <div>
                 <div className="text-[11px] font-bold text-white tracking-wide uppercase">{userName}</div>
-                <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">FINANCE CONTROLLER</div>
+                <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">ASSETS CONTROLLER</div>
               </div>
             </div>
 
-            {/* Target Period Selectors */}
-            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 p-1.5 rounded-xl">
-              <select 
-                value={periodMonth} 
-                onChange={e => setPeriodMonth(parseInt(e.target.value))}
-                className="bg-transparent text-white text-[10px] font-black uppercase tracking-wider outline-none cursor-pointer px-2 py-1"
-              >
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <option key={i} value={i} className="bg-slate-900 text-white">
-                    {new Date(2026, i).toLocaleString('en-US', { month: 'short' })}
-                  </option>
-                ))}
-              </select>
-              <select 
-                value={periodYear} 
-                onChange={e => setPeriodYear(parseInt(e.target.value))}
-                className="bg-transparent text-white text-[10px] font-black uppercase tracking-wider outline-none cursor-pointer px-2 py-1"
-              >
-                {[2025, 2026, 2027, 2028].map(y => (
-                  <option key={y} value={y} className="bg-slate-900 text-white">{y}</option>
-                ))}
-              </select>
-            </div>
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={handleRunDepreciationBatch}
+              className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow border border-slate-700 cursor-pointer flex items-center gap-2"
+            >
+              {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4 text-emerald-400" />}
+              <span>RUN DEPRECIATION BATCH</span>
+            </button>
 
-            <PostDepreciationButton 
-              hospitalId={hospitalId || 'hospital-1'} 
-              eligibleAssets={eligibleAssets} 
-              coa={coa || []} 
-              periodKey={periodKey} 
-              calculateMonthlyDep={calculateMonthlyDep}
-            />
-
-            <AddAssetDialog hospitalId={hospitalId || 'hospital-1'} isOpen={isAddAssetOpen} setIsOpen={setIsAddAssetOpen} />
+            <button
+              type="button"
+              onClick={() => setIsCapitalizeOpen(true)}
+              className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg cursor-pointer flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>CAPITALIZE NEW ASSET</span>
+            </button>
           </div>
         </div>
 
-        {/* Bottom Row / Grid: Integrated Financial Asset Telemetry */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
+        {/* Bottom Row / Contextual Capital Balance Sheet Metrics */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 relative z-10">
           
-          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between shadow-inner">
+          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Total Asset Cost</span>
-              <div className="text-2xl font-black text-white">
-                <span className="text-sm text-slate-500 mr-1">GHS</span>{telemetry.totalCostStr}
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Total Gross Asset Value</span>
+              <div className="text-2xl font-black text-white font-mono">
+                ₵ {metrics.totalCost.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
-              <span className="text-[10px] font-bold text-slate-400 mt-1 flex items-center gap-1">
-                <Building2 className="w-3 h-3" /> Across {telemetry.assetCount} registered items
-              </span>
+              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">Historical Purchase Cost</span>
             </div>
-            <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl">
-              <Building2 className="w-6 h-6" />
+            <div className="p-3 bg-slate-800 border border-slate-700 text-slate-400 rounded-xl">
+              <Building2 className="w-6 h-6 text-indigo-400" />
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block mb-1">Accumulated Depreciation</span>
+              <div className="text-2xl font-black text-amber-400 font-mono">
+                ₵ {metrics.totalDepr.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <span className="text-[10px] font-bold text-amber-400 mt-0.5 block">Contra-Asset Write-Off (1550)</span>
+            </div>
+            <div className="p-3 bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded-xl">
+              <TrendingDown className="w-6 h-6" />
             </div>
           </div>
 
           <div className="bg-slate-900 border border-emerald-500/30 p-4 rounded-xl flex items-center justify-between ring-1 ring-emerald-500/20 shadow-lg">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-1">Net Book Value</span>
-              <div className="text-2xl font-black text-emerald-400">
-                <span className="text-sm text-emerald-600 mr-1">GHS</span>{telemetry.totalNBVStr}
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-1">Total Net Book Value (NBV)</span>
+              <div className="text-2xl font-black text-emerald-400 font-mono">
+                ₵ {metrics.totalNbv.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
-              <span className="text-[10px] font-bold text-emerald-400 mt-1 block">Carrying value after depreciation</span>
+              <span className="text-[10px] font-bold text-emerald-400 mt-0.5 block">Active Carrying Value on Balance Sheet</span>
             </div>
             <div className="p-3 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-xl">
-              <TrendingDown className="w-6 h-6" />
-            </div>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between shadow-inner">
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Maintenance Due</span>
-              <div className="text-2xl font-black text-sky-400">{telemetry.maintenanceCount}</div>
-              <span className="text-[10px] font-bold text-slate-400 mt-1 block">Assets requiring inspection</span>
-            </div>
-            <div className="p-3 bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded-xl">
-              <Wrench className="w-6 h-6" />
-            </div>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between shadow-inner">
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Depreciation Status</span>
-              <div className="text-2xl font-black text-white">
-                {eligibleAssets.length > 0 ? 'RUN STAGED' : 'UP TO DATE'}
-              </div>
-              <span className="text-[10px] font-bold text-emerald-500 mt-1 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Period {periodKey}
-              </span>
-            </div>
-            <div className="p-3 bg-slate-800 border border-slate-700 text-slate-400 rounded-xl">
-              <ShieldCheck className="w-6 h-6" />
+              <Calculator className="w-6 h-6" />
             </div>
           </div>
 
@@ -368,468 +349,323 @@ export default function FixedAssetManagementPage() {
       {/* ========================================== */}
       {/* 2. FILTER & SEARCH CONTROL BAR             */}
       {/* ========================================== */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="relative w-full md:w-96">
-          <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="relative flex-1 w-full">
+          <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
           <input
             type="text"
-            placeholder="Search Asset Name, Tag ID, or Category..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-sm"
+            placeholder="Search by asset tag or equipment description..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
           />
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm w-full md:w-auto">
-            <Filter className="w-4 h-4 text-slate-400" />
-            <select 
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-transparent focus:outline-none w-full cursor-pointer text-slate-800 dark:text-slate-100 font-bold"
-            >
-              <option value="ALL" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">All Asset Categories</option>
-              {ASSET_GROUPS.map(g => (
-                <option key={g.id} value={g.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">{g.label}</option>
-              ))}
-            </select>
-          </div>
+          <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="w-full md:w-64 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold outline-none cursor-pointer text-slate-900 dark:text-slate-100"
+          >
+            <option value="ALL">ALL CATEGORIES</option>
+            <option value="MEDICAL_EQ">🏥 MEDICAL EQUIPMENT</option>
+            <option value="IT_INFRA">💻 IT INFRASTRUCTURE</option>
+            <option value="MOTOR_VEHICLES">🚑 MOTOR VEHICLES</option>
+            <option value="FURNITURE">🛏️ FURNITURE & FITTINGS</option>
+          </select>
         </div>
       </div>
 
       {/* ========================================== */}
-      {/* 3. ENTERPRISE FIXED ASSET LEDGER           */}
+      {/* 3. THE FIXED ASSET MASTER GRID             */}
       {/* ========================================== */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        
-        {/* Ledger Header */}
-        <div className="p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            <h2 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">
-              MASTER ASSET REGISTER & DEPRECIATION LEDGER
-            </h2>
-          </div>
-          <span className="px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> IFRS COMPLIANT
-          </span>
-        </div>
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <table className="w-full text-xs text-left border-collapse font-bold">
+          <thead>
+            <tr className="bg-slate-950 text-white uppercase text-[9px] tracking-widest">
+              <th className="p-4 border-b border-slate-800">Asset Tag</th>
+              <th className="p-4 border-b border-slate-800">Description & Category</th>
+              <th className="p-4 border-b border-slate-800 text-right">Purchase Cost (GHS)</th>
+              <th className="p-4 border-b border-slate-800 text-right text-amber-400">Accum. Depr (GHS)</th>
+              <th className="p-4 border-b border-slate-800 text-right text-emerald-400">Net Book Value (GHS)</th>
+              <th className="p-4 border-b border-slate-800 text-center">Status</th>
+              <th className="p-4 border-b border-slate-800 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {filteredAssets.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="p-16 text-center text-slate-400 italic">
+                  No assets found matching the current search filters.
+                </td>
+              </tr>
+            ) : (
+              filteredAssets.map((asset) => (
+                <tr key={asset.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                  <td className="p-4">
+                    <span className="font-mono text-xs font-black text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                      {asset.tag}
+                    </span>
+                  </td>
 
-        <div className="overflow-x-auto">
-          {areAssetsLoading ? (
-            <div className="p-12 text-center text-slate-400">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto text-emerald-500 mb-2" />
-              Loading fixed asset register...
-            </div>
-          ) : filteredAssets.length === 0 ? (
-            <div className="p-12 text-center text-slate-400 font-medium">
-              No asset records found matching search query.
-            </div>
-          ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800">
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest whitespace-nowrap">
-                    Asset Identity & Tag
-                  </th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest whitespace-nowrap">
-                    Major Category
-                  </th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest whitespace-nowrap">
-                    Sub-Division
-                  </th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">
-                    Cost Price (GHS)
-                  </th>
-                  <th className="px-6 py-4 text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest text-right whitespace-nowrap bg-emerald-50/30 dark:bg-emerald-950/20">
-                    Net Book Value (GHS)
-                  </th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">
-                    Status
-                  </th>
+                  <td className="p-4 space-y-0.5">
+                    <p className="font-black text-slate-900 dark:text-slate-100 text-sm uppercase">{asset.name}</p>
+                    <p className="text-[9px] font-mono text-slate-400 uppercase tracking-wider">
+                      {asset.category.replace('_', ' ')} • Purchased: {asset.purchaseDate}
+                    </p>
+                  </td>
+
+                  <td className="p-4 text-right font-mono text-slate-700 dark:text-slate-300">
+                    ₵ {asset.cost.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+
+                  <td className="p-4 text-right font-mono text-amber-600 dark:text-amber-400">
+                    ₵ {asset.accumDepr.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+
+                  <td className="p-4 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm bg-emerald-50/30 dark:bg-emerald-950/10">
+                    ₵ {asset.nbv.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+
+                  <td className="p-4 text-center">
+                    {asset.status === 'ACTIVE' && (
+                      <span className="px-2.5 py-1 text-[9px] font-black rounded-md uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300">
+                        ACTIVE
+                      </span>
+                    )}
+                    {asset.status === 'MAINTENANCE' && (
+                      <span className="px-2.5 py-1 text-[9px] font-black rounded-md uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300">
+                        MAINTENANCE
+                      </span>
+                    )}
+                    {asset.status === 'DISPOSED' && (
+                      <span className="px-2.5 py-1 text-[9px] font-black rounded-md uppercase tracking-wider bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border border-slate-300">
+                        DISPOSED
+                      </span>
+                    )}
+                  </td>
+
+                  <td className="p-4 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAssetForDossier(asset)}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black text-[9px] uppercase tracking-wider rounded-lg border border-slate-200 dark:border-slate-700 transition-all cursor-pointer flex items-center gap-1 mx-auto"
+                    >
+                      <Eye className="w-3 h-3 text-indigo-500" />
+                      <span>DOSSIER</span>
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredAssets.map((asset: any) => {
-                  const { netBookValue } = calculateDepreciation(asset);
-                  
-                  return (
-                    <tr key={asset.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors group">
-                      
-                      {/* Name & Tag */}
-                      <td className="px-6 py-4">
-                        <div className="font-black text-slate-900 dark:text-slate-100 text-sm uppercase tracking-wide">
-                          {asset.name}
-                        </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-emerald-600 dark:text-emerald-400 text-[10px] font-black border border-slate-200 dark:border-slate-700">
-                            TAG: {asset.tagId}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Category */}
-                      <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                          {asset.category.replace('_', ' ')}
-                        </span>
-                      </td>
-
-                      {/* Sub-Division */}
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">
-                          {asset.subDivision ? asset.subDivision.replace('_', ' ') : 'N/A'}
-                        </span>
-                      </td>
-
-                      {/* Cost Price */}
-                      <td className="px-6 py-4 text-right">
-                        <div className="text-sm font-mono font-black text-slate-700 dark:text-slate-200">
-                          <span className="text-[10px] text-slate-400 mr-1 font-sans">₵</span>
-                          {asset.purchasePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </div>
-                      </td>
-
-                      {/* Net Book Value STRICT 2-DECIMAL FIX */}
-                      <td className="px-6 py-4 text-right bg-emerald-50/30 dark:bg-emerald-950/20">
-                        <div className="text-sm font-mono font-black text-emerald-700 dark:text-emerald-400">
-                          <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 mr-1 font-sans">₵</span>
-                          {netBookValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </div>
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-6 py-4 text-right">
-                        <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${
-                          asset.status === 'OPERATIONAL' 
-                            ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' 
-                            : 'bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
-                        }`}>
-                          {asset.status}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
+
+      {/* ========================================== */}
+      {/* 4. CAPITALIZE NEW ASSET MODAL              */}
+      {/* ========================================== */}
+      {isCapitalizeOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden space-y-4">
+            <div className="bg-slate-950 text-white p-6 border-b border-slate-800 flex justify-between items-center">
+              <div>
+                <h3 className="font-black text-lg uppercase tracking-wider">Capitalize New Fixed Asset</h3>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">Debit PPE (1500) / Credit Bank (1010)</p>
+              </div>
+              <button 
+                onClick={() => setIsCapitalizeOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCapitalizeAsset} className="p-6 space-y-4 pt-0 text-xs font-bold">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Asset Tag ID</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="e.g. GAM-US-009"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Asset Category</label>
+                  <select
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value as any)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none cursor-pointer text-slate-900 dark:text-slate-100"
+                  >
+                    <option value="MEDICAL_EQ">MEDICAL EQUIPMENT</option>
+                    <option value="IT_INFRA">IT INFRASTRUCTURE</option>
+                    <option value="MOTOR_VEHICLES">MOTOR VEHICLES</option>
+                    <option value="FURNITURE">FURNITURE & FITTINGS</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-500 block">Asset Description & Model</label>
+                <input
+                  required
+                  type="text"
+                  placeholder="e.g. GE Voluson E8 Ultrasound System"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Purchase Cost (GHS)</label>
+                  <input
+                    required
+                    type="number"
+                    step="0.01"
+                    placeholder="450000.00"
+                    value={newCost}
+                    onChange={(e) => setNewCost(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Purchase Date</label>
+                  <input
+                    required
+                    type="date"
+                    value={newPurchaseDate}
+                    onChange={(e) => setNewPurchaseDate(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Useful Life (Years)</label>
+                  <input
+                    required
+                    type="number"
+                    value={newUsefulLife}
+                    onChange={(e) => setNewUsefulLife(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Salvage Value (GHS)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={newSalvageValue}
+                    onChange={(e) => setNewSalvageValue(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsCapitalizeOpen(false)}
+                  className="px-4 py-2.5 font-black text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  disabled={isProcessing}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow cursor-pointer flex items-center gap-2"
+                >
+                  {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  <span>CAPITALIZE & POST TO LEDGER</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* 5. ASSET DOSSIER MODAL                     */}
+      {/* ========================================== */}
+      {selectedAssetForDossier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden space-y-4">
+            <div className="bg-slate-950 text-white p-6 border-b border-slate-800 flex justify-between items-center">
+              <div>
+                <span className="bg-emerald-600 text-[10px] font-mono font-black px-2 py-1 rounded uppercase tracking-widest">
+                  {selectedAssetForDossier.tag}
+                </span>
+                <h3 className="font-black text-lg uppercase tracking-wider mt-1">{selectedAssetForDossier.name}</h3>
+              </div>
+              <button 
+                onClick={() => setSelectedAssetForDossier(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 pt-0 text-xs font-bold">
+              <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl space-y-2 border border-slate-100 dark:border-slate-700">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 uppercase text-[10px]">Category:</span>
+                  <span className="text-slate-900 dark:text-slate-100">{selectedAssetForDossier.category.replace('_', ' ')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 uppercase text-[10px]">Purchase Date:</span>
+                  <span className="text-slate-900 dark:text-slate-100">{selectedAssetForDossier.purchaseDate}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 uppercase text-[10px]">Useful Life:</span>
+                  <span className="text-slate-900 dark:text-slate-100">{selectedAssetForDossier.usefulLifeYears} Years ({selectedAssetForDossier.usefulLifeYears * 12} Months)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 uppercase text-[10px]">Salvage Value:</span>
+                  <span className="font-mono text-slate-900 dark:text-slate-100">₵ {selectedAssetForDossier.salvageValue.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                  <p className="text-[9px] text-slate-500 uppercase">Purchase Cost</p>
+                  <p className="font-mono text-sm font-black text-slate-900 dark:text-slate-100">₵ {selectedAssetForDossier.cost.toFixed(2)}</p>
+                </div>
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl">
+                  <p className="text-[9px] text-amber-600 uppercase">Accum. Depr</p>
+                  <p className="font-mono text-sm font-black text-amber-600">₵ {selectedAssetForDossier.accumDepr.toFixed(2)}</p>
+                </div>
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl">
+                  <p className="text-[9px] text-emerald-600 uppercase">Net Book Value</p>
+                  <p className="font-mono text-sm font-black text-emerald-600">₵ {selectedAssetForDossier.nbv.toFixed(2)}</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedAssetForDossier(null)}
+                  className="px-6 py-2.5 bg-slate-900 text-white font-black text-xs uppercase tracking-wider rounded-xl hover:bg-slate-800 transition-all"
+                >
+                  CLOSE DOSSIER
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
 }
-
-const PostDepreciationButton = ({ 
-  hospitalId, 
-  eligibleAssets, 
-  coa, 
-  periodKey,
-  calculateMonthlyDep
-}: { 
-  hospitalId: string; 
-  eligibleAssets: any[]; 
-  coa: any[]; 
-  periodKey: string; 
-  calculateMonthlyDep: (asset: any) => number;
-}) => {
-  const { toast } = useToast();
-  const firestore = useFirestore();
-  const { user } = useUser();
-  const [loading, setLoading] = useState(false);
-
-  const totalMonthlyDepreciation = useMemo(() => {
-    return eligibleAssets.reduce((acc, curr) => acc + calculateMonthlyDep(curr), 0);
-  }, [eligibleAssets, calculateMonthlyDep]);
-
-  const handlePostDepreciation = async () => {
-    if (!firestore || !hospitalId || !user) return;
-    if (eligibleAssets.length === 0) {
-      toast({ title: "No Assets Pending Depreciation", description: "All operational assets are already up to date for this period." });
-      return;
-    }
-
-    setLoading(true);
-    const batch = writeBatch(firestore);
-
-    try {
-      const expenseAccount = coa?.find(a => a.accountCode === "5005");
-      const contraAssetAccount = coa?.find(a => a.accountCode === "1099");
-
-      if (!expenseAccount) throw new Error("Depreciation Expense Account (5005) not found in Chart of Accounts.");
-      if (!contraAssetAccount) throw new Error("Accumulated Depreciation Account (1099) not found in Chart of Accounts.");
-
-      const jvRef = doc(collection(firestore, `hospitals/${hospitalId}/journal_entries`));
-      const jvNumber = `JV-DEP-${periodKey}-${Date.now().toString().slice(-4)}`;
-
-      batch.set(jvRef, {
-        jvNumber,
-        narration: `Automated Depreciation Charge for ${periodKey} (${eligibleAssets.length} assets processed)`,
-        totalAmount: totalMonthlyDepreciation,
-        hospitalId,
-        createdBy: user.uid,
-        createdByName: user.displayName || "Accountant",
-        createdAt: serverTimestamp(),
-        type: 'DEPRECIATION',
-        status: 'PENDING_APPROVAL',
-        lines: [
-          { accountId: expenseAccount.id, accountName: expenseAccount.name, debit: totalMonthlyDepreciation, credit: 0 },
-          { accountId: contraAssetAccount.id, accountName: contraAssetAccount.name, debit: 0, credit: totalMonthlyDepreciation }
-        ]
-      });
-
-      eligibleAssets.forEach(asset => {
-        const monthlyDep = calculateMonthlyDep(asset);
-        const assetRef = doc(firestore, `hospitals/${hospitalId}/assets`, asset.id);
-        
-        batch.update(assetRef, {
-          lastDepreciationPeriod: periodKey,
-          accumulatedDepreciation: increment(monthlyDep)
-        });
-
-        const historyRef = doc(collection(firestore, `hospitals/${hospitalId}/depreciation_history`));
-        batch.set(historyRef, {
-          assetId: asset.id,
-          assetName: asset.name,
-          assetCategory: asset.category,
-          subDivision: asset.subDivision || null,
-          hospitalId,
-          period: periodKey,
-          amount: monthlyDep,
-          createdAt: serverTimestamp()
-        });
-      });
-
-      const auditRef = doc(collection(firestore, "global_audit_logs"));
-      batch.set(auditRef, {
-        type: 'FINANCIAL',
-        action: 'DEPRECIATION_JV_STAGED',
-        hospitalId,
-        actorId: user.uid,
-        actorName: user.displayName || "Accountant",
-        details: `Staged GHS ${totalMonthlyDepreciation.toFixed(2)} depreciation JV for period ${periodKey}`,
-        timestamp: serverTimestamp()
-      });
-
-      await batch.commit();
-      toast({ title: "Depreciation JV Submitted", description: `Journal Voucher ${jvNumber} has been sent to the Auditor console.` });
-    } catch (error: any) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Depreciation Posting Failed", description: error.message });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <button 
-          type="button"
-          disabled={eligibleAssets.length === 0} 
-          className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer disabled:opacity-50"
-        >
-          <Calculator className="w-4 h-4 text-emerald-400" /> POST DEPRECIATION JV ({eligibleAssets.length})
-        </button>
-      </AlertDialogTrigger>
-      <AlertDialogContent className="bg-white dark:bg-slate-900 border border-slate-800 rounded-2xl p-6">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="text-xl font-black uppercase text-slate-900 dark:text-slate-100 italic">
-            Confirm Depreciation Journal Entry
-          </AlertDialogTitle>
-          <AlertDialogDescription className="space-y-3 pt-2 text-slate-600 dark:text-slate-300">
-            <p>
-              This will stage a depreciation charge of <span className="font-extrabold text-emerald-600 dark:text-emerald-400">GHS {totalMonthlyDepreciation.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> for the period <span className="font-extrabold text-slate-900 dark:text-white">{periodKey}</span>.
-            </p>
-            <p className="text-xs text-slate-500 uppercase leading-relaxed font-bold">
-              It will create a pending double-entry Journal Voucher (Debit: Depreciation Expense 5005, Credit: Accumulated Depreciation 1099) and submit it for Auditor approval.
-            </p>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter className="pt-4">
-          <AlertDialogCancel className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold uppercase text-xs">Cancel</AlertDialogCancel>
-          <AlertDialogAction 
-            onClick={handlePostDepreciation}
-            disabled={loading}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-xs"
-          >
-            {loading ? "Posting..." : "Confirm & Send to Auditor"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-};
-
-const AddAssetDialog = ({ hospitalId, isOpen, setIsOpen }: { hospitalId: string, isOpen: boolean, setIsOpen: (open: boolean) => void }) => {
-  const { toast } = useToast();
-  const firestore = useFirestore();
-
-  const form = useForm<AssetFormValues>({
-    resolver: zodResolver(assetSchema),
-    defaultValues: {
-      name: '',
-      category: 'PPE',
-      subDivision: '',
-      tagId: '',
-      purchaseDate: '',
-      purchasePrice: 0,
-      usefulLife: 5,
-      salvageValue: 0,
-      status: 'OPERATIONAL'
-    }
-  });
-  
-  const category = form.watch('category');
-
-  const onSubmit = (values: AssetFormValues) => {
-    if (!firestore || !hospitalId) {
-      toast({ title: "Asset Registered (Simulation)", description: `${values.name} added.` });
-      setIsOpen(false);
-      return;
-    }
-    addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/assets`), {
-      ...values,
-      hospitalId,
-      accumulatedDepreciation: 0,
-      createdAt: serverTimestamp()
-    });
-    toast({ title: "Asset Registered", description: `${values.name} added to the master ledger.` });
-    setIsOpen(false);
-    form.reset();
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <button 
-          type="button"
-          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer"
-        >
-          <Plus className="w-4 h-4" /> NEW ASSET
-        </button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl bg-white dark:bg-slate-900 border border-slate-800 rounded-2xl p-6">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-black uppercase text-slate-900 dark:text-slate-100 italic">
-            Asset Registration
-          </DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-2">
-            <FormField control={form.control} name="name" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs font-bold uppercase text-slate-500">Asset Name (e.g. 250kVA Perkins Generator)</FormLabel>
-                <FormControl><Input {...field} /></FormControl>
-                <FormMessage/>
-              </FormItem>
-            )}/>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="category" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-bold uppercase text-slate-500">Category (IFRS Standard)</FormLabel>
-                  <Select 
-                    onValueChange={(value) => {
-                      field.onChange(value);
-                      form.setValue('subDivision', '');
-                    }} 
-                    defaultValue={field.value}
-                  >
-                    <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {ASSET_GROUPS.map(group => (
-                        <SelectItem key={group.id} value={group.id}>{group.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage/>
-                </FormItem>
-              )}/>
-              <FormField control={form.control} name="subDivision" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-bold uppercase text-slate-500">Sub-Division</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    value={field.value}
-                    disabled={category !== 'PPE'}
-                  >
-                    <FormControl><SelectTrigger><SelectValue placeholder={category === 'PPE' ? "Select PPE Sub-Division" : "N/A"} /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {PPE_SUB_DIVISIONS.map(sub => (
-                        <SelectItem key={sub.id} value={sub.id}>{sub.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage/>
-                </FormItem>
-              )}/>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="tagId" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-bold uppercase text-slate-500">Asset Tag ID</FormLabel>
-                  <FormControl><Input placeholder="e.g. GEN-2024-001" {...field} /></FormControl>
-                  <FormMessage/>
-                </FormItem>
-              )}/>
-              <FormField control={form.control} name="purchaseDate" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-bold uppercase text-slate-500">Purchase Date</FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
-                  <FormMessage/>
-                </FormItem>
-              )}/>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <FormField control={form.control} name="purchasePrice" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-bold uppercase text-slate-500">Cost Price (GHS)</FormLabel>
-                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                  <FormMessage/>
-                </FormItem>
-              )}/>
-              <FormField control={form.control} name="usefulLife" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-bold uppercase text-slate-500">Useful Life (Years)</FormLabel>
-                  <FormControl><Input type="number" {...field} /></FormControl>
-                  <FormMessage/>
-                </FormItem>
-              )}/>
-              <FormField control={form.control} name="salvageValue" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-bold uppercase text-slate-500">Salvage Value (GHS)</FormLabel>
-                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                  <FormMessage/>
-                </FormItem>
-              )}/>
-            </div>
-
-            <FormField control={form.control} name="status" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs font-bold uppercase text-slate-500">Operational Status</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="OPERATIONAL">OPERATIONAL</SelectItem>
-                    <SelectItem value="MAINTENANCE">UNDER MAINTENANCE</SelectItem>
-                    <SelectItem value="DISPOSED">DISPOSED / SCRAPPED</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage/>
-              </FormItem>
-            )}/>
-
-            <DialogFooter className="pt-4">
-              <Button type="submit" disabled={form.formState.isSubmitting} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-xs">
-                {form.formState.isSubmitting ? <Loader2 className="animate-spin w-4 h-4"/> : 'Register Asset'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
-};
