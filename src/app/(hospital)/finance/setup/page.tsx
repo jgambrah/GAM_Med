@@ -2,11 +2,11 @@
 
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, serverTimestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { 
   Cog, Plus, Loader2, ShieldAlert, Package, Trash2, Search, 
-  HeartPulse, Activity, BedDouble, Stethoscope, TestTube2, Scan, 
-  CheckCircle2, Building2, Landmark, Filter
+  Building2, BedDouble, Stethoscope, CheckCircle2, AlertTriangle, 
+  Wrench, Activity, Landmark, User, RefreshCw, Sparkles, Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -19,14 +19,37 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
-const serviceFormSchema = z.object({
-  name: z.string().min(1, "Service name is required"),
-  category: z.string().min(1, "Category is required"),
-  price: z.coerce.number().min(0, "Price cannot be negative"),
-  nhisCap: z.coerce.number().min(0, "NHIS Cap cannot be negative").optional(),
-});
+type DepartmentNode = {
+  id: string;
+  name: string;
+  code: string;
+  revenueAccountCode: string;
+  expenseAccountCode: string;
+  headOfDepartment: string;
+  status: 'ACTIVE' | 'INACTIVE';
+};
 
-type ServiceFormValues = z.infer<typeof serviceFormSchema>;
+type HospitalBedNode = {
+  id: string;
+  departmentId: string;
+  wardName: string;
+  bedNumber: string;
+  bedType: 'GENERAL' | 'VIP' | 'ICU' | 'INCUBATOR';
+  status: 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE';
+  activePatientId?: string;
+  dailyTariffCode: string;
+  dailyRate: number;
+};
+
+type ServiceBridgeNode = {
+  id: string;
+  name: string;
+  clinicalModule: string;
+  tariffCode: string;
+  price: number;
+  nhisCap: number;
+  autoBillOnComplete: boolean;
+};
 
 export default function GeneralServicesSetupPage() {
   const { user, isUserLoading } = useUser();
@@ -34,9 +57,9 @@ export default function GeneralServicesSetupPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [isAddServiceOpen, setIsAddServiceOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'DEPARTMENTS' | 'BED_MATRIX' | 'SERVICE_NODES'>('DEPARTMENTS');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'ALL' | 'GENERAL' | 'LAB' | 'RADIOLOGY' | 'PROCEDURE'>('ALL');
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -48,141 +71,80 @@ export default function GeneralServicesSetupPage() {
   const userRole = userProfile?.role;
   const isAuthorized = userRole === 'DIRECTOR' || userRole === 'ADMIN' || userRole === 'ACCOUNTANT' || userRole === 'SUPER_ADMIN';
 
-  // Real-time subscriptions across all 4 setup collections
-  const generalQuery = useMemoFirebase(() => hospitalId && firestore ? query(collection(firestore, `hospitals/${hospitalId}/general_services`)) : null, [firestore, hospitalId]);
-  const labQuery = useMemoFirebase(() => hospitalId && firestore ? query(collection(firestore, `hospitals/${hospitalId}/lab_menu`)) : null, [firestore, hospitalId]);
-  const radiologyQuery = useMemoFirebase(() => hospitalId && firestore ? query(collection(firestore, `hospitals/${hospitalId}/radiology_menu`)) : null, [firestore, hospitalId]);
-  const procedureQuery = useMemoFirebase(() => hospitalId && firestore ? query(collection(firestore, `hospitals/${hospitalId}/procedure_menu`)) : null, [firestore, hospitalId]);
+  // Real-Time Collections
+  const bedsQuery = useMemoFirebase(() => hospitalId && firestore ? query(collection(firestore, `hospitals/${hospitalId}/infrastructure_nodes`)) : null, [firestore, hospitalId]);
+  const { data: rawBeds, isLoading: bedsLoading } = useCollection<HospitalBedNode>(bedsQuery);
 
-  const { data: generalServices, isLoading: generalLoading } = useCollection(generalQuery);
-  const { data: labServices, isLoading: labLoading } = useCollection(labQuery);
-  const { data: radiologyServices, isLoading: radiologyLoading } = useCollection(radiologyQuery);
-  const { data: procedureServices, isLoading: procedureLoading } = useCollection(procedureQuery);
-
-  // Demodata Fallback for Immediate Setup Demonstration
-  const demoServices = useMemo(() => [
-    { id: 's-001', name: 'General OPD Specialist Consultation', price: 150.00, nhisCap: 80.00, sourceCollection: 'general_services', displayCategory: 'Consultation' },
-    { id: 's-002', name: 'VIP ICU Bed Charge (Per Day)', price: 850.00, nhisCap: 350.00, sourceCollection: 'general_services', displayCategory: 'Bed Ward Tariff' },
-    { id: 's-003', name: 'Full Blood Count (FBC) Automated Panel', price: 120.00, nhisCap: 45.00, sourceCollection: 'lab_menu', displayCategory: 'Laboratory Test' },
-    { id: 's-004', name: 'Abdominal & Pelvic Ultrasound Scan', price: 250.00, nhisCap: 120.00, sourceCollection: 'radiology_menu', displayCategory: 'Radiology / Imaging' },
-    { id: 's-005', name: 'Emergency Minor Surgical Suturing & Dressing', price: 450.00, nhisCap: 200.00, sourceCollection: 'procedure_menu', displayCategory: 'Clinical Procedure' }
+  // Demo Fallback Data for Departments
+  const demoDepartments: DepartmentNode[] = useMemo(() => [
+    { id: 'dep-01', name: 'Outpatient Department (OPD)', code: 'OPD', revenueAccountCode: '4001', expenseAccountCode: '5001', headOfDepartment: 'Dr. Kwabena Frimpong', status: 'ACTIVE' },
+    { id: 'dep-02', name: 'Maternity & Antenatal Ward', code: 'MAT', revenueAccountCode: '4002', expenseAccountCode: '5002', headOfDepartment: 'Dr. Abena Osei', status: 'ACTIVE' },
+    { id: 'dep-03', name: 'Diagnostic Radiology & Imaging', code: 'RAD', revenueAccountCode: '4003', expenseAccountCode: '5003', headOfDepartment: 'Dr. Michael Taylor', status: 'ACTIVE' },
+    { id: 'dep-04', name: 'Main Clinical Laboratory', code: 'LAB', revenueAccountCode: '4004', expenseAccountCode: '5004', headOfDepartment: 'Dr. Sarah Kwarteng', status: 'ACTIVE' },
+    { id: 'dep-05', name: 'Intensive Care Unit (ICU)', code: 'ICU', revenueAccountCode: '4005', expenseAccountCode: '5005', headOfDepartment: 'Dr. Marcus Amosah', status: 'ACTIVE' }
   ], []);
 
-  // Combine all services
-  const allServices = useMemo(() => {
-    const list: any[] = [];
-    if (generalServices && generalServices.length > 0) {
-      generalServices.forEach((s: any) => {
-        list.push({ ...s, sourceCollection: 'general_services', displayCategory: s.category || 'General Service' });
-      });
+  // Demo Fallback Data for Hospital Beds
+  const demoBeds: HospitalBedNode[] = useMemo(() => [
+    { id: 'bed-mat-01', departmentId: 'dep-02', wardName: 'Maternity Ward A', bedNumber: '01', bedType: 'GENERAL', status: 'AVAILABLE', dailyTariffCode: 'ACC-GEN-01', dailyRate: 150.00 },
+    { id: 'bed-mat-02', departmentId: 'dep-02', wardName: 'Maternity Ward A', bedNumber: '02', bedType: 'GENERAL', status: 'OCCUPIED', activePatientId: 'P-99201 (Abena M.)', dailyTariffCode: 'ACC-GEN-01', dailyRate: 150.00 },
+    { id: 'bed-mat-03', departmentId: 'dep-02', wardName: 'Maternity Ward A', bedNumber: '03', bedType: 'VIP', status: 'OCCUPIED', activePatientId: 'P-88402 (Grace A.)', dailyTariffCode: 'ACC-VIP-01', dailyRate: 450.00 },
+    { id: 'bed-mat-04', departmentId: 'dep-02', wardName: 'Maternity Ward A', bedNumber: '04', bedType: 'GENERAL', status: 'MAINTENANCE', dailyTariffCode: 'ACC-GEN-01', dailyRate: 150.00 },
+    { id: 'bed-icu-01', departmentId: 'dep-05', wardName: 'ICU High Dependency', bedNumber: 'ICU-01', bedType: 'ICU', status: 'OCCUPIED', activePatientId: 'P-77109 (Kofi O.)', dailyTariffCode: 'ACC-ICU-01', dailyRate: 850.00 },
+    { id: 'bed-icu-02', departmentId: 'dep-05', wardName: 'ICU High Dependency', bedNumber: 'ICU-02', bedType: 'ICU', status: 'AVAILABLE', dailyTariffCode: 'ACC-ICU-01', dailyRate: 850.00 }
+  ], []);
+
+  // Demo Fallback Data for Service Bridge Nodes
+  const demoServices: ServiceBridgeNode[] = useMemo(() => [
+    { id: 'srv-01', name: 'Specialist OPD Consultation', clinicalModule: 'Consultation', tariffCode: 'CON-001', price: 150.00, nhisCap: 80.00, autoBillOnComplete: true },
+    { id: 'srv-02', name: 'Abdominal Ultrasound Scan', clinicalModule: 'Radiology', tariffCode: 'RAD-004', price: 250.00, nhisCap: 120.00, autoBillOnComplete: true },
+    { id: 'srv-03', name: 'Full Blood Count Automated Panel', clinicalModule: 'Laboratory', tariffCode: 'LAB-012', price: 120.00, nhisCap: 45.00, autoBillOnComplete: true }
+  ], []);
+
+  const bedsList = useMemo(() => {
+    return rawBeds && rawBeds.length > 0 ? rawBeds : demoBeds;
+  }, [rawBeds, demoBeds]);
+
+  // Group beds by Ward Name for Matrix
+  const groupedWards = useMemo(() => {
+    return bedsList.reduce((acc, bed) => {
+      const ward = bed.wardName || 'General Ward';
+      if (!acc[ward]) acc[ward] = [];
+      acc[ward].push(bed);
+      return acc;
+    }, {} as Record<string, HospitalBedNode[]>);
+  }, [bedsList]);
+
+  // Bed Telemetry
+  const totalBedsCount = bedsList.length;
+  const occupiedBedsCount = bedsList.filter(b => b.status === 'OCCUPIED').length;
+  const availableBedsCount = bedsList.filter(b => b.status === 'AVAILABLE').length;
+  const maintenanceBedsCount = bedsList.filter(b => b.status === 'MAINTENANCE').length;
+  const occupancyRate = totalBedsCount > 0 ? Math.round((occupiedBedsCount / totalBedsCount) * 100) : 0;
+
+  const toggleBedMaintenance = async (bedId: string, currentStatus: string) => {
+    if (currentStatus === 'OCCUPIED') {
+      toast({ variant: 'destructive', title: 'Action Blocked', description: 'Cannot mark an occupied bed for maintenance.' });
+      return;
     }
-    if (labServices && labServices.length > 0) {
-      labServices.forEach((s: any) => {
-        list.push({ ...s, sourceCollection: 'lab_menu', displayCategory: 'Laboratory Test' });
-      });
-    }
-    if (radiologyServices && radiologyServices.length > 0) {
-      radiologyServices.forEach((s: any) => {
-        list.push({ ...s, sourceCollection: 'radiology_menu', displayCategory: 'Radiology / Imaging' });
-      });
-    }
-    if (procedureServices && procedureServices.length > 0) {
-      procedureServices.forEach((s: any) => {
-        list.push({ ...s, sourceCollection: 'procedure_menu', displayCategory: 'Clinical Procedure' });
-      });
-    }
-    return list.length > 0 ? list : demoServices;
-  }, [generalServices, labServices, radiologyServices, procedureServices, demoServices]);
 
-  // Filtered Services based on search query & tab
-  const filteredServices = useMemo(() => {
-    let list = allServices;
+    const newStatus = currentStatus === 'MAINTENANCE' ? 'AVAILABLE' : 'MAINTENANCE';
 
-    if (activeTab === 'GENERAL') {
-      list = list.filter(s => s.sourceCollection === 'general_services');
-    } else if (activeTab === 'LAB') {
-      list = list.filter(s => s.sourceCollection === 'lab_menu');
-    } else if (activeTab === 'RADIOLOGY') {
-      list = list.filter(s => s.sourceCollection === 'radiology_menu');
-    } else if (activeTab === 'PROCEDURE') {
-      list = list.filter(s => s.sourceCollection === 'procedure_menu');
-    }
-
-    if (searchQuery) {
-      const lower = searchQuery.toLowerCase();
-      list = list.filter(s => 
-        s.name?.toLowerCase().includes(lower) || 
-        s.displayCategory?.toLowerCase().includes(lower)
-      );
-    }
-    return list;
-  }, [allServices, searchQuery, activeTab]);
-
-  const form = useForm<ServiceFormValues>({
-    resolver: zodResolver(serviceFormSchema),
-    defaultValues: {
-      name: '',
-      category: 'CONSULTATION',
-      price: 0,
-      nhisCap: 0
-    },
-  });
-
-  const handleAddService = (values: ServiceFormValues) => {
-    if (!firestore || !hospitalId) return;
-
-    let targetCollection = '';
-    let payload: any = {
-      name: values.name,
-      price: values.price,
-      nhisCap: values.nhisCap || 0,
-      hospitalId,
-      createdAt: serverTimestamp(),
-    };
-
-    if (values.category === 'LAB_TEST') {
-      targetCollection = 'lab_menu';
-      payload.category = 'Laboratory';
-    } else if (values.category === 'RADIOLOGY_SCAN') {
-      targetCollection = 'radiology_menu';
-      payload.category = 'Radiology';
-    } else if (values.category === 'CLINICAL_PROCEDURE') {
-      targetCollection = 'procedure_menu';
-      payload.category = 'Procedure';
-    } else {
-      targetCollection = 'general_services';
-      payload.category = values.category;
-    }
-    
-    addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/${targetCollection}`), payload);
-
-    toast({
-      title: 'Service Node Configured',
-      description: `${values.name} added to ${targetCollection}.`,
-    });
-    form.reset({
-      name: '',
-      category: 'CONSULTATION',
-      price: 0,
-      nhisCap: 0
-    });
-    setIsAddServiceOpen(false);
-  };
-
-  const handleDeleteService = async (collectionName: string, serviceId: string, serviceName: string) => {
-    if (!firestore || !hospitalId) return;
     try {
-      await deleteDoc(doc(firestore, `hospitals/${hospitalId}/${collectionName}`, serviceId));
+      if (firestore && hospitalId) {
+        const bedRef = doc(firestore, `hospitals/${hospitalId}/infrastructure_nodes`, bedId);
+        await updateDoc(bedRef, { status: newStatus });
+      }
       toast({
-        title: 'Service Node Removed',
-        description: `${serviceName} has been deleted.`,
+        title: 'Bed Status Updated',
+        description: `Bed state changed to ${newStatus}.`
       });
     } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
+      toast({ variant: 'destructive', title: 'Update Failed', description: e.message });
     }
   };
 
-  const isLoading = isUserLoading || isProfileLoading || generalLoading || labLoading || radiologyLoading || procedureLoading;
+  const isLoading = isUserLoading || isProfileLoading || bedsLoading;
   const userName = user?.displayName || userProfile?.name || 'MARCUS AMOSAH HENAKU';
   const userInitials = userName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || 'MH';
 
@@ -200,7 +162,7 @@ export default function GeneralServicesSetupPage() {
         <div className="text-center bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md">
           <ShieldAlert className="h-16 w-16 text-rose-500 mx-auto mb-4" />
           <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-slate-100">Access Denied</h1>
-          <p className="text-slate-500 text-sm mt-2">You are not authorized for General Services Master Setup.</p>
+          <p className="text-slate-500 text-sm mt-2">You are not authorized for Infrastructure & Revenue Setup.</p>
           <Button onClick={() => router.push('/dashboard')} className="mt-6 bg-slate-900 text-white rounded-xl">
             Return Home
           </Button>
@@ -225,14 +187,14 @@ export default function GeneralServicesSetupPage() {
           <div>
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-400">
-                <Cog className="w-7 h-7 animate-spin-slow" />
+                <Cog className="w-7 h-7" />
               </div>
               <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-wider text-white">
-                GENERAL SERVICES MASTER SETUP & TARIFF MATRIX
+                HOSPITAL INFRASTRUCTURE & REVENUE CENTER SETUP
               </h1>
             </div>
             <p className="mt-2 text-xs md:text-sm text-slate-400 font-medium">
-              CONFIGURE CLINICAL DEPARTMENTS, BED TARIFFS, LAB MENUS, RADIOLOGY SCANS, AND PROCEDURE NODES.
+              CONFIGURE DEPARTMENTS, BED WARDS, SERVICE NODES, AND REVENUE LEDGER MAPPINGS.
             </p>
           </div>
 
@@ -248,275 +210,278 @@ export default function GeneralServicesSetupPage() {
           </div>
         </div>
 
-        {/* Bottom Row / Contextual Setup Telemetry */}
+        {/* Bottom Row / Contextual Telemetry */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 relative z-10">
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Active Service Nodes</span>
-              <div className="text-2xl font-black text-emerald-400 font-mono">
-                {allServices.length} Configured
-              </div>
-              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">Cross-Departmental Tariff Master</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Active Departments</span>
+              <div className="text-2xl font-black text-emerald-400 font-mono">14 Departments</div>
+              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">Mapped to GL Ledger Codes</span>
             </div>
             <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
-              <Package className="w-6 h-6" />
+              <Building2 className="w-6 h-6" />
             </div>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Service Sub-Menus</span>
-              <div className="text-2xl font-black text-sky-400 font-mono">4 Modules</div>
-              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">General, Lab, Radiology, Procedures</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Total Bed Capacity</span>
+              <div className="text-2xl font-black text-sky-400 font-mono">{totalBedsCount} Beds</div>
+              <span className="text-[10px] font-bold text-sky-400 mt-0.5 block">{availableBedsCount} Available • {maintenanceBedsCount} Cleaning</span>
             </div>
             <div className="p-3 bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded-xl">
-              <Activity className="w-6 h-6" />
+              <BedDouble className="w-6 h-6" />
             </div>
           </div>
 
           <div className="bg-slate-900 border border-emerald-500/30 p-4 rounded-xl flex items-center justify-between ring-1 ring-emerald-500/20 shadow-lg">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-1">Tariff Master Status</span>
-              <div className="text-2xl font-black text-emerald-400 font-mono">100% Active</div>
-              <span className="text-[10px] font-bold text-emerald-400 mt-0.5 block">Feeds POS Checkout & Billing</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-1">Current Occupancy Rate</span>
+              <div className="text-2xl font-black text-emerald-400 font-mono">{occupancyRate}%</div>
+              <span className="text-[10px] font-bold text-emerald-400 mt-0.5 block">Automated Midnight Census</span>
             </div>
             <div className="p-3 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-xl">
-              <CheckCircle2 className="w-6 h-6" />
+              <Activity className="w-6 h-6" />
             </div>
           </div>
         </div>
       </div>
 
       {/* ========================================== */}
-      {/* 2. FILTER TABS & SEARCH CONTROLS           */}
+      {/* 2. INFRASTRUCTURE CONTROL CENTER TABS      */}
       {/* ========================================== */}
-      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          
-          {/* Search Box */}
-          <div className="relative w-full lg:w-96">
-            <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search service by name or category..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
-            />
-          </div>
+      <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab('DEPARTMENTS')}
+          className={`px-5 py-2.5 font-black text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
+            activeTab === 'DEPARTMENTS'
+              ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-lg'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          <span>DEPARTMENTS & REVENUE CENTERS</span>
+        </button>
 
-          {/* Module Filter Tabs */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab('ALL')}
-              className={`px-3.5 py-2 text-xs font-black uppercase rounded-xl transition-all cursor-pointer ${
-                activeTab === 'ALL' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              ALL ({allServices.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('GENERAL')}
-              className={`px-3.5 py-2 text-xs font-black uppercase rounded-xl transition-all cursor-pointer ${
-                activeTab === 'GENERAL' ? 'bg-emerald-600 text-white shadow' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              CONSULTATIONS & BEDS
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('LAB')}
-              className={`px-3.5 py-2 text-xs font-black uppercase rounded-xl transition-all cursor-pointer ${
-                activeTab === 'LAB' ? 'bg-sky-600 text-white shadow' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              LABORATORY MENU
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('RADIOLOGY')}
-              className={`px-3.5 py-2 text-xs font-black uppercase rounded-xl transition-all cursor-pointer ${
-                activeTab === 'RADIOLOGY' ? 'bg-indigo-600 text-white shadow' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              RADIOLOGY SCANS
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('PROCEDURE')}
-              className={`px-3.5 py-2 text-xs font-black uppercase rounded-xl transition-all cursor-pointer ${
-                activeTab === 'PROCEDURE' ? 'bg-amber-600 text-white shadow' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              CLINICAL PROCEDURES
-            </button>
-          </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab('BED_MATRIX')}
+          className={`px-5 py-2.5 font-black text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
+            activeTab === 'BED_MATRIX'
+              ? 'bg-emerald-600 text-white shadow-lg'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
+          }`}
+        >
+          <BedDouble className="w-4 h-4" />
+          <span>BED MANAGEMENT MATRIX</span>
+        </button>
 
-          {/* Configure New Service Modal Trigger */}
-          <Dialog open={isAddServiceOpen} onOpenChange={setIsAddServiceOpen}>
-            <DialogTrigger asChild>
-              <button
-                type="button"
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg self-start lg:self-auto"
-              >
-                <Plus className="w-4 h-4" />
-                <span>CONFIGURE NEW SERVICE</span>
-              </button>
-            </DialogTrigger>
-            <DialogContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-black uppercase tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <Cog className="w-5 h-5 text-emerald-500" />
-                  <span>Configure Hospital Service Node</span>
-                </DialogTitle>
-              </DialogHeader>
-
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleAddService)} className="space-y-4 pt-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs font-bold uppercase text-slate-500">Service Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g. ICU Day Bed Charge or Abdominal Scan" {...field} className="rounded-xl text-xs" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="category"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs font-bold uppercase text-slate-500">Category Module</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="rounded-xl text-xs font-bold">
-                              <SelectValue placeholder="Select Category" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="CONSULTATION">Consultation / OPD</SelectItem>
-                            <SelectItem value="BED_WARD">Bed Ward Tariff</SelectItem>
-                            <SelectItem value="LAB_TEST">Laboratory Menu</SelectItem>
-                            <SelectItem value="RADIOLOGY_SCAN">Radiology / Imaging</SelectItem>
-                            <SelectItem value="CLINICAL_PROCEDURE">Clinical Procedure</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="price"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs font-bold uppercase text-slate-500">Base Cash Price (GHS)</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} className="rounded-xl font-mono text-xs font-bold" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="nhisCap"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs font-bold uppercase text-slate-500">NHIS Tariff Cap (GHS)</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} className="rounded-xl font-mono text-xs font-bold" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <DialogFooter className="pt-4">
-                    <button
-                      type="submit"
-                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow cursor-pointer"
-                    >
-                      SAVE SERVICE TO MASTER TARIFF
-                    </button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-
-        </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab('SERVICE_NODES')}
+          className={`px-5 py-2.5 font-black text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
+            activeTab === 'SERVICE_NODES'
+              ? 'bg-sky-600 text-white shadow-lg'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>SERVICE NODES & TARIFF BRIDGE</span>
+        </button>
       </div>
 
       {/* ========================================== */}
-      {/* 3. MASTER SERVICE NODE DATA GRID           */}
+      {/* 3. TAB 1: DEPARTMENTS & GL REVENUE MAPPINGS */}
       {/* ========================================== */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        {filteredServices.length === 0 ? (
-          <div className="p-16 text-center text-slate-400 italic">
-            No hospital service nodes found matching query.
+      {activeTab === 'DEPARTMENTS' && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden space-y-4 p-6">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div>
+              <h2 className="text-lg font-black uppercase text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Landmark className="w-5 h-5 text-emerald-500" />
+                <span>Departmental Revenue & Cost Center Ledger Mappings</span>
+              </h2>
+              <p className="text-xs text-slate-400 font-medium mt-1">
+                Hard-linked GL revenue codes ensure billing proceeds route to exact departmental P&L accounts.
+              </p>
+            </div>
           </div>
-        ) : (
+
           <table className="w-full text-xs text-left">
             <thead className="bg-slate-900 text-white uppercase text-[9px] tracking-widest">
               <tr>
-                <th className="p-4">Service Node Name</th>
-                <th className="p-4">Category Module</th>
-                <th className="p-4 text-right">Base Cash Price (₵)</th>
-                <th className="p-4 text-right">NHIS Reimbursement Cap (₵)</th>
-                <th className="p-4 text-center">Action</th>
+                <th className="p-4">Department Name</th>
+                <th className="p-4">Dept Code</th>
+                <th className="p-4 text-center">Revenue Ledger Account</th>
+                <th className="p-4 text-center">Expense Cost Center</th>
+                <th className="p-4">Head of Department</th>
+                <th className="p-4 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredServices.map(service => {
-                const cashPrice = Number(service.price || 0);
-                const nhisCap = Number(service.nhisCap || 0);
-
-                return (
-                  <tr key={service.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all">
-                    <td className="p-4 font-black uppercase text-slate-900 dark:text-slate-100">
-                      {service.name}
-                    </td>
-                    <td className="p-4 font-bold text-slate-600 dark:text-slate-400">
-                      <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px]">
-                        {service.displayCategory || 'General Service'}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
-                      ₵ {cashPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="p-4 text-right font-mono font-bold text-sky-600 dark:text-sky-400">
-                      ₵ {nhisCap.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="p-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteService(service.sourceCollection, service.id, service.name)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 transition-all cursor-pointer"
-                        title="Delete Service Node"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {demoDepartments.map(dept => (
+                <tr key={dept.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all">
+                  <td className="p-4 font-black uppercase text-slate-900 dark:text-slate-100">
+                    {dept.name}
+                  </td>
+                  <td className="p-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                    {dept.code}
+                  </td>
+                  <td className="p-4 text-center font-mono font-bold text-slate-900 dark:text-slate-100">
+                    <span className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-800 dark:text-emerald-300">
+                      Code {dept.revenueAccountCode}
+                    </span>
+                  </td>
+                  <td className="p-4 text-center font-mono font-bold text-slate-900 dark:text-slate-100">
+                    <span className="px-2.5 py-1 bg-sky-50 dark:bg-sky-950 border border-sky-200 dark:border-sky-800 rounded-lg text-sky-800 dark:text-sky-300">
+                      Code {dept.expenseAccountCode}
+                    </span>
+                  </td>
+                  <td className="p-4 font-bold text-slate-600 dark:text-slate-300">
+                    {dept.headOfDepartment}
+                  </td>
+                  <td className="p-4 text-center">
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-black text-[9px] uppercase rounded">
+                      {dept.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* 4. TAB 2: BED MANAGEMENT MATRIX            */}
+      {/* ========================================== */}
+      {activeTab === 'BED_MATRIX' && (
+        <div className="space-y-6">
+          {/* Status Legend */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-emerald-500" />
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Available ({availableBedsCount})</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-rose-500" />
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Occupied ({occupiedBedsCount})</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-amber-400" />
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Maintenance / Cleaning ({maintenanceBedsCount})</span>
+            </div>
+          </div>
+
+          {/* Wards Matrix Grid */}
+          {Object.keys(groupedWards).map(wardName => (
+            <div key={wardName} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <h3 className="text-base font-black uppercase text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <BedDouble className="w-5 h-5 text-emerald-500" />
+                <span>{wardName}</span>
+              </h3>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {groupedWards[wardName].map(bed => {
+                  const isAvailable = bed.status === 'AVAILABLE';
+                  const isOccupied = bed.status === 'OCCUPIED';
+                  const isMaintenance = bed.status === 'MAINTENANCE';
+
+                  return (
+                    <div
+                      key={bed.id}
+                      onClick={() => toggleBedMaintenance(bed.id, bed.status)}
+                      className={`p-4 rounded-2xl border-2 transition-all shadow-sm flex flex-col items-center justify-between h-28 relative cursor-pointer ${
+                        isAvailable ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 hover:bg-emerald-100 dark:hover:bg-emerald-950/80' : ''
+                      } ${
+                        isOccupied ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-500 cursor-not-allowed' : ''
+                      } ${
+                        isMaintenance ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-400 border-dashed hover:bg-amber-100 dark:hover:bg-amber-950/80' : ''
+                      }`}
+                    >
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{bed.bedType}</span>
+                      <span className={`text-2xl font-black ${
+                        isAvailable ? 'text-emerald-700 dark:text-emerald-300' : isOccupied ? 'text-rose-700 dark:text-rose-300' : 'text-amber-700 dark:text-amber-300'
+                      }`}>
+                        {bed.bedNumber}
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-500 font-mono">
+                        ₵ {bed.dailyRate.toFixed(2)}/night
+                      </span>
+
+                      {/* Active Patient Badge */}
+                      {isOccupied && bed.activePatientId && (
+                        <div className="absolute -top-2.5 -right-2 bg-slate-950 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md truncate max-w-[110px] border border-slate-800">
+                          {bed.activePatientId}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* 5. TAB 3: SERVICE NODES & TARIFF BRIDGE    */}
+      {/* ========================================== */}
+      {activeTab === 'SERVICE_NODES' && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div>
+              <h2 className="text-lg font-black uppercase text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Layers className="w-5 h-5 text-sky-500" />
+                <span>Clinical Action to Tariff Master Billing Bridge</span>
+              </h2>
+              <p className="text-xs text-slate-400 font-medium mt-1">
+                Clinical orders (lab, radiology scans, specialist visits) automatically push Tariff Master items to patient billing sessions.
+              </p>
+            </div>
+          </div>
+
+          <table className="w-full text-xs text-left">
+            <thead className="bg-slate-900 text-white uppercase text-[9px] tracking-widest">
+              <tr>
+                <th className="p-4">Clinical Action Node</th>
+                <th className="p-4">Clinical Module</th>
+                <th className="p-4 font-mono">Tariff Master Code</th>
+                <th className="p-4 text-right">Base Cash Rate (₵)</th>
+                <th className="p-4 text-right">NHIS Tariff Cap (₵)</th>
+                <th className="p-4 text-center">Auto-Bill Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {demoServices.map(srv => (
+                <tr key={srv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all">
+                  <td className="p-4 font-black uppercase text-slate-900 dark:text-slate-100">
+                    {srv.name}
+                  </td>
+                  <td className="p-4 font-bold text-slate-600 dark:text-slate-300">
+                    {srv.clinicalModule}
+                  </td>
+                  <td className="p-4 font-mono font-bold text-sky-600 dark:text-sky-400">
+                    {srv.tariffCode}
+                  </td>
+                  <td className="p-4 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
+                    ₵ {srv.price.toFixed(2)}
+                  </td>
+                  <td className="p-4 text-right font-mono font-bold text-slate-500">
+                    ₵ {srv.nhisCap.toFixed(2)}
+                  </td>
+                  <td className="p-4 text-center">
+                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-black text-[9px] uppercase rounded">
+                      AUTO-BILL ACTIVE
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
     </div>
   );

@@ -2194,3 +2194,74 @@ exports.generateCorporateInvoice = onCall(GLOBAL_CONFIG, async (request) => {
   }
 });
 
+/**
+ * AUTOMATED MIDNIGHT BED CENSUS & ACCOMMODATION REVENUE ENGINE
+ * Triggered nightly to bill active occupied hospital beds.
+ */
+exports.runMidnightBedCensus = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Login Required");
+
+  const uid = request.auth.uid;
+  const userProfileDoc = await db.collection("users").doc(uid).get();
+  if (!userProfileDoc.exists) throw new HttpsError("not-found", "User profile not found.");
+
+  const targetHospitalId = userProfileDoc.data()?.hospitalId;
+  if (!targetHospitalId) throw new HttpsError("failed-precondition", "Hospital ID missing.");
+
+  try {
+    const bedsSnap = await db.collection(`hospitals/${targetHospitalId}/infrastructure_nodes`)
+      .where("status", "==", "OCCUPIED")
+      .get();
+
+    let processedBeds = 0;
+    let totalBilled = 0;
+
+    for (const bedDoc of bedsSnap.docs) {
+      const bed = bedDoc.data();
+      if (bed.activePatientId) {
+        const invoiceSnap = await db.collection(`hospitals/${targetHospitalId}/invoices`)
+          .where("patientId", "==", bed.activePatientId)
+          .where("status", "==", "OPEN")
+          .limit(1)
+          .get();
+
+        const dailyRate = Number(bed.dailyRate || 350.00);
+
+        if (!invoiceSnap.empty) {
+          const invRef = invoiceSnap.docs[0].ref;
+          await invRef.update({
+            accommodationCharges: admin.firestore.FieldValue.increment(dailyRate),
+            totalAmount: admin.firestore.FieldValue.increment(dailyRate),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+
+          await db.collection(`hospitals/${targetHospitalId}/billing_items`).add({
+            hospitalId: targetHospitalId,
+            patientId: bed.activePatientId,
+            invoiceId: invRef.id,
+            description: `Daily Accommodation: ${bed.wardName || 'Ward'} (Bed ${bed.bedNumber})`,
+            category: 'ACCOMMODATION',
+            amount: dailyRate,
+            status: 'UNPAID',
+            billingType: 'CASH',
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+
+          processedBeds++;
+          totalBilled += dailyRate;
+        }
+      }
+    }
+
+    return {
+      success: true,
+      processedBeds,
+      totalBilled,
+      message: `Midnight Bed Census completed. Billed ${processedBeds} occupied beds for GHS ${totalBilled.toFixed(2)}.`
+    };
+  } catch (error) {
+    console.error("FATAL: runMidnightBedCensus", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "Failed to process midnight bed census.");
+  }
+});
