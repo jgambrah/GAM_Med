@@ -1649,21 +1649,12 @@ exports.submitAuditClarification = onCall(GLOBAL_CONFIG, async (request) => {
       });
     });
 
-    return {
-      success: true,
-      message: "Clarification submitted successfully. Document returned to the approval queue."
-    };
+    return { success: true, message: `Clarification submitted. PV ${sourceDocumentId} returned to approval queue.` };
   } catch (error) {
     console.error("FATAL: submitAuditClarification", error);
     if (error instanceof HttpsError) throw error;
     throw new HttpsError("internal", error.message || "An error occurred while submitting the clarification.");
   }
 });
-
-
-
-
-
-
 
 
