@@ -1308,6 +1308,144 @@ exports.postAndDisbursePaymentVoucher = onCall(GLOBAL_CONFIG, async (request) =>
   }
 });
 
+/**
+ * Callable Function: Post Remittance Settlement & Variance Resolution
+ * Atomically clears claim batches, accounts for WHT and Bad Debt write-offs,
+ * posts the double-entry Journal Voucher, and updates AR.
+ */
+exports.postRemittanceSettlement = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "User must be logged in.");
+  
+  const { payerId, bankAccountCode, totalReceived, whtDeducted, writeOffAmount, batchIds, remittanceRef, hospitalId: reqHospitalId } = request.data;
+  const uid = request.auth.uid;
+
+  const userProfileDoc = await db.collection("users").doc(uid).get();
+  if (!userProfileDoc.exists) throw new HttpsError("not-found", "User profile not found.");
+
+  const targetHospitalId = reqHospitalId || userProfileDoc.data().hospitalId;
+  if (!targetHospitalId) throw new HttpsError("failed-precondition", "Hospital ID missing.");
+
+  const totalClearedAR = (Number(totalReceived) || 0) + (Number(whtDeducted) || 0) + (Number(writeOffAmount) || 0);
+
+  const jvRef = db.collection("hospitals").doc(targetHospitalId).collection("journal_vouchers").doc();
+  const auditLogRef = db.collection("global_audit_logs").doc();
+
+  try {
+    await db.runTransaction(async (transaction) => {
+      let calculatedBatchTotal = 0;
+      const batchRefs = (batchIds || []).map(id => db.collection("hospitals").doc(targetHospitalId).collection("claim_batches").doc(id));
+      const batchDocs = batchRefs.length > 0 ? await transaction.getAll(...batchRefs) : [];
+
+      batchDocs.forEach((docSnap) => {
+        if (!docSnap.exists) throw new HttpsError("not-found", "A selected batch was not found.");
+        const data = docSnap.data();
+        calculatedBatchTotal += Number(data.totalClaimValue || 0);
+      });
+
+      // Update Batches to SETTLED
+      batchRefs.forEach((ref) => {
+        transaction.update(ref, {
+          status: "SETTLED",
+          settledAt: admin.firestore.FieldValue.serverTimestamp(),
+          remittanceReference: remittanceRef,
+          settledBy: uid
+        });
+      });
+
+      // Post Automated Journal Voucher
+      transaction.set(jvRef, {
+        jvNumber: `JV-REC-${remittanceRef}`,
+        source: "REMITTANCE_PORTAL",
+        datePosted: admin.firestore.FieldValue.serverTimestamp(),
+        preparerId: uid,
+        preparerName: userProfileDoc.data()?.name || "Chief Accountant",
+        narration: `NHIS/Payer Settlement for Ref: ${remittanceRef}. Includes WHT and Write-offs.`,
+        status: "POSTED",
+        hospitalId: targetHospitalId,
+        period: new Date().toISOString().slice(0, 7),
+        entries: [
+          { accountCode: bankAccountCode || "1001", accountName: "GCB Bank Cash Account", debit: Number(totalReceived) || 0, credit: 0 },
+          ...(whtDeducted > 0 ? [{ accountCode: "1205", accountName: "WHT Receivables Credit", debit: Number(whtDeducted), credit: 0 }] : []),
+          ...(writeOffAmount > 0 ? [{ accountCode: "5100", accountName: "Bad Debt & Claims Write-Off", debit: Number(writeOffAmount), credit: 0 }] : []),
+          { accountCode: "1200", accountName: "Accounts Receivable - NHIS Claims", debit: 0, credit: totalClearedAR }
+        ]
+      });
+
+      // Audit Trail Log
+      transaction.set(auditLogRef, {
+        type: "FINANCIAL",
+        action: "REMITTANCE_SETTLED",
+        hospitalId: targetHospitalId,
+        payerId: payerId || "NHIS",
+        totalCleared: totalClearedAR,
+        jvId: jvRef.id,
+        officerId: uid,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+    });
+
+    return { success: true, message: "Remittance processed and AR cleared successfully." };
+  } catch (error) {
+    console.error("FATAL: postRemittanceSettlement", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "Failed to process remittance settlement.");
+  }
+});
+
+/**
+ * Cloud Function Trigger: Intercepts every newly posted Journal Voucher
+ * and updates the running balance aggregation collection `ledger_balances` in real-time.
+ */
+exports.aggregateJournalVoucherToLedgerBalances = onDocumentCreated(
+  { document: "hospitals/{hospitalId}/journal_vouchers/{jvId}", region: "us-central1" },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const jvData = snap.data();
+    if (jvData.status !== "POSTED" || !jvData.entries || !Array.isArray(jvData.entries)) {
+      return;
+    }
+
+    const hospitalId = event.params.hospitalId;
+    const period = jvData.period || new Date().toISOString().slice(0, 7);
+
+    const batch = db.batch();
+
+    jvData.entries.forEach((entry) => {
+      const accountCode = entry.accountCode || entry.accountId;
+      if (!accountCode) return;
+
+      const balanceDocRef = db
+        .collection("hospitals")
+        .doc(hospitalId)
+        .collection("ledger_balances")
+        .doc(`${period}_account_${accountCode}`);
+
+      const debit = Number(entry.debit || 0);
+      const credit = Number(entry.credit || 0);
+
+      batch.set(
+        balanceDocRef,
+        {
+          period,
+          accountCode,
+          accountName: entry.accountName || `Account ${accountCode}`,
+          totalDebit: admin.firestore.FieldValue.increment(debit),
+          totalCredit: admin.firestore.FieldValue.increment(credit),
+          netBalance: admin.firestore.FieldValue.increment(debit - credit),
+          lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+        },
+        { merge: true }
+      );
+    });
+
+    await batch.commit();
+    console.log(`Successfully aggregated JV ${snap.id} into ledger_balances for hospital ${hospitalId}`);
+  }
+);
+
+
 
 
 
