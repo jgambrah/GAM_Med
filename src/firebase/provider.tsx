@@ -98,59 +98,63 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     return () => unsubscribe(); // Cleanup
   }, [auth]); // Depends on the auth instance
 
-  // Self-healing Firestore profile hook for Marcus and James
+  // Self-healing Firestore profile hook for Marcus, James, and Shane
   useEffect(() => {
     const firebaseUser = userAuthState.user;
     if (firebaseUser && firestore) {
-      if (firebaseUser.email === 'marcusamosah@gmail.com') {
-        const userRef = doc(firestore, 'users', firebaseUser.uid);
-        setDoc(userRef, {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          fullName: firebaseUser.displayName || 'Marcus Amosah Henaku',
-          role: 'DIRECTOR',
-          hospitalId: 'GAM-GAR-7578',
-          is_active: true,
-          mustChangePassword: false,
-          onboardingComplete: true
-        }, { merge: true }).then(() => {
-          console.log("✅ User profile self-healed in Firestore!");
-        }).catch((e) => {
+      const email = firebaseUser.email?.toLowerCase();
+      if (!email) return;
+
+      const healProfile = async () => {
+        try {
+          const userRef = doc(firestore, 'users', firebaseUser.uid);
+          
+          if (email === 'marcusamosah@gmail.com') {
+            await setDoc(userRef, {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              fullName: firebaseUser.displayName || 'Marcus Amosah Henaku',
+              name: firebaseUser.displayName || 'Marcus Amosah Henaku',
+              role: 'DIRECTOR',
+              hospitalId: 'GAM-GAR-7578',
+              is_active: true,
+              mustChangePassword: false,
+              onboardingComplete: true
+            }, { merge: true });
+            console.log("✅ User profile self-healed in Firestore!");
+          } else if (email === 'jamesobrempong@gmail.com' || email === 'jamesobrempong@mail.com') {
+            await setDoc(userRef, {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              fullName: firebaseUser.displayName || 'James Obrempong',
+              name: firebaseUser.displayName || 'James Obrempong',
+              role: 'DOCTOR',
+              hospitalId: 'GAM-GAR-7578',
+              is_active: true,
+              mustChangePassword: false,
+              onboardingComplete: true
+            }, { merge: true });
+            console.log("✅ James Obrempong profile self-healed in Firestore!");
+          } else if (email === 'shanegambrah@gmail.com') {
+            await setDoc(userRef, {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              fullName: firebaseUser.displayName || 'Shane Gambrah',
+              name: firebaseUser.displayName || 'Shane Gambrah',
+              role: 'PHARMACIST',
+              hospitalId: 'GAM-GAR-7578',
+              is_active: true,
+              mustChangePassword: false,
+              onboardingComplete: true
+            }, { merge: true });
+            console.log("✅ Shane Gambrah profile self-healed in Firestore!");
+          }
+        } catch (e) {
           console.error("❌ User profile self-healing failed:", e);
-        });
-      } else if (firebaseUser.email === 'jamesobrempong@gmail.com' || firebaseUser.email === 'jamesobrempong@mail.com') {
-        const userRef = doc(firestore, 'users', firebaseUser.uid);
-        setDoc(userRef, {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          fullName: firebaseUser.displayName || 'James Obrempong',
-          role: 'DOCTOR',
-          hospitalId: 'GAM-GAR-7578',
-          is_active: true,
-          mustChangePassword: false,
-          onboardingComplete: true
-        }, { merge: true }).then(() => {
-          console.log("✅ James Obrempong profile self-healed in Firestore!");
-        }).catch((e) => {
-          console.error("❌ James Obrempong profile self-healing failed:", e);
-        });
-      } else if (firebaseUser.email === 'shanegambrah@gmail.com') {
-        const userRef = doc(firestore, 'users', firebaseUser.uid);
-        setDoc(userRef, {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          fullName: firebaseUser.displayName || 'Shane Gambrah',
-          role: 'PHARMACIST',
-          hospitalId: 'GAM-GAR-7578',
-          is_active: true,
-          mustChangePassword: false,
-          onboardingComplete: true
-        }, { merge: true }).then(() => {
-          console.log("✅ Shane Gambrah profile self-healed in Firestore!");
-        }).catch((e) => {
-          console.error("❌ Shane Gambrah profile self-healing failed:", e);
-        });
-      }
+        }
+      };
+
+      healProfile();
     }
   }, [userAuthState.user, firestore]);
 
