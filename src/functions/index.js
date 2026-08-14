@@ -2265,3 +2265,108 @@ exports.runMidnightBedCensus = onCall(GLOBAL_CONFIG, async (request) => {
     throw new HttpsError("internal", error.message || "Failed to process midnight bed census.");
   }
 });
+
+/**
+ * EXECUTE BULK TARIFF ADJUSTMENT WITH CHUNKED BATCHING & AUDIT LOGS
+ * Handles 500-write Firestore limit by batching 490 docs per commit.
+ */
+exports.executeBulkTariffAdjustment = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "User must be logged in.");
+
+  const uid = request.auth.uid;
+  const { department, category, adjustmentType, adjustmentValue, justification } = request.data;
+
+  if (!department || !adjustmentType || adjustmentValue === undefined) {
+    throw new HttpsError("invalid-argument", "Missing required adjustment parameters.");
+  }
+
+  const userProfileDoc = await db.collection("users").doc(uid).get();
+  if (!userProfileDoc.exists) throw new HttpsError("not-found", "User profile not found.");
+
+  const targetHospitalId = userProfileDoc.data()?.hospitalId;
+  if (!targetHospitalId) throw new HttpsError("failed-precondition", "Hospital ID missing.");
+
+  try {
+    let q = db.collection(`hospitals/${targetHospitalId}/product_catalog`);
+    if (department && department !== "ALL") {
+      q = q.where("department", "==", department);
+    }
+    if (category && category !== "ALL") {
+      q = q.where("category", "==", category);
+    }
+
+    const snapshot = await q.get();
+    if (snapshot.empty) {
+      return { success: true, message: "No items matched the specified criteria.", totalUpdated: 0 };
+    }
+
+    const batches = [];
+    let currentBatch = db.batch();
+    let operationCount = 0;
+    let totalUpdated = 0;
+
+    snapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      const basePrice = Number(data.sellingPrice || data.baseCashPrice || data.basePrice || 0);
+      let newPrice = basePrice;
+
+      if (adjustmentType === "PERCENTAGE") {
+        newPrice = basePrice * (1 + (adjustmentValue / 100));
+      } else if (adjustmentType === "FIXED") {
+        newPrice = basePrice + adjustmentValue;
+      }
+
+      newPrice = Math.round(newPrice * 100) / 100;
+
+      currentBatch.update(doc.ref, {
+        sellingPrice: newPrice,
+        baseCashPrice: newPrice,
+        lastAdjustedBy: uid,
+        lastAdjustedByName: userProfileDoc.data()?.name || "Marcus Amosah Henaku",
+        lastAdjustedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      operationCount++;
+      totalUpdated++;
+
+      if (operationCount === 490) {
+        batches.push(currentBatch);
+        currentBatch = db.batch();
+        operationCount = 0;
+      }
+    });
+
+    // Master Audit Log in final chunk
+    const auditRef = db.collection(`hospitals/${targetHospitalId}/audit_logs`).doc();
+    currentBatch.set(auditRef, {
+      type: "FINANCIAL",
+      action: "BULK_TARIFF_ADJUSTMENT",
+      department: department || "ALL",
+      category: category || "ALL",
+      adjustmentType,
+      adjustmentValue,
+      itemsAffected: totalUpdated,
+      justification: justification || "Executive Inflation Markup",
+      executedBy: uid,
+      executedByName: userProfileDoc.data()?.name || "Marcus Amosah Henaku",
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    batches.push(currentBatch);
+
+    for (const batch of batches) {
+      await batch.commit();
+    }
+
+    return {
+      success: true,
+      totalUpdated,
+      message: `Successfully adjusted ${totalUpdated} items in ${department}.`
+    };
+
+  } catch (error) {
+    console.error("FATAL: executeBulkTariffAdjustment", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "Failed to execute bulk adjustment.");
+  }
+});
