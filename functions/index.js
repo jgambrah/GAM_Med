@@ -1780,6 +1780,200 @@ exports.verifyTillAndPostVariance = onCall(GLOBAL_CONFIG, async (request) => {
         cashierName: tillData.cashierName,
         expectedCash,
         declaredCash: actualCount,
+  await suppRef.set({
+    fiscalYear: fiscalYear || new Date().getFullYear(),
+    quarter: quarter || 'Q3',
+    accountCode,
+    supplementaryAmount: Number(supplementaryAmount) || 0,
+    justification,
+    requestedBy: uid,
+    requestedByName: userProfileDoc.data()?.name || "Finance Officer",
+    status: "AWAITING_DIRECTOR_APPROVAL",
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  return { success: true, message: "Supplementary budget request submitted to Medical Director for approval." };
+});
+
+/**
+ * Callable Function: Submit Audit Query Clarification & Resubmit Source Document
+ * Atomically updates audit_queries, sets hasPendingClarification: true on the source document
+ * (PAYMENT_VOUCHER, NHIS_BATCH, or JOURNAL_VOUCHER), and routes it back into the Executive approval queue.
+ */
+exports.submitAuditClarification = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be logged in to respond to queries.");
+  }
+
+  const { queryId, financeResponse, attachedFileUrls, hospitalId: reqHospitalId } = request.data;
+  const uid = request.auth.uid;
+
+  if (!queryId || !financeResponse) {
+    throw new HttpsError("invalid-argument", "Query ID and a written response are required.");
+  }
+
+  const userProfileDoc = await db.collection("users").doc(uid).get();
+  if (!userProfileDoc.exists) throw new HttpsError("not-found", "User profile not found.");
+
+  const targetHospitalId = reqHospitalId || userProfileDoc.data().hospitalId;
+  if (!targetHospitalId) throw new HttpsError("failed-precondition", "Hospital ID missing.");
+
+  const queryRef = db.collection("hospitals").doc(targetHospitalId).collection("audit_queries").doc(queryId);
+  const auditLogRef = db.collection("global_audit_logs").doc();
+
+  try {
+    await db.runTransaction(async (transaction) => {
+      // 1. READS MUST COME FIRST
+      const queryDoc = await transaction.get(queryRef);
+      if (!queryDoc.exists) {
+        throw new HttpsError("not-found", "Audit query document not found.");
+      }
+
+      const queryData = queryDoc.data();
+      const sourceType = queryData.sourceType || "PAYMENT_VOUCHER";
+      const sourceDocumentId = queryData.sourceDocumentId || queryId;
+
+      let sourceCollection = "payment_vouchers";
+      if (sourceType === "NHIS_BATCH") sourceCollection = "claim_batches";
+      else if (sourceType === "JOURNAL_VOUCHER") sourceCollection = "journal_vouchers";
+
+      const sourceRef = db.collection("hospitals").doc(targetHospitalId).collection(sourceCollection).doc(sourceDocumentId);
+      const sourceDoc = await transaction.get(sourceRef);
+
+      if (!sourceDoc.exists) {
+        throw new HttpsError("not-found", `The original source document (${sourceDocumentId}) could not be found.`);
+      }
+
+      // 2. WRITES MUST COME LAST
+      // A. Update Audit Query Document
+      transaction.update(queryRef, {
+        status: "CLARIFICATION_SUBMITTED",
+        financeResponse,
+        attachedFileUrls: attachedFileUrls || [],
+        respondedBy: uid,
+        respondedByName: userProfileDoc.data()?.name || "Marcus Amosah Henaku",
+        respondedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // B. Update Source Document (Push back to approval queue with clarification badge)
+      transaction.update(sourceRef, {
+        status: "AWAITING_FINANCE_APPROVAL",
+        hasPendingClarification: true,
+        auditClarified: true,
+        lastClarificationText: financeResponse,
+        lastClarifiedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // C. Immutable Financial Audit Log
+      transaction.set(auditLogRef, {
+        type: "FINANCIAL",
+        action: "AUDIT_CLARIFICATION_SUBMITTED",
+        hospitalId: targetHospitalId,
+        queryId,
+        sourceDocumentId,
+        sourceType,
+        officerId: uid,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+    });
+
+    return { success: true, message: `Clarification submitted. PV ${sourceDocumentId} returned to approval queue.` };
+  } catch (error) {
+    console.error("FATAL: submitAuditClarification", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "An error occurred while submitting the clarification.");
+  }
+});
+
+/**
+ * Callable Function: Verify Till & Post Automated Cash Variance Journal Voucher
+ * Atomically verifies a cashier till session, calculates the variance 
+ * (Declared Physical Cash - System Expected Cash), posts the cash deposit to the target Bank Ledger, 
+ * and generates an automated variance Journal Voucher (Write-off vs Staff Payroll Deduction).
+ */
+exports.verifyTillAndPostVariance = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "User must be logged in.");
+
+  const { tillId, targetBankId, resolutionType, shortageAmount, physicalCount, reason, hospitalId: reqHospitalId } = request.data;
+  const uid = request.auth.uid;
+
+  const userProfileDoc = await db.collection("users").doc(uid).get();
+  if (!userProfileDoc.exists) throw new HttpsError("not-found", "User profile not found.");
+
+  const targetHospitalId = reqHospitalId || userProfileDoc.data().hospitalId;
+  if (!targetHospitalId) throw new HttpsError("failed-precondition", "Hospital ID missing.");
+
+  const tillRef = db.collection("hospitals").doc(targetHospitalId).collection("cash_tills").doc(tillId);
+  const jvRef = db.collection("hospitals").doc(targetHospitalId).collection("journal_vouchers").doc();
+  const auditLogRef = db.collection("global_audit_logs").doc();
+
+  try {
+    await db.runTransaction(async (transaction) => {
+      const tillDoc = await transaction.get(tillRef);
+      if (!tillDoc.exists) throw new HttpsError("not-found", "Cash Till record not found.");
+
+      const tillData = tillDoc.data();
+      const expectedCash = Number(tillData.totalCollected || tillData.cashSales || 0);
+      const actualCount = Number(physicalCount ?? tillData.declaredPhysicalCash ?? expectedCash);
+      const variance = actualCount - expectedCash; // Negative = Shortage, Positive = Overage
+
+      // A. Update Till Status
+      transaction.update(tillRef, {
+        status: "VERIFIED",
+        verifiedBy: uid,
+        verifiedByName: userProfileDoc.data()?.name || "Marcus Amosah Henaku",
+        verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+        targetBankId: targetBankId || "1001",
+        declaredPhysicalCash: actualCount,
+        varianceAmount: variance,
+        resolutionType: variance !== 0 ? (resolutionType || "WRITE_OFF") : "BALANCED"
+      });
+
+      // B. Update Target Bank Ledger Balance
+      const bankRef = db.collection("hospitals").doc(targetHospitalId).collection("chart_of_accounts").doc(targetBankId || "1001");
+      transaction.update(bankRef, {
+        currentBalance: admin.firestore.FieldValue.increment(actualCount)
+      });
+
+      // C. Post Automated Variance Journal Voucher if Shortage/Overage exists
+      if (variance !== 0) {
+        const absVariance = Math.abs(variance);
+        const isShortage = variance < 0;
+
+        const debitAccountCode = isShortage
+          ? (resolutionType === "STAFF_DEDUCTION" ? "1210" : "5200") // 1210 = Staff Receivables, 5200 = Cash Shortage & Overages Expense
+          : (targetBankId || "1001");
+          
+        const creditAccountCode = isShortage
+          ? "1005" // 1005 = Cash Till Clearing Account
+          : "5200"; // Cash Shortage & Overages Income
+
+        transaction.set(jvRef, {
+          jvNumber: `JV-TILL-${tillId.slice(-6).toUpperCase()}`,
+          source: "TILL_RECONCILIATION",
+          datePosted: admin.firestore.FieldValue.serverTimestamp(),
+          preparerId: uid,
+          preparerName: userProfileDoc.data()?.name || "Marcus Amosah Henaku",
+          narration: `Automated Till Variance JV for Cashier ${tillData.cashierName || 'Staff'} (${tillId}). ${isShortage ? 'Shortage' : 'Overage'}: GHS ${absVariance.toFixed(2)}. Resolution: ${resolutionType || 'WRITE_OFF'}.`,
+          status: "POSTED",
+          hospitalId: targetHospitalId,
+          period: new Date().toISOString().slice(0, 7),
+          entries: [
+            { accountCode: debitAccountCode, accountName: isShortage ? (resolutionType === "STAFF_DEDUCTION" ? "Staff Receivables Account" : "Cash Shortage Expense") : "Bank Ledger", debit: absVariance, credit: 0 },
+            { accountCode: creditAccountCode, accountName: isShortage ? "Till Clearing Account" : "Cash Overage Gain", debit: 0, credit: absVariance }
+          ]
+        });
+      }
+
+      // D. Log Financial Audit Trail
+      transaction.set(auditLogRef, {
+        type: "FINANCIAL",
+        action: "TILL_RECONCILED_AND_BANKED",
+        hospitalId: targetHospitalId,
+        tillId,
+        cashierName: tillData.cashierName,
+        expectedCash,
+        declaredCash: actualCount,
         variance,
         resolutionType,
         officerId: uid,
@@ -1792,5 +1986,112 @@ exports.verifyTillAndPostVariance = onCall(GLOBAL_CONFIG, async (request) => {
     console.error("FATAL: verifyTillAndPostVariance", error);
     if (error instanceof HttpsError) throw error;
     throw new HttpsError("internal", error.message || "Failed to verify till session.");
+  }
+});
+
+/**
+ * Callable Function: Verify Till Session & Post Multi-Line General Ledger Clearing JV
+ * Reads session data first, then atomically clears Till Clearing Account (1050),
+ * debits Bank Vault Account (targetBankAccountCode), and balances variances (5200 Shortage / 1250 Staff Receivable / 4900 Overage).
+ */
+exports.verifyTillSession = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "User must be logged in.");
+
+  const { sessionId, varianceResolution, resolutionNotes, targetBankAccountCode, hospitalId: reqHospitalId } = request.data;
+  const uid = request.auth.uid;
+
+  const userProfileDoc = await db.collection("users").doc(uid).get();
+  if (!userProfileDoc.exists) throw new HttpsError("not-found", "User profile not found.");
+
+  const targetHospitalId = reqHospitalId || userProfileDoc.data().hospitalId;
+  if (!targetHospitalId) throw new HttpsError("failed-precondition", "Hospital ID missing.");
+
+  const sessionRef = db.collection("hospitals").doc(targetHospitalId).collection("till_sessions").doc(sessionId);
+  const jvRef = db.collection("hospitals").doc(targetHospitalId).collection("journal_vouchers").doc();
+  const auditLogRef = db.collection("global_audit_logs").doc();
+
+  try {
+    await db.runTransaction(async (transaction) => {
+      // 1. READS MUST COME FIRST
+      const sessionDoc = await transaction.get(sessionRef);
+      if (!sessionDoc.exists) throw new HttpsError("not-found", "Till session document not found.");
+
+      const sessionData = sessionDoc.data();
+      const expectedCash = Number(sessionData.systemExpectedCash || sessionData.totalCollected || 0);
+      const physicalCash = Number(sessionData.declaredPhysicalCash ?? expectedCash);
+      const variance = physicalCash - expectedCash; // physical - expected
+
+      // 2. WRITES MUST COME LAST
+      // A. Update Till Session Status
+      transaction.update(sessionRef, {
+        status: "RECONCILED",
+        verifiedBy: uid,
+        verifiedByName: userProfileDoc.data()?.name || "Marcus Amosah Henaku",
+        verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+        varianceResolution: varianceResolution || "N/A",
+        resolutionNotes: resolutionNotes || "",
+        linkedJvId: jvRef.id
+      });
+
+      // B. Construct Multi-Line Automated Journal Voucher
+      const entries = [];
+      const bankCode = targetBankAccountCode || "1001";
+
+      // 1. Debit Main Cash/Vault with physical cash received
+      if (physicalCash > 0) {
+        entries.push({ accountCode: bankCode, accountName: "GCB Bank Vault Account", debit: physicalCash, credit: 0 });
+      }
+
+      // 2. Credit Till Clearing Account (1050) to zero out shift expected revenue
+      if (expectedCash > 0) {
+        entries.push({ accountCode: "1050", accountName: "Till Clearing Account", debit: 0, credit: expectedCash });
+      }
+
+      // 3. Handle Variance Balancing Entries
+      if (variance < 0) {
+        const shortageAmount = Math.abs(variance);
+        if (varianceResolution === "WRITE_OFF") {
+          entries.push({ accountCode: "5200", accountName: "Cash Shortage & Overages Expense", debit: shortageAmount, credit: 0 });
+        } else if (varianceResolution === "STAFF_DEDUCTION") {
+          entries.push({ accountCode: "1250", accountName: "Staff Receivables Account", debit: shortageAmount, credit: 0 });
+        }
+      } else if (variance > 0) {
+        entries.push({ accountCode: "4900", accountName: "Sundry / Overage Revenue", debit: 0, credit: variance });
+      }
+
+      transaction.set(jvRef, {
+        jvNumber: `JV-TILL-${sessionData.sessionNumber || sessionId.slice(-6).toUpperCase()}`,
+        source: "TILL_VERIFICATION",
+        datePosted: admin.firestore.FieldValue.serverTimestamp(),
+        preparerId: uid,
+        preparerName: userProfileDoc.data()?.name || "Marcus Amosah Henaku",
+        narration: `Till Verification for ${sessionData.cashierName || 'Cashier'}. Variance: GHS ${variance.toFixed(2)}. Notes: ${resolutionNotes || 'Balanced.'}`,
+        status: "POSTED",
+        hospitalId: targetHospitalId,
+        period: new Date().toISOString().slice(0, 7),
+        entries
+      });
+
+      // C. Audit Trail
+      transaction.set(auditLogRef, {
+        type: "FINANCIAL",
+        action: "TILL_RECONCILED",
+        hospitalId: targetHospitalId,
+        sessionId,
+        varianceAmount: variance,
+        resolution: varianceResolution || "N/A",
+        officerId: uid,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+    });
+
+    return {
+      success: true,
+      message: "Till session verified and Journal Voucher posted successfully."
+    };
+  } catch (error) {
+    console.error("FATAL: verifyTillSession", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "An error occurred while verifying the till.");
   }
 });
