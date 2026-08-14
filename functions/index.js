@@ -2370,3 +2370,109 @@ exports.executeBulkTariffAdjustment = onCall(GLOBAL_CONFIG, async (request) => {
     throw new HttpsError("internal", error.message || "Failed to execute bulk adjustment.");
   }
 });
+
+/**
+ * Cloud Function to process Locum Doctor shift disbursements and statutory 7.5% WHT double-entry GL split
+ */
+exports.processLocumShiftDisbursement = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'The user must be authenticated.');
+  }
+
+  const { hospitalId, locumStaffId, staffName, totalHours, derivedRate, shiftIds } = request.data || {};
+  if (!hospitalId || !locumStaffId || !staffName) {
+    throw new HttpsError('invalid-argument', 'hospitalId, locumStaffId, and staffName are required.');
+  }
+
+  const grossPayable = Math.round((Number(totalHours || 0) * Number(derivedRate || 0)) * 100) / 100;
+  const whtRate = 0.075;
+  const whtAmount = Math.round((grossPayable * whtRate) * 100) / 100;
+  const netPayable = Math.round((grossPayable - whtAmount) * 100) / 100;
+
+  const pvNumber = `PV-LOCUM-${Date.now().toString().slice(-6)}`;
+  const batch = db.batch();
+
+  // 1. Payment Voucher Document
+  const pvRef = db.collection(`hospitals/${hospitalId}/payment_vouchers`).doc();
+  batch.set(pvRef, {
+    pvNumber,
+    payee: staffName,
+    narration: `Locum Shift Compensation for ${staffName} (${totalHours} hrs @ GHS ${derivedRate}/hr)`,
+    grossAmount: grossPayable,
+    whtRate: 0.075,
+    whtAmount,
+    netAmount: netPayable,
+    debitAccountId: '5100', // Locum Expense Account
+    creditAccountId: '2150', // AP Locums Clearing Account
+    status: 'PENDING_APPROVAL',
+    processedBy: request.auth.uid,
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  // 2. AP Net Payable Record to Locum
+  const apNetRef = db.collection(`hospitals/${hospitalId}/accounts_payable`).doc();
+  batch.set(apNetRef, {
+    supplierName: `${staffName} (LOCUM)`,
+    amountOwed: netPayable,
+    category: "PAYROLL",
+    status: 'UNPAID',
+    hospitalId,
+    description: `Locum payment net payable for ${staffName}`,
+    pvId: pvRef.id,
+    pvNumber,
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  // 3. AP Statutory WHT Record to GRA
+  const apWhtRef = db.collection(`hospitals/${hospitalId}/accounts_payable`).doc();
+  batch.set(apWhtRef, {
+    supplierName: "GHANA REVENUE AUTHORITY (LOCUM WHT)",
+    amountOwed: whtAmount,
+    category: "STATUTORY",
+    status: 'UNPAID',
+    hospitalId,
+    description: `7.5% Locum Professional Services WHT for ${staffName} (${pvNumber})`,
+    pvId: pvRef.id,
+    pvNumber,
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  // 4. Immutable Journal Voucher Record (Three-Way Split)
+  const jvRef = db.collection(`hospitals/${hospitalId}/journal_vouchers`).doc();
+  batch.set(jvRef, {
+    voucherNumber: `JV-LOC-${Date.now().toString().slice(-6)}`,
+    voucherDate: admin.firestore.FieldValue.serverTimestamp(),
+    narration: `Locum shift accrual and WHT deduction for ${staffName}`,
+    totalDebit: grossPayable,
+    totalCredit: grossPayable,
+    status: 'POSTED',
+    entries: [
+      { accountId: '5100', accountName: 'Locum Expense Account', debit: grossPayable, credit: 0 },
+      { accountId: '2250', accountName: 'Statutory WHT Payable', debit: 0, credit: whtAmount },
+      { accountId: '2150', accountName: 'AP Locums Clearing Account', debit: 0, credit: netPayable }
+    ],
+    createdBy: request.auth.uid,
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  // 5. Update shift attendance logs to PAID
+  if (Array.isArray(shiftIds)) {
+    shiftIds.forEach((shiftId) => {
+      if (shiftId) {
+        const logRef = db.collection(`hospitals/${hospitalId}/attendance_logs`).doc(shiftId);
+        batch.update(logRef, { paymentStatus: 'PAID', pvReference: pvNumber });
+      }
+    });
+  }
+
+  await batch.commit();
+
+  return {
+    success: true,
+    pvNumber,
+    grossPayable,
+    whtAmount,
+    netPayable,
+    message: `Locum Payment Voucher ${pvNumber} created. Net: GHS ${netPayable.toFixed(2)}, GRA 7.5% WHT: GHS ${whtAmount.toFixed(2)}.`
+  };
+});
