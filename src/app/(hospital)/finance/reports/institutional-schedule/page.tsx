@@ -115,7 +115,7 @@ export default function InstitutionalSchedule() {
                     </td>
                     <td className="p-4 border-r text-xs">{claim.createdAt ? new Date(claim.createdAt?.toDate()).toLocaleDateString() : 'N/A'}</td>
                     <td className="p-4 border-r italic text-slate-600">{claim.description || 'General Service'}</td>
-                    <td className="p-4 text-right font-black">₵ {claim.amount.toFixed(2)}</td>
+                    <td className="p-4 text-right font-black">₵ {(Number(claim.amount || claim.totalAmount || 0)).toFixed(2)}</td>
                     </tr>
                 )) : (
                     <tr><td colSpan={4} className="p-12 text-center text-slate-400 italic">
@@ -126,7 +126,7 @@ export default function InstitutionalSchedule() {
                 <tfoot className="bg-slate-50 border-t-4 border-black font-black text-lg">
                 <tr>
                     <td colSpan={3} className="p-6 text-right uppercase text-xs">Total Remittance Due</td>
-                    <td className="p-6 text-right text-blue-600 italic">₵ {totalRemittance.toFixed(2)}</td>
+                    <td className="p-6 text-right text-blue-600 italic">₵ {(Number(totalRemittance || 0)).toFixed(2)}</td>
                 </tr>
                 </tfoot>
             </table>

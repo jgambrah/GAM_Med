@@ -269,19 +269,19 @@ export default function TillVerificationPortal() {
                    <div className="flex items-center gap-2 text-green-600 mb-1">
                       <Banknote size={16}/> <span className="text-[9px] uppercase font-black">Cash-in-Hand</span>
                    </div>
-                   <p className="text-xl font-black italic">₵ {till.cashSales?.toFixed(2)}</p>
+                   <p className="text-xl font-black italic">₵ {(till.cashSales || 0).toFixed(2)}</p>
                 </div>
                 <div className="text-center">
                    <div className="flex items-center gap-2 text-blue-600 mb-1">
                       <Smartphone size={16}/> <span className="text-[9px] uppercase font-black">MoMo Sales</span>
                    </div>
-                   <p className="text-xl font-black italic">₵ {till.momoSales?.toFixed(2)}</p>
+                   <p className="text-xl font-black italic">₵ {(till.momoSales || 0).toFixed(2)}</p>
                 </div>
              </div>
 
              {till.status === 'QUERIED' ? (
                 <div className="bg-red-100 p-4 rounded-xl text-red-800">
-                    <p className="text-xs font-bold uppercase">Shortage: ₵ {till.shortageAmount?.toFixed(2)}</p>
+                    <p className="text-xs font-bold uppercase">Shortage: ₵ {(till.shortageAmount || 0).toFixed(2)}</p>
                     <p className="text-xs italic">"{till.accountantComment}"</p>
                 </div>
              ) : (
