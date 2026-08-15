@@ -42,7 +42,7 @@ export default function TreasuryRemittanceConsole() {
 
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'AUDITOR', 'ACCOUNTANT', 'SUPER_ADMIN'].includes(userRole || '');
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'AUDITOR', 'ACCOUNTANT', 'SUPER_ADMIN', 'TREASURY_CONTROLLER', 'FINANCE_DIRECTOR', 'CHIEF_AUDITOR'].includes(userRole || '');
 
   // 1. Query AUTHORIZED Payment Vouchers ready for Remittance
   const pvsQuery = useMemoFirebase(() => {

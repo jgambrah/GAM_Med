@@ -2888,5 +2888,99 @@ exports.setUserRoleCustomClaims = onCall(GLOBAL_CONFIG, async (request) => {
   }
 });
 
+/**
+ * 9. generateBankRemittance
+ * Transmits approved payment vouchers into a bank remittance batch instruction.
+ * Guard: Requires caller token role to be TREASURY_CONTROLLER, FINANCE_DIRECTOR, CHIEF_AUDITOR, ACCOUNTANT, DIRECTOR, ADMIN, or SUPER_ADMIN.
+ */
+exports.generateBankRemittance = onCall(GLOBAL_CONFIG, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required.");
+  }
+
+  const callerRole = request.auth.token?.role || "";
+  const allowedRoles = ['TREASURY_CONTROLLER', 'FINANCE_DIRECTOR', 'CHIEF_AUDITOR', 'ACCOUNTANT', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'];
+
+  if (!allowedRoles.includes(callerRole)) {
+    throw new HttpsError("permission-denied", "Missing or insufficient permissions for bank remittance generation.");
+  }
+
+  const { hospitalId, pvIds, fundingSource } = request.data || {};
+  const targetHospitalId = hospitalId || request.auth.token?.hospitalId;
+
+  if (!targetHospitalId || !pvIds || !Array.isArray(pvIds) || pvIds.length === 0) {
+    throw new HttpsError("invalid-argument", "Hospital ID, fundingSource, and pvIds are required.");
+  }
+
+  try {
+    const todayStr = new Date().toISOString().split('T')[0].replace(/-/g, '').substring(0, 6);
+    const scheduleId = `REM-${fundingSource ? fundingSource.split(' ')[0] : 'BANK'}-${todayStr}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const batch = db.batch();
+    let totalBatchAmount = 0;
+
+    for (const pvId of pvIds) {
+      const pvRef = db.collection(`hospitals/${targetHospitalId}/payment_vouchers`).doc(pvId);
+      const pvSnap = await pvRef.get();
+      if (!pvSnap.exists) continue;
+
+      const pvData = pvSnap.data();
+      const amount = Number(pvData.netAmount || pvData.grossAmount || 0);
+      totalBatchAmount += amount;
+
+      // Lock status to REMITTED
+      batch.update(pvRef, {
+        status: 'REMITTED',
+        remittanceBatchId: scheduleId,
+        remittedBy: request.auth.uid,
+        remittedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Post Double-Entry Journal Voucher
+      const jvRef = db.collection(`hospitals/${targetHospitalId}/journal_entries`).doc();
+      batch.set(jvRef, {
+        jvNumber: `JV-REM-${Date.now().toString().slice(-6)}`,
+        narration: `Bank remittance batch ${scheduleId} for ${pvData.payee || 'Payee'}`,
+        totalAmount: amount,
+        status: 'AUTHORIZED',
+        createdByName: 'TREASURY CONTROLLER ENGINE',
+        createdBy: request.auth.uid,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        lines: [
+          { accountId: '2150', accountName: '2150 - Accounts Payable Clearing', debit: amount, credit: 0 },
+          { accountId: '1010', accountName: `1010 - Corporate Bank (${fundingSource || 'Main Bank'})`, debit: 0, credit: amount }
+        ]
+      });
+    }
+
+    // Write Remittance Schedule
+    const schedRef = db.collection(`hospitals/${targetHospitalId}/remittance_schedules`).doc();
+    batch.set(schedRef, {
+      scheduleId,
+      fundingBank: fundingSource || 'GCB Bank',
+      totalAmount: totalBatchAmount,
+      itemCount: pvIds.length,
+      pvIds,
+      status: 'TRANSMITTED_TO_BANK',
+      executedBy: request.auth.uid,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    await batch.commit();
+
+    return {
+      success: true,
+      scheduleId,
+      totalAmount: totalBatchAmount,
+      message: `Remittance Schedule ${scheduleId} generated for ₵${totalBatchAmount.toFixed(2)}.`
+    };
+  } catch (error) {
+    console.error("generateBankRemittance error:", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "Failed to generate bank remittance instruction.");
+  }
+});
+
+
 
 
