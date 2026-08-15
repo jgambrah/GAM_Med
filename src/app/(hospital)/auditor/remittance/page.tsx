@@ -169,12 +169,12 @@ export default function TreasuryRemittanceConsole() {
         // 1. Lock PVs to REMITTED status
         selectedItems.forEach(item => {
           const pvRef = doc(firestore, `hospitals/${hospitalId}/payment_vouchers`, item.id);
-          batch.update(pvRef, {
+          batch.set(pvRef, {
             status: 'REMITTED',
             remittanceBatchId: scheduleId,
             remittedBy: user.uid,
             remittedAt: serverTimestamp()
-          });
+          }, { merge: true });
 
           // 2. Post Automated Double-Entry Ledger Transaction
           // Debit: 2150 AP Locums / Vendor Clearing Account

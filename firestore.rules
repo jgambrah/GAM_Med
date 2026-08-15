@@ -67,8 +67,8 @@ service cloud.firestore {
     function isAuditorRole(hospitalId) {
       let userData = getCallingUserData();
       let token = request.auth.token;
-      let hasRoleInToken = token != null && 'role' in token && token.role in ['DIRECTOR', 'ADMIN', 'AUDITOR'];
-      let hasRoleInDb = userData != null && 'role' in userData && userData.role in ['DIRECTOR', 'ADMIN', 'AUDITOR'];
+      let hasRoleInToken = token != null && 'role' in token && token.role in ['DIRECTOR', 'ADMIN', 'AUDITOR', 'ACCOUNTANT', 'SUPER_ADMIN', 'TREASURY_CONTROLLER', 'FINANCE_DIRECTOR', 'CHIEF_AUDITOR'];
+      let hasRoleInDb = userData != null && 'role' in userData && userData.role in ['DIRECTOR', 'ADMIN', 'AUDITOR', 'ACCOUNTANT', 'SUPER_ADMIN', 'TREASURY_CONTROLLER', 'FINANCE_DIRECTOR', 'CHIEF_AUDITOR'];
 
       let hasHospitalInToken = token != null && 'hospitalId' in token && token.hospitalId == hospitalId;
       let hasHospitalInDb = userData != null && 'hospitalId' in userData && userData.hospitalId == hospitalId;
@@ -488,6 +488,14 @@ service cloud.firestore {
         allow get, create, list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
         allow update: if isSuperAdmin() || isAuditorRole(hospitalId);
         allow delete: if false;
+      }
+
+      match /remittance_schedules/{scheduleId} {
+        allow read, write, get, create, update, list: if isSuperAdmin() || isAuditorRole(hospitalId) || isDirectorOrAdmin(hospitalId);
+      }
+
+      match /journal_vouchers/{voucherId} {
+        allow read, write, get, create, update, list: if isSuperAdmin() || isAuditorRole(hospitalId) || isDirectorOrAdmin(hospitalId);
       }
 
       match /journal_entries/{journalId} {
