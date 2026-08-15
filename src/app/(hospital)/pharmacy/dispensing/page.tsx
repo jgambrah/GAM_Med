@@ -11,6 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { PharmacyPatientHandoverChecklistDialog } from '@/components/pharmacy/PharmacyPatientHandoverChecklistDialog';
+import PharmacyDispensingModal from '@/components/app/pharmacy-dispensing-modal';
+import SmartDispensingFefoModal from '@/components/app/smart-dispensing-fefo-modal';
 import { postPharmacyDispensingJournalEntry } from '@/ai/flows/ai-pharmacy-financial-reconciliation-engine';
 import { MasterPatientCard } from '@/components/pharmacy/MasterPatientCard';
 
@@ -70,6 +72,9 @@ export default function DispensingQueue() {
 
   const [queueTab, setQueueTab] = useState<'pending' | 'completed'>('pending');
   const [selectedHandoverGroup, setSelectedHandoverGroup] = useState<any | null>(null);
+  const [selectedDispenseEncounter, setSelectedDispenseEncounter] = useState<any | null>(null);
+  const [isDispenseModalOpen, setIsDispenseModalOpen] = useState(false);
+  const [isFefoModalOpen, setIsFefoModalOpen] = useState(false);
   const [claims, setClaims] = useState<any>(null);
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
   const [orderCategoryFilter, setOrderCategoryFilter] = useState<'medications' | 'diagnostic'>('medications');
@@ -532,6 +537,31 @@ export default function DispensingQueue() {
           }}
         />
       )}
+
+      <PharmacyDispensingModal
+        encounter={selectedDispenseEncounter}
+        isOpen={isDispenseModalOpen}
+        onClose={() => {
+          setIsDispenseModalOpen(false);
+          setSelectedDispenseEncounter(null);
+        }}
+        hospitalId={hospitalId}
+        onSuccess={() => {
+          if (selectedDispenseEncounter) {
+            const k = selectedDispenseEncounter.id || selectedDispenseEncounter.encounterId;
+            if (k && !dispensedGroupIds.includes(k)) {
+              setDispensedGroupIds((prev) => [...prev, k]);
+            }
+          }
+        }}
+      />
+
+      <SmartDispensingFefoModal
+        prescription={null}
+        isOpen={isFefoModalOpen}
+        onClose={() => setIsFefoModalOpen(false)}
+        hospitalId={hospitalId}
+      />
     </div>
   );
 }

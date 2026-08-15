@@ -10,7 +10,8 @@ import {
 import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, limit, getDocs, doc, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/hooks/use-toast';
+import NewRegistrationModal from '@/components/app/new-registration-modal';
+import CheckInModal from '@/components/app/check-in-modal';
 
 interface Patient {
   id: string;
@@ -27,6 +28,9 @@ export default function ReceptionPortal() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
+  const [selectedCheckInPatient, setSelectedCheckInPatient] = useState<Patient | null>(null);
+  const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
   const { toast } = useToast();
 
   const [isSearching, setIsSearching] = useState(false);
@@ -178,11 +182,12 @@ export default function ReceptionPortal() {
               </div>
             </div>
 
-            <Link href="/patients/register">
-              <button className="px-5 py-3 bg-sky-600 hover:bg-sky-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer">
-                <UserPlus className="w-4 h-4" /> NEW REGISTRATION
-              </button>
-            </Link>
+            <button 
+              onClick={() => setIsRegistrationModalOpen(true)}
+              className="px-5 py-3 bg-sky-600 hover:bg-sky-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <UserPlus className="w-4 h-4" /> NEW REGISTRATION
+            </button>
           </div>
         </div>
 
@@ -316,7 +321,10 @@ export default function ReceptionPortal() {
                       <td className="px-6 py-4 text-right">
                         <button 
                           type="button"
-                          onClick={() => handleCheckIn(patient.id, patientFullName)}
+                          onClick={() => {
+                            setSelectedCheckInPatient(patient);
+                            setIsCheckInModalOpen(true);
+                          }}
                           disabled={isAwaitingVitals}
                           className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm cursor-pointer ${
                             isAwaitingVitals 
@@ -342,6 +350,22 @@ export default function ReceptionPortal() {
         </div>
 
       </div>
+
+      <NewRegistrationModal 
+        isOpen={isRegistrationModalOpen}
+        onClose={() => setIsRegistrationModalOpen(false)}
+        hospitalId={hospitalId}
+      />
+
+      <CheckInModal
+        patient={selectedCheckInPatient}
+        isOpen={isCheckInModalOpen}
+        onClose={() => {
+          setIsCheckInModalOpen(false);
+          setSelectedCheckInPatient(null);
+        }}
+        hospitalId={hospitalId}
+      />
 
     </div>
   );

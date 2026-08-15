@@ -66,6 +66,8 @@ import { ReferralLetterDialog } from './ReferralLetterDialog';
 import { parseClinicalError } from '@/lib/error-handler';
 import { Timestamp } from 'firebase/firestore';
 import { evaluatePharmacogenomics } from '@/ai/flows/ai-genomic-engine';
+import SmartIcd10Search from '@/components/clinical/SmartIcd10Search';
+import SmartPrescriptionPad from '@/components/clinical/SmartPrescriptionPad';
 
 const encounterSchema = z.object({
   encounterType: z.string().min(1, 'Encounter type is required'),
@@ -913,11 +915,15 @@ export function NewEncounterDialog({
                   name="diagnosis"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Final Diagnosis / Impression</FormLabel>
+                      <SmartIcd10Search
+                        value={field.value || ''}
+                        onSelectCode={(node) => form.setValue('diagnosis', `${node.code} - ${node.description}`)}
+                      />
                       <FormControl>
                         <Input
-                          placeholder="ICD-10/11 or clinical term"
+                          placeholder="Or type custom diagnosis / ICD-10 term..."
                           {...field}
+                          className="mt-2 text-xs font-bold"
                         />
                       </FormControl>
 
@@ -1072,6 +1078,32 @@ export function NewEncounterDialog({
                     </label>
                   </div>
                 </div>
+
+                {/* Feature 2: Real-Time Pharmacy Stock Sync (Smart eRx) */}
+                {!isExternal && (
+                  <SmartPrescriptionPad
+                    hospitalId={hospitalId}
+                    onPrescriptionAdded={(newItem) => {
+                      setItems(prev => [
+                        ...prev,
+                        {
+                          id: newItem.itemId || Date.now().toString(),
+                          name: newItem.name,
+                          unitPrice: newItem.unitPrice,
+                          dosage: newItem.dosage,
+                          frequency: newItem.frequency,
+                          duration: newItem.duration,
+                          qty: 1,
+                          quantity: 1,
+                        }
+                      ]);
+                      toast({
+                        title: '✅ Medication Added to Prescription Pad',
+                        description: `${newItem.name} (${newItem.dosage}) added to chart.`
+                      });
+                    }}
+                  />
+                )}
 
                 {isExternal ? (
                   <div className="space-y-4 animate-in fade-in zoom-in duration-300">

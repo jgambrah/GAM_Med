@@ -3,15 +3,19 @@
 import React, { useState, useMemo } from 'react';
 import { 
   BedDouble, CheckCircle2, Clock, FileText, Activity, 
-  Search, Building2 
+  Search, Building2, Lock 
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import DischargeClearanceMatrix from '@/components/app/discharge-clearance-matrix';
 
 export default function MultiPatientWardRoundingWorkspace() {
   const { toast } = useToast();
   const [savingId, setSavingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWard, setSelectedWard] = useState('all');
+
+  const [selectedPatientForDischarge, setSelectedPatientForDischarge] = useState<any | null>(null);
+  const [isDischargeMatrixOpen, setIsDischargeMatrixOpen] = useState(false);
 
   const [patients, setPatients] = useState([
     {
@@ -238,19 +242,44 @@ export default function MultiPatientWardRoundingWorkspace() {
                   </div>
                 </div>
 
-                <button 
-                  type="button"
-                  onClick={() => handleSaveRound(patient.id)}
-                  disabled={savingId === patient.id}
-                  className={`self-start lg:self-center px-5 py-2.5 text-white text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center gap-2 cursor-pointer ${
-                    isRounded 
-                      ? 'bg-emerald-600 hover:bg-emerald-700' 
-                      : 'bg-rose-600 hover:bg-rose-700'
-                  }`}
-                >
-                  <CheckCircle2 className="w-4 h-4" /> 
-                  {savingId === patient.id ? 'SAVING...' : (isRounded ? 'UPDATE ROUND NOTE' : 'COMPLETE FLOOR ROUND')}
-                </button>
+                <div className="flex items-center gap-2 self-start lg:self-center">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setSelectedPatientForDischarge({
+                        id: `ADM-2026-${patient.id}`,
+                        patientName: patient.name,
+                        patientId: patient.id,
+                        ward: `${patient.ward} — ${patient.bed}`,
+                        bedId: patient.id,
+                        runningBalance: 4250.00,
+                        clearanceStatus: {
+                          clinical: { status: 'CLEARED', clearedBy: 'Dr. James Gambrah', time: '09:15 AM' },
+                          pharmacy: { status: 'PENDING', clearedBy: null, time: null },
+                          finance: { status: 'PENDING', clearedBy: null, time: null }
+                        }
+                      });
+                      setIsDischargeMatrixOpen(true);
+                    }}
+                    className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm border border-slate-700 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-indigo-400" /> DISCHARGE GATE PASS 🔒
+                  </button>
+
+                  <button 
+                    type="button"
+                    onClick={() => handleSaveRound(patient.id)}
+                    disabled={savingId === patient.id}
+                    className={`px-5 py-2.5 text-white text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center gap-2 cursor-pointer ${
+                      isRounded 
+                        ? 'bg-emerald-600 hover:bg-emerald-700' 
+                        : 'bg-rose-600 hover:bg-rose-700'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" /> 
+                    {savingId === patient.id ? 'SAVING...' : (isRounded ? 'UPDATE ROUND NOTE' : 'COMPLETE FLOOR ROUND')}
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -268,6 +297,15 @@ export default function MultiPatientWardRoundingWorkspace() {
           );
         })}
       </div>
+
+      <DischargeClearanceMatrix
+        admissionRecord={selectedPatientForDischarge}
+        isOpen={isDischargeMatrixOpen}
+        onClose={() => {
+          setIsDischargeMatrixOpen(false);
+          setSelectedPatientForDischarge(null);
+        }}
+      />
 
     </div>
   );

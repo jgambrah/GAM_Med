@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import VitalsCaptureModal from '@/components/app/vitals-capture-modal';
 
 export default function EmergencyTriageStation() {
   const { user, isUserLoading } = useUser();
@@ -20,6 +21,9 @@ export default function EmergencyTriageStation() {
   const [activeTab, setActiveTab] = useState<'queue' | 'critical' | 'completed'>('queue');
   const [searchQuery, setSearchQuery] = useState('');
   const [acuityFilter, setAcuityFilter] = useState('all');
+
+  const [selectedPatientForVitals, setSelectedPatientForVitals] = useState<any | null>(null);
+  const [isVitalsModalOpen, setIsVitalsModalOpen] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -283,17 +287,37 @@ export default function EmergencyTriageStation() {
                     </div>
                   </div>
 
-                  <Link href={`/patients/folder/${p.id}`}>
-                    <button className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-rose-900/20 transition-all cursor-pointer">
-                      Assess Vitals <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </Link>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setSelectedPatientForVitals({
+                        id: p.id,
+                        patientId: p.id,
+                        patientName: `${p.firstName || ''} ${p.lastName || ''}`.trim(),
+                        ehrId: p.ehrNumber || 'MMH/EHR/26/0007',
+                      });
+                      setIsVitalsModalOpen(true);
+                    }}
+                    className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-rose-900/20 transition-all cursor-pointer"
+                  >
+                    Assess Vitals <ArrowRight className="w-4 h-4" />
+                  </button>
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      <VitalsCaptureModal
+        encounter={selectedPatientForVitals}
+        isOpen={isVitalsModalOpen}
+        onClose={() => {
+          setIsVitalsModalOpen(false);
+          setSelectedPatientForVitals(null);
+        }}
+        hospitalId={hospitalId}
+      />
 
     </div>
   );

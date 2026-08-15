@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import LaboratoryResultsPortal from '@/components/app/laboratory-results-portal';
 
 type LabOrder = {
   id: string;
@@ -215,6 +216,9 @@ export default function DiagnosticQueueHub() {
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'stat' | 'routine'>('all');
   const [claims, setClaims] = useState<any>(null);
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
+
+  const [selectedLabForResults, setSelectedLabForResults] = useState<any | null>(null);
+  const [isPortalOpen, setIsPortalOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -693,7 +697,18 @@ export default function DiagnosticQueueHub() {
                         <button
                           type="button"
                           disabled={isLocked}
-                          onClick={() => router.push(`/lab/results/${req.id}`)}
+                          onClick={() => {
+                            setSelectedLabForResults({
+                              id: req.id,
+                              patientName: req.patientName,
+                              patientId: req.patientId,
+                              ehrId: req.patientId === 'p_janet' ? 'MMH/EHR/26/0005' : 'MMH/EHR/26/0007',
+                              doctor: req.providerName || 'Dr. James Gambrah',
+                              testName: req.testName,
+                              priority: req.priority || 'EMERGENCY',
+                            });
+                            setIsPortalOpen(true);
+                          }}
                           className="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-black uppercase tracking-wider rounded-xl shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer disabled:opacity-50"
                         >
                           <FileText className="w-4 h-4" /> ENTER RESULTS & RELEASE
@@ -707,6 +722,16 @@ export default function DiagnosticQueueHub() {
           )
         )}
       </div>
+
+      <LaboratoryResultsPortal
+        labRequest={selectedLabForResults}
+        isOpen={isPortalOpen}
+        onClose={() => {
+          setIsPortalOpen(false);
+          setSelectedLabForResults(null);
+        }}
+        hospitalId={hospitalId}
+      />
 
     </div>
   );
