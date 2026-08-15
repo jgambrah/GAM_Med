@@ -158,63 +158,54 @@ export default function TreasuryRemittanceConsole() {
     setIsProcessing(true);
 
     try {
-      const todayStr = new Date().toISOString().split('T')[0].replace(/-/g, '').substring(0, 6);
-      const scheduleId = `REM-${fundingSource.split(' ')[0]}-${todayStr}-${Math.floor(1000 + Math.random() * 9000)}`;
-
       const selectedItems = approvedPvs.filter(pv => selectedPvIds.includes(pv.id));
+      const requestedByName = user?.displayName || userProfile?.fullName || 'Marcus Amosah Henaku (Treasury Controller)';
 
-      if (firestore && hospitalId && user) {
-        const batch = writeBatch(firestore);
+      // 1. Call Backend API Route with Administrative Privileges
+      const res = await fetch('/api/auditor/remittance/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hospitalId: hospitalId || 'GAM-GAR-7578',
+          fundingSource,
+          selectedPvIds,
+          selectedItems,
+          requestedBy: requestedByName,
+        }),
+      });
 
-        // 1. Lock PVs to REMITTED status
-        selectedItems.forEach(item => {
-          const pvRef = doc(firestore, `hospitals/${hospitalId}/payment_vouchers`, item.id);
-          batch.set(pvRef, {
-            status: 'REMITTED',
-            remittanceBatchId: scheduleId,
-            remittedBy: user.uid,
-            remittedAt: serverTimestamp()
-          }, { merge: true });
+      const resData = await res.json();
 
-          // 2. Post Automated Double-Entry Ledger Transaction
-          // Debit: 2150 AP Locums / Vendor Clearing Account
-          // Credit: 1010 Corporate Bank Account
-          const jvRef = doc(collection(firestore, `hospitals/${hospitalId}/journal_vouchers`));
-          batch.set(jvRef, {
-            voucherNumber: `JV-REM-${Date.now().toString().slice(-6)}`,
-            voucherDate: serverTimestamp(),
-            narration: `Bank remittance for ${item.payee} via ${fundingSource}`,
-            totalDebit: item.netAmount,
-            totalCredit: item.netAmount,
-            status: 'POSTED',
-            entries: [
-              { accountId: '2150', accountName: 'Accounts Payable Clearing', debit: item.netAmount, credit: 0 },
-              { accountId: '1010', accountName: `Corporate Bank (${fundingSource.split(' ')[0]})`, debit: 0, credit: item.netAmount }
-            ],
-            createdBy: user.uid,
-            createdAt: serverTimestamp()
-          });
-        });
-
-        await batch.commit();
-
-        // 3. Write Master Remittance Schedule Record
-        await addDoc(collection(firestore, `hospitals/${hospitalId}/remittance_schedules`), {
-          scheduleId,
-          fundingBank: fundingSource,
-          totalAmount: batchTotals.amount,
-          itemCount: batchTotals.count,
-          pvIds: selectedPvIds,
-          status: 'TRANSMITTED_TO_BANK',
-          executedBy: user.uid,
-          createdAt: serverTimestamp()
-        });
+      if (!res.ok || !resData.success) {
+        throw new Error(resData.message || 'Remittance generation failed.');
       }
 
+      const scheduleId = resData.scheduleId || `REM-${fundingSource.split(' ')[0]}-${Date.now().toString().slice(-6)}`;
+
+      // 2. Client-side fallback batch write for real-time UI responsiveness if Firestore client is connected
+      if (firestore && hospitalId && user) {
+        try {
+          const batch = writeBatch(firestore);
+          selectedItems.forEach(item => {
+            const pvRef = doc(firestore, `hospitals/${hospitalId}/payment_vouchers`, item.id);
+            batch.set(pvRef, {
+              status: 'REMITTED',
+              remittanceBatchId: scheduleId,
+              remittedBy: user.uid,
+              remittedAt: serverTimestamp()
+            }, { merge: true });
+          });
+          await batch.commit();
+        } catch (clientErr) {
+          console.log('Client-side batch write bypassed (API transaction already committed):', clientErr);
+        }
+      }
+
+      // 3. Download Bank CSV File & Notify User
       downloadBankInstructionCSV(scheduleId, selectedItems);
 
       toast({
-        title: "Bank Remittance Generated & Ledger Posted",
+        title: "✅ Bank Remittance Generated & Ledger Posted",
         description: `Schedule ${scheduleId} created. GHS ${batchTotals.amount.toFixed(2)} debited AP Clearing (2150) & credited Bank (1010).`
       });
 

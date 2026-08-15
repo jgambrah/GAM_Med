@@ -18,7 +18,7 @@ const menuGroups = [
     title: "GOVERNANCE",
     items: [
       { name: "Audit Console", href: "/auditor", icon: LayoutDashboard },
-      { name: "Approved Payments", href: "/auditor/archive", icon: FileText },
+      { name: "Approved Payments", href: "/accountant/payments/archive", icon: FileText },
       { name: "Remittance Schedules", href: "/auditor/remittance", icon: Landmark },
     ]
   },
@@ -163,7 +163,7 @@ export default function AuditorLayout({
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
   
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'AUDITOR'].includes(userRole);
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'AUDITOR', 'ACCOUNTANT', 'SUPER_ADMIN', 'TREASURY_CONTROLLER', 'FINANCE_DIRECTOR', 'CHIEF_AUDITOR'].includes(userRole);
 
   const isLoading = isUserLoading || isProfileLoading;
 
