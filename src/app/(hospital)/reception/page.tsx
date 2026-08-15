@@ -10,6 +10,7 @@ import {
 import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, limit, getDocs, doc, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 import NewRegistrationModal from '@/components/app/new-registration-modal';
 import CheckInModal from '@/components/app/check-in-modal';
 
