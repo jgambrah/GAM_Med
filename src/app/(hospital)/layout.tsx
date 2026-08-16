@@ -4,6 +4,7 @@ import { DirectorSidebar } from "@/components/app/director-sidebar";
 import { PharmacySidebar } from "@/components/app/pharmacy-sidebar";
 import { DoctorSidebar } from "@/components/app/doctor-sidebar";
 import { NurseSidebar } from "@/components/app/nurse-sidebar";
+import { CashierSidebar } from "@/components/app/cashier-sidebar";
 import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
@@ -86,10 +87,11 @@ export default function HospitalLayout({
     );
   }
 
-  // Default layout for Director, Doctor, Nurse, etc.
+  // Default layout for Director, Doctor, Nurse, Cashier, etc.
   const activeSidebar = 
     userProfile?.role === 'DOCTOR' ? <DoctorSidebar /> :
     userProfile?.role === 'NURSE' ? <NurseSidebar /> :
+    userProfile?.role === 'CASHIER' ? <CashierSidebar /> :
     <DirectorSidebar userProfile={userProfile} />;
 
   return (

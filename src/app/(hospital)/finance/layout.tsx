@@ -5,8 +5,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Loader2, ShieldAlert } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection, query, where } from 'firebase/firestore';
-import { Button } from '@/components/ui/button';
 import { AccountantSidebar } from '@/components/app/accountant-sidebar';
+import { CashierSidebar } from '@/components/app/cashier-sidebar';
 
 export default function FinanceLayout({
   children,
@@ -79,9 +79,11 @@ export default function FinanceLayout({
     );
   }
 
+  const activeSidebar = userRole === 'CASHIER' ? <CashierSidebar /> : <AccountantSidebar />;
+
   return (
     <div className="flex min-h-screen">
-        <AccountantSidebar />
+        {activeSidebar}
         <main className="flex-1 p-4 md:p-8 overflow-y-auto">
             {children}
         </main>
