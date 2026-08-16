@@ -66,8 +66,7 @@ export default function LabResultsAndPanicInboxPage() {
     if (!firestore || !hospitalId) return null;
     return query(
       collection(firestore, `hospitals/${hospitalId}/lab_orders`),
-      where("status", "==", "COMPLETED"),
-      orderBy("completedAt", "desc")
+      where("status", "==", "COMPLETED")
     );
   }, [firestore, hospitalId]);
   const { data: rawLabOrders, isLoading: areLabOrdersLoading } = useCollection<any>(labOrdersQuery);

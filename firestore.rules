@@ -583,6 +583,14 @@ service cloud.firestore {
         allow read, write, list, get, create, update: if isSuperAdmin() || isStaffOfHospital(hospitalId) || isClinicalStaff(hospitalId);
       }
 
+      match /lab_orders/{orderId} {
+        allow read, write, list, get, create, update: if isSuperAdmin() || isStaffOfHospital(hospitalId) || isClinicalStaff(hospitalId);
+      }
+
+      match /radiology_orders/{orderId} {
+        allow read, write, list, get, create, update: if isSuperAdmin() || isStaffOfHospital(hospitalId) || isClinicalStaff(hospitalId);
+      }
+
       match /attendance_logs/{logId} {
         allow get, list: if isSuperAdmin() || isStaffOfHospital(hospitalId);
         allow get, list: if isSignedIn() && resource.data.staffId == request.auth.uid;
