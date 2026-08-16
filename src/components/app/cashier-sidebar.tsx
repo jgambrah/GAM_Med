@@ -40,7 +40,7 @@ export function CashierSidebar() {
       title: "RECEIPTS & RECORDS",
       links: [
         { name: "Transaction Reports", href: "/finance/reports", icon: Receipt },
-        { name: "Tariffs & Payer Registry", href: "/finance/tariffs", icon: BadgePercent },
+        { name: "Tariffs & Payer Registry", href: "/finance/registry-view", icon: BadgePercent },
       ]
     },
     {
