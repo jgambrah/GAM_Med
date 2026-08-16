@@ -7,6 +7,7 @@ import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@
 import { doc, collection, query, where } from 'firebase/firestore';
 import { AccountantSidebar } from '@/components/app/accountant-sidebar';
 import { CashierSidebar } from '@/components/app/cashier-sidebar';
+import { Button } from '@/components/ui/button';
 
 export default function FinanceLayout({
   children,
