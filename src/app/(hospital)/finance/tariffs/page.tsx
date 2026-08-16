@@ -194,6 +194,11 @@ export default function TariffManagerPage() {
     );
   }
 
+  // If Cashier: Render dedicated Read-Only Tariffs & Payer Registry (Separation of Duties)
+  if (userRole === 'CASHIER') {
+    return <CashierReadOnlyRegistry />;
+  }
+
   if (!isAuthorized) {
     return (
       <div className="flex flex-1 items-center justify-center bg-background p-8 min-h-screen">
@@ -487,6 +492,156 @@ export default function TariffManagerPage() {
         </div>
       )}
 
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------------------
+// Dedicated Read-Only Registry Sub-Component for Cashier Viewport (Separation of Duties)
+// --------------------------------------------------------------------------------------
+const READONLY_PAYER_DATA = [
+  { id: 'PAY-001', name: 'National Health Insurance (NHIS)', type: 'PUBLIC', status: 'ACTIVE', copay: '0%' },
+  { id: 'PAY-002', name: 'Nationwide Medical Insurance', type: 'CORPORATE', status: 'ACTIVE', copay: '10%' },
+  { id: 'PAY-003', name: 'Acacia Health Insurance', type: 'CORPORATE', status: 'ACTIVE', copay: '0%' },
+  { id: 'PAY-004', name: 'Private / Out-of-Pocket (Cash)', type: 'CASH', status: 'ACTIVE', copay: '100%' },
+];
+
+const READONLY_TARIFF_DATA = [
+  { id: 'TRF-101', service: 'General Specialist Consultation', category: 'OPD', cashPrice: 150.00, nhisPrice: 45.00 },
+  { id: 'TRF-102', service: 'Chest X-Ray (PA View)', category: 'RADIOLOGY', cashPrice: 120.00, nhisPrice: 75.00 },
+  { id: 'TRF-103', service: 'Full Blood Count (FBC)', category: 'LABORATORY', cashPrice: 80.00, nhisPrice: 35.00 },
+  { id: 'TRF-104', service: 'Standard Ward Bed (Per Day)', category: 'INPATIENT', cashPrice: 180.00, nhisPrice: 60.00 },
+  { id: 'TRF-105', service: 'Kidney Function Test (BUE & Creatinine)', category: 'LABORATORY', cashPrice: 130.00, nhisPrice: 55.00 },
+];
+
+function CashierReadOnlyRegistry() {
+  const [activeTab, setActiveTab] = useState<'PAYERS' | 'TARIFFS'>('PAYERS');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  return (
+    <div className="flex-1 min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col pb-12">
+      
+      {/* 1. GAM Med Signature Banner (Read-Only) */}
+      <div className="w-full bg-slate-900 text-white p-6 shadow-md flex justify-between items-end shrink-0 border-b border-slate-800">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <span className="bg-amber-900/40 text-amber-400 border border-amber-800/50 px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-widest flex items-center gap-1">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              READ-ONLY REFERENCE
+            </span>
+          </div>
+          <h1 className="text-2xl font-extrabold tracking-tight flex items-center gap-3">
+            TARIFFS & PAYER REGISTRY
+          </h1>
+          <h2 className="text-sm font-semibold text-slate-400 mt-1 uppercase tracking-wider">
+            Authorized Service Pricing and Accepted Insurance Networks
+          </h2>
+        </div>
+      </div>
+
+      <div className="p-8 max-w-6xl mx-auto w-full flex-1 flex flex-col">
+        
+        {/* 2. Executive Tab Navigation & Search */}
+        <div className="flex justify-between items-center mb-6 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex">
+            <button 
+              onClick={() => setActiveTab('PAYERS')}
+              className={`pb-4 px-6 text-sm font-extrabold uppercase tracking-widest transition-colors cursor-pointer ${
+                activeTab === 'PAYERS' 
+                  ? 'text-indigo-600 dark:text-indigo-400 border-b-4 border-indigo-600' 
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              ACCEPTED PAYERS
+            </button>
+            <button 
+              onClick={() => setActiveTab('TARIFFS')}
+              className={`pb-4 px-6 text-sm font-extrabold uppercase tracking-widest transition-colors cursor-pointer ${
+                activeTab === 'TARIFFS' 
+                  ? 'text-indigo-600 dark:text-indigo-400 border-b-4 border-indigo-600' 
+                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              SERVICE TARIFFS
+            </button>
+          </div>
+          
+          <div className="relative pb-4">
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Quick search..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md shadow-sm focus:ring-2 focus:ring-indigo-500 text-sm font-semibold text-slate-800 dark:text-slate-100 w-64"
+            />
+          </div>
+        </div>
+
+        {/* 3. The Read-Only Immutable Grids */}
+        <div className="bg-white dark:bg-slate-900 shadow-lg rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+          
+          {activeTab === 'PAYERS' && (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 text-[10px] font-extrabold uppercase tracking-widest">
+                  <th className="p-4 border-b border-slate-200 dark:border-slate-800">Network / Provider Name</th>
+                  <th className="p-4 border-b border-slate-200 dark:border-slate-800">Classification</th>
+                  <th className="p-4 border-b border-slate-200 dark:border-slate-800 text-center">Patient Co-Pay</th>
+                  <th className="p-4 border-b border-slate-200 dark:border-slate-800 text-right">System Status</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {READONLY_PAYER_DATA.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map((payer) => (
+                  <tr key={payer.id} className="border-b border-slate-50 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <td className="p-4 font-extrabold text-slate-800 dark:text-slate-100">{payer.name}</td>
+                    <td className="p-4">
+                      <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[9px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider">
+                        {payer.type}
+                      </span>
+                    </td>
+                    <td className="p-4 text-center font-mono font-bold text-slate-600 dark:text-slate-400">{payer.copay}</td>
+                    <td className="p-4 text-right">
+                      <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 flex items-center justify-end gap-1 uppercase tracking-widest">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> {payer.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {activeTab === 'TARIFFS' && (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 text-[10px] font-extrabold uppercase tracking-widest">
+                  <th className="p-4 border-b border-slate-200 dark:border-slate-800">Service / Procedure</th>
+                  <th className="p-4 border-b border-slate-200 dark:border-slate-800">Department</th>
+                  <th className="p-4 border-b border-slate-200 dark:border-slate-800 text-right">Cash Price (₵)</th>
+                  <th className="p-4 border-b border-slate-200 dark:border-slate-800 text-right">NHIS Base Price (₵)</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {READONLY_TARIFF_DATA.filter(t => t.service.toLowerCase().includes(searchTerm.toLowerCase())).map((tariff) => (
+                  <tr key={tariff.id} className="border-b border-slate-50 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <td className="p-4 font-extrabold text-slate-800 dark:text-slate-100">{tariff.service}</td>
+                    <td className="p-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">{tariff.category}</td>
+                    <td className="p-4 text-right font-mono font-extrabold text-slate-900 dark:text-emerald-400">
+                      ₵ {tariff.cashPrice.toFixed(2)}
+                    </td>
+                    <td className="p-4 text-right font-mono font-bold text-slate-500 dark:text-slate-400">
+                      ₵ {tariff.nhisPrice.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          
+        </div>
+
+      </div>
     </div>
   );
 }
