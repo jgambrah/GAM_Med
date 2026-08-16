@@ -185,16 +185,40 @@ export default function PatientInvoicePage() {
     try {
       const batch = writeBatch(firestore);
       
-      // Update all items to PAID
-      localBillItems.forEach(item => {
-        if (item.id && !item.id.startsWith('item-17')) {
-          const itemRef = doc(firestore, `hospitals/${hospitalId}/billing_items`, item.id);
-          batch.update(itemRef, { 
+      // Process all items in the batch
+      localBillItems.forEach((item) => {
+        let itemRef;
+        const isMockOrClientItem = !item.id || item.id.startsWith('item-') || item.id.startsWith('bi-') || item.id.startsWith('t-');
+
+        if (!isMockOrClientItem) {
+          // Existing document: safely update status with merge
+          itemRef = doc(firestore, `hospitals/${hospitalId}/billing_items`, item.id);
+          batch.set(itemRef, { 
             status: 'PAID',
             paymentMode,
             outOfPocketPaid: patientOutofPocketPay,
             insuranceClaimed: insuranceCoverageAmount,
             paidAt: serverTimestamp()
+          }, { merge: true });
+        } else {
+          // Newly added POS item or demo cart item: create real document in Firestore
+          itemRef = doc(collection(firestore, `hospitals/${hospitalId}/billing_items`));
+          batch.set(itemRef, {
+            patientId: patient.id,
+            patientName: `${patient.firstName} ${patient.lastName}`,
+            name: item.name,
+            serviceName: item.name,
+            category: item.category || 'GENERAL',
+            qty: item.qty || 1,
+            unitPrice: item.unitPrice || item.total || 0,
+            total: item.total || 0,
+            status: 'PAID',
+            paymentMode,
+            outOfPocketPaid: patientOutofPocketPay,
+            insuranceClaimed: insuranceCoverageAmount,
+            receiptNumber,
+            paidAt: serverTimestamp(),
+            createdAt: serverTimestamp()
           });
         }
       });
@@ -203,6 +227,20 @@ export default function PatientInvoicePage() {
       const receiptRef = doc(collection(firestore, `hospitals/${hospitalId}/receipts`));
       batch.set(receiptRef, {
         ...receiptData,
+        createdAt: serverTimestamp()
+      });
+
+      // Write Transaction Ledger document
+      const txnRef = doc(collection(firestore, `hospitals/${hospitalId}/transactions`));
+      batch.set(txnRef, {
+        receiptNumber,
+        patientId: patient.id,
+        patientName: `${patient.firstName} ${patient.lastName}`,
+        amount: patientOutofPocketPay,
+        grossTotal,
+        paymentMode,
+        cashierName: receiptData.cashierName,
+        status: 'COMPLETED',
         createdAt: serverTimestamp()
       });
 
