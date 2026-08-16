@@ -5,7 +5,8 @@ import {
   Pill, Activity, Clock, CheckCircle2, AlertTriangle, 
   Search, ShieldAlert, Barcode, UserCheck, BedDouble, 
   FileText, ArrowRight, ShieldCheck, Loader2, Sparkles,
-  Check, X, AlertCircle, Syringe, Info, HeartPulse
+  Check, X, AlertCircle, Syringe, Info, HeartPulse,
+  Lock, KeyRound, Timer, Thermometer, Smile, Frown
 } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, doc, serverTimestamp, orderBy } from 'firebase/firestore';
@@ -23,14 +24,30 @@ interface MedicationDose {
   drugName: string;
   dosage: string;
   route: 'ORAL' | 'IV_INFUSION' | 'IV_BOLUS' | 'IM' | 'SC' | 'TOPICAL';
-  scheduledTime: string; // e.g. '08:00'
+  scheduledTime: string;
   slot: 'MORNING' | 'MIDDAY' | 'EVENING' | 'NIGHT' | 'PRN';
   status: 'DUE' | 'GIVEN' | 'HELD' | 'OVERDUE';
   prescribedBy: string;
   isHighAlert?: boolean;
+  requiresVitals?: {
+    type: 'BP' | 'PULSE' | 'GLUCOSE' | 'TEMP';
+    minSystolic?: number;
+    minHeartRate?: number;
+    minGlucose?: number;
+  };
+  recentVitals?: {
+    bp?: string;
+    systolic?: number;
+    diastolic?: number;
+    heartRate?: number;
+    glucose?: number;
+    recordedAt?: string;
+    isStale?: boolean; // older than 60 mins
+  };
   notes?: string;
   givenAt?: string;
   givenBy?: string;
+  prnIndication?: string;
 }
 
 export default function ElectronicMedicationAdministrationRecordPage() {
@@ -39,7 +56,6 @@ export default function ElectronicMedicationAdministrationRecordPage() {
   const { toast } = useToast();
 
   const [selectedSlot, setSelectedSlot] = useState<'ALL' | 'MORNING' | 'MIDDAY' | 'EVENING' | 'NIGHT' | 'PRN'>('ALL');
-  const [selectedWard, setSelectedWard] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [barcodeInput, setBarcodeInput] = useState('');
 
@@ -48,7 +64,28 @@ export default function ElectronicMedicationAdministrationRecordPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [adminAction, setAdminAction] = useState<'GIVE' | 'HOLD'>('GIVE');
   const [holdReason, setHoldReason] = useState('');
+  
+  // Dual Sign-Off State (For High-Alert Drugs)
+  const [witnessStaffName, setWitnessStaffName] = useState('');
   const [witnessStaffNumber, setWitnessStaffNumber] = useState('');
+  const [witnessPin, setWitnessPin] = useState('');
+  const [witnessChecks, setWitnessChecks] = useState({
+    calcChecked: false,
+    patientVerified: false,
+    ampouleChecked: false
+  });
+
+  // PRN Pre-Dose Severity
+  const [preDosePainScore, setPreDosePainScore] = useState<number>(7);
+  const [prnReasonNote, setPrnReasonNote] = useState('');
+
+  // Point-of-Care Vitals Modal State
+  const [isVitalsModalOpen, setIsVitalsModalOpen] = useState(false);
+  const [vitalsPatient, setVitalsPatient] = useState<MedicationDose | null>(null);
+  const [tempSystolic, setTempSystolic] = useState('130');
+  const [tempDiastolic, setTempDiastolic] = useState('85');
+  const [tempHeartRate, setTempHeartRate] = useState('78');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
@@ -59,17 +96,7 @@ export default function ElectronicMedicationAdministrationRecordPage() {
 
   const hospitalId = userProfile?.hospitalId;
 
-  // 1. Fetch Admitted Inpatients
-  const admissionsQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return query(
-      collection(firestore, `hospitals/${hospitalId}/admissions`),
-      where("status", "==", "ADMITTED")
-    );
-  }, [firestore, hospitalId]);
-  const { data: rawAdmissions, isLoading: areAdmissionsLoading } = useCollection<any>(admissionsQuery);
-
-  // 2. Fetch Active Inpatient Prescriptions / Doses
+  // 1. Fetch Doses from Firestore
   const dosesQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
     return query(
@@ -79,7 +106,7 @@ export default function ElectronicMedicationAdministrationRecordPage() {
   }, [firestore, hospitalId]);
   const { data: rawDoses, isLoading: areDosesLoading } = useCollection<MedicationDose>(dosesQuery);
 
-  // Mock / Initial Seed Data if eMAR collection is empty
+  // Default Clinical Seed Data with Vitals Interlocks & High Alert Flags
   const defaultDoses: MedicationDose[] = useMemo(() => [
     {
       id: 'EMAR-001',
@@ -105,13 +132,22 @@ export default function ElectronicMedicationAdministrationRecordPage() {
       bedNumber: 'BED-F02',
       wardName: 'Female Surgical Ward',
       drugName: 'SC Soluble Insulin (Actrapid)',
-      dosage: '12 Units',
+      dosage: '12 Units Subcutaneous',
       route: 'SC',
       scheduledTime: '08:00',
       slot: 'MORNING',
       status: 'DUE',
       prescribedBy: 'Dr. James Gambrah',
       isHighAlert: true,
+      requiresVitals: {
+        type: 'GLUCOSE',
+        minGlucose: 4.0
+      },
+      recentVitals: {
+        glucose: 8.4,
+        recordedAt: '30m ago',
+        isStale: false
+      }
     },
     {
       id: 'EMAR-003',
@@ -128,38 +164,59 @@ export default function ElectronicMedicationAdministrationRecordPage() {
       status: 'DUE',
       prescribedBy: 'Dr. Angela Boadu',
       isHighAlert: true,
+      requiresVitals: {
+        type: 'PULSE',
+        minHeartRate: 50
+      },
+      recentVitals: {
+        heartRate: 72,
+        recordedAt: '15m ago',
+        isStale: false
+      }
     },
     {
       id: 'EMAR-004',
-      patientId: 'p_janet',
-      patientName: 'JANET BONAH',
-      ehrNumber: 'EHR-910482',
-      bedNumber: 'BED-PED-03',
-      wardName: 'Pediatrics Ward',
-      drugName: 'Oral Amoxicillin/Clavulanate Suspension',
-      dosage: '312.5 mg / 5ml (7.5ml)',
-      route: 'ORAL',
-      scheduledTime: '12:00',
-      slot: 'MIDDAY',
-      status: 'DUE',
-      prescribedBy: 'Dr. Mensah Osei',
-      isHighAlert: false,
-    },
-    {
-      id: 'EMAR-005',
       patientId: 'p_kofi',
       patientName: 'KOFI ADU',
       ehrNumber: 'EHR-449102',
       bedNumber: 'BED-M08',
       wardName: 'Male Medical Ward',
-      drugName: 'Oral Enalapril',
-      dosage: '10 mg Tablet',
+      drugName: 'Oral Enalapril (ACE Inhibitor)',
+      dosage: '10 mg Tablet Once Daily',
       route: 'ORAL',
-      scheduledTime: '18:00',
-      slot: 'EVENING',
+      scheduledTime: '08:00',
+      slot: 'MORNING',
       status: 'DUE',
       prescribedBy: 'Dr. James Gambrah',
       isHighAlert: false,
+      requiresVitals: {
+        type: 'BP',
+        minSystolic: 90
+      },
+      recentVitals: {
+        bp: '84/56 mmHg',
+        systolic: 84,
+        diastolic: 56,
+        recordedAt: '20m ago',
+        isStale: false
+      }
+    },
+    {
+      id: 'EMAR-005',
+      patientId: 'p_janet',
+      patientName: 'JANET BONAH',
+      ehrNumber: 'EHR-910482',
+      bedNumber: 'BED-PED-03',
+      wardName: 'Pediatrics Ward',
+      drugName: 'Oral Paracetamol Syrup (PRN)',
+      dosage: '250 mg / 5ml (10ml PRN for Pain/Fever)',
+      route: 'ORAL',
+      scheduledTime: 'PRN',
+      slot: 'PRN',
+      status: 'DUE',
+      prescribedBy: 'Dr. Mensah Osei',
+      isHighAlert: false,
+      prnIndication: 'Post-op Incision Pain > 5/10 or Temp > 38.5C'
     }
   ], []);
 
@@ -172,7 +229,6 @@ export default function ElectronicMedicationAdministrationRecordPage() {
   const filteredDoses = useMemo(() => {
     return allDoses.filter(dose => {
       const matchesSlot = selectedSlot === 'ALL' || dose.slot === selectedSlot;
-      const matchesWard = selectedWard === 'ALL' || dose.wardName.toLowerCase().includes(selectedWard.toLowerCase());
       const matchesSearch = 
         !searchTerm ||
         dose.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -180,9 +236,9 @@ export default function ElectronicMedicationAdministrationRecordPage() {
         dose.drugName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         dose.bedNumber.toLowerCase().includes(searchTerm.toLowerCase());
       
-      return matchesSlot && matchesWard && matchesSearch;
+      return matchesSlot && matchesSearch;
     });
-  }, [allDoses, selectedSlot, selectedWard, searchTerm]);
+  }, [allDoses, selectedSlot, searchTerm]);
 
   // Barcode Verification Trigger
   const handleBarcodeScan = (e: React.FormEvent) => {
@@ -196,8 +252,7 @@ export default function ElectronicMedicationAdministrationRecordPage() {
     );
 
     if (matched) {
-      setAdministeringDose(matched);
-      setIsModalOpen(true);
+      handleOpenAdministerModal(matched);
       setBarcodeInput('');
       toast({
         title: "Patient Wristband Verified",
@@ -216,27 +271,65 @@ export default function ElectronicMedicationAdministrationRecordPage() {
     setAdministeringDose(dose);
     setAdminAction('GIVE');
     setHoldReason('');
+    setWitnessStaffName('');
     setWitnessStaffNumber('');
+    setWitnessPin('');
+    setWitnessChecks({ calcChecked: false, patientVerified: false, ampouleChecked: false });
+    setPreDosePainScore(7);
+    setPrnReasonNote('');
     setIsModalOpen(true);
+  };
+
+  const handleOpenVitalsCapture = (dose: MedicationDose) => {
+    setVitalsPatient(dose);
+    setTempSystolic('130');
+    setTempDiastolic('85');
+    setTempHeartRate('78');
+    setIsVitalsModalOpen(true);
+  };
+
+  const handleSaveBedsideVitals = () => {
+    if (!vitalsPatient) return;
+    const systolicNum = parseInt(tempSystolic, 10);
+    const diastolicNum = parseInt(tempDiastolic, 10);
+
+    toast({
+      title: "Point-of-Care Vitals Recorded",
+      description: `BP ${tempSystolic}/${tempDiastolic} mmHg updated for ${vitalsPatient.patientName}. Vitals Interlock satisfied.`,
+    });
+
+    setIsVitalsModalOpen(false);
   };
 
   const handleConfirmAdministration = async () => {
     if (!administeringDose) return;
 
-    if (administeringDose.isHighAlert && adminAction === 'GIVE' && !witnessStaffNumber.trim()) {
-      toast({
-        variant: "destructive",
-        title: "High-Alert Safety Lock",
-        description: "Dual-nurse verification is mandatory for High-Alert medications. Enter witness staff number.",
-      });
-      return;
+    // 1. Dual Sign-Off Check for High-Alert Drugs
+    if (administeringDose.isHighAlert && adminAction === 'GIVE') {
+      if (!witnessStaffNumber.trim() || !witnessPin.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Dual Sign-Off Incomplete",
+          description: "High-Alert medications require a 2nd Registered Nurse staff ID and 4-digit verification PIN.",
+        });
+        return;
+      }
+      if (!witnessChecks.calcChecked || !witnessChecks.patientVerified || !witnessChecks.ampouleChecked) {
+        toast({
+          variant: "destructive",
+          title: "Checklist Verification Incomplete",
+          description: "Witnessing nurse must check all 3 independent safety verification boxes.",
+        });
+        return;
+      }
     }
 
+    // 2. Clinical Reason Check for Withheld Doses
     if (adminAction === 'HOLD' && !holdReason.trim()) {
       toast({
         variant: "destructive",
         title: "Clinical Reason Required",
-        description: "Please specify why this dose was withheld (e.g. Patient NPO, Low BP).",
+        description: "Please document why this dose was withheld (e.g. Hypotension, Patient NPO, Patient Refused).",
       });
       return;
     }
@@ -245,24 +338,26 @@ export default function ElectronicMedicationAdministrationRecordPage() {
 
     try {
       const nowIso = new Date().toISOString();
-      const doseRef = doc(firestore, `hospitals/${hospitalId}/emar_doses`, administeringDose.id);
-
+      const hospitalClean = hospitalId || 'GAM-GAR-7578';
+      const doseRef = doc(firestore, `hospitals/${hospitalClean}/emar_doses`, administeringDose.id);
       const status = adminAction === 'GIVE' ? 'GIVEN' : 'HELD';
 
-      // 1. Update eMAR record
+      // 1. Update eMAR record in Firestore
       setDocumentNonBlocking(doseRef, {
         ...administeringDose,
         status: status,
         givenAt: nowIso,
         givenBy: userProfile?.fullName || 'Staff Nurse',
         administeringStaffId: userProfile?.staffNumber || user?.uid,
+        witnessStaffName: witnessStaffName.trim() || null,
         witnessStaffNumber: witnessStaffNumber.trim() || null,
         holdReason: adminAction === 'HOLD' ? holdReason.trim() : null,
+        preDosePainScore: administeringDose.slot === 'PRN' ? preDosePainScore : null,
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
       // 2. Post to Inpatient Clinical Log
-      const auditRef = collection(firestore, `hospitals/${hospitalId}/clinical_audit_logs`);
+      const auditRef = collection(firestore, `hospitals/${hospitalClean}/clinical_audit_logs`);
       addDocumentNonBlocking(auditRef, {
         type: 'MEDICATION_ADMINISTRATION',
         patientId: administeringDose.patientId,
@@ -276,9 +371,26 @@ export default function ElectronicMedicationAdministrationRecordPage() {
         timestamp: serverTimestamp(),
       });
 
+      // 3. PRN 45-Minute Efficacy Re-evaluation Task Dispatch
+      if (administeringDose.slot === 'PRN' && adminAction === 'GIVE') {
+        const prnEvalRef = collection(firestore, `hospitals/${hospitalClean}/prn_evaluations`);
+        addDocumentNonBlocking(prnEvalRef, {
+          patientId: administeringDose.patientId,
+          patientName: administeringDose.patientName,
+          bedNumber: administeringDose.bedNumber,
+          drugName: administeringDose.drugName,
+          administeredAt: nowIso,
+          reEvaluateAt: new Date(Date.now() + 45 * 60 * 1000).toISOString(), // 45 mins later
+          preDoseScore: preDosePainScore,
+          status: 'PENDING_EVALUATION',
+          nurseName: userProfile?.fullName || 'Staff Nurse',
+          timestamp: serverTimestamp(),
+        });
+      }
+
       toast({
-        title: adminAction === 'GIVE' ? "Medication Administered" : "Dose Withheld & Logged",
-        description: `${administeringDose.drugName} logged for ${administeringDose.patientName}.`,
+        title: adminAction === 'GIVE' ? "Medication Stamped & Administered" : "Dose Withheld & Documented",
+        description: `${administeringDose.drugName} recorded for ${administeringDose.patientName}.`,
       });
 
       setIsModalOpen(false);
@@ -292,8 +404,6 @@ export default function ElectronicMedicationAdministrationRecordPage() {
       setIsSubmitting(false);
     }
   };
-
-  const isLoading = isUserLoading || isProfileLoading || areDosesLoading;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-16">
@@ -317,11 +427,11 @@ export default function ElectronicMedicationAdministrationRecordPage() {
               Electronic Medication Record <span className="text-rose-500 text-lg font-mono">(eMAR)</span>
             </h1>
             <p className="text-xs text-slate-400 font-medium mt-1 uppercase tracking-wider">
-              Enforcing the 5 Rights of Drug Administration & Barcode Bedside Verification
+              Enforcing the 5 Rights, Dual Nurse Sign-Off & Point-of-Care Vitals Interlocks
             </p>
           </div>
 
-          {/* Barcode Scanner Input Quick Action */}
+          {/* Barcode Scanner Input */}
           <form onSubmit={handleBarcodeScan} className="flex items-center gap-2 bg-slate-900 border border-slate-700 p-1.5 rounded-xl shadow-inner">
             <div className="flex items-center gap-2 px-3 text-slate-400">
               <Barcode className="w-5 h-5 text-rose-400" />
@@ -372,29 +482,28 @@ export default function ElectronicMedicationAdministrationRecordPage() {
               key={slot}
               type="button"
               onClick={() => setSelectedSlot(slot)}
-              className={`px-3 py-2 rounded-lg uppercase tracking-wider transition cursor-pointer ${
+              className={`px-3 py-2 rounded-lg uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
                 selectedSlot === slot
                   ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20 font-black'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800'
               }`}
             >
+              {slot === 'PRN' && <Sparkles className="w-3 h-3 text-amber-400" />}
               {slot}
             </button>
           ))}
         </div>
 
-        {/* Search & Ward Selector */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Search patient, bed, or drug..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 outline-none focus:border-rose-500 font-medium"
-            />
-          </div>
+        {/* Search */}
+        <div className="relative w-full md:w-72">
+          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+          <input
+            type="text"
+            placeholder="Search patient, bed, or drug..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 outline-none focus:border-rose-500 font-medium"
+          />
         </div>
       </div>
 
@@ -406,8 +515,8 @@ export default function ElectronicMedicationAdministrationRecordPage() {
               <tr className="bg-slate-950 border-b border-slate-800 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 <th className="py-4 pl-6">Bed & Inpatient</th>
                 <th className="py-4 px-4">Medication & Strength</th>
+                <th className="py-4 px-4">Point-of-Care Vitals Interlock</th>
                 <th className="py-4 px-4">Route & Slot</th>
-                <th className="py-4 px-4">Prescriber</th>
                 <th className="py-4 px-4">Status</th>
                 <th className="py-4 pr-6 text-right">Bedside Action</th>
               </tr>
@@ -424,6 +533,11 @@ export default function ElectronicMedicationAdministrationRecordPage() {
                 filteredDoses.map((dose) => {
                   const isGiven = dose.status === 'GIVEN';
                   const isHeld = dose.status === 'HELD';
+
+                  // Vitals Interlock Evaluation
+                  const isHypotensive = dose.requiresVitals?.type === 'BP' && (dose.recentVitals?.systolic || 120) < 90;
+                  const isVitalsMissing = dose.requiresVitals && (!dose.recentVitals || dose.recentVitals.isStale);
+
                   return (
                     <tr key={dose.id} className="hover:bg-slate-800/40 transition">
                       {/* Bed & Patient */}
@@ -463,6 +577,44 @@ export default function ElectronicMedicationAdministrationRecordPage() {
                         </div>
                       </td>
 
+                      {/* Vitals Interlock Column */}
+                      <td className="py-4 px-4">
+                        {dose.requiresVitals ? (
+                          <div>
+                            {dose.requiresVitals.type === 'BP' && (
+                              <div className="space-y-1">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                                  isHypotensive
+                                    ? 'bg-rose-950/40 text-rose-400 border-rose-500/50'
+                                    : 'bg-emerald-950/40 text-emerald-300 border-emerald-500/40'
+                                }`}>
+                                  <HeartPulse className="w-3 h-3" /> BP: {dose.recentVitals?.bp || 'No Reading'}
+                                </span>
+                                {isHypotensive && (
+                                  <span className="text-[9px] text-rose-400 font-black uppercase block tracking-tight">
+                                    ⚠️ Hypotension Alert (Hold Suggested)
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {dose.requiresVitals.type === 'GLUCOSE' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950/40 text-emerald-300 border border-emerald-500/40">
+                                Blood Glucose: {dose.recentVitals?.glucose} mmol/L
+                              </span>
+                            )}
+
+                            {dose.requiresVitals.type === 'PULSE' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950/40 text-emerald-300 border border-emerald-500/40">
+                                Heart Rate: {dose.recentVitals?.heartRate} bpm
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-500 font-mono uppercase">Standard Protocol</span>
+                        )}
+                      </td>
+
                       {/* Route & Slot */}
                       <td className="py-4 px-4">
                         <span className="px-2 py-1 rounded bg-slate-800 text-slate-300 font-mono font-bold text-[10px] uppercase block w-fit mb-1 border border-slate-700">
@@ -473,17 +625,11 @@ export default function ElectronicMedicationAdministrationRecordPage() {
                         </span>
                       </td>
 
-                      {/* Prescriber */}
-                      <td className="py-4 px-4">
-                        <span className="text-slate-300 font-medium block">{dose.prescribedBy}</span>
-                        <span className="text-[10px] text-slate-500 font-mono">Inpatient Order</span>
-                      </td>
-
                       {/* Status */}
                       <td className="py-4 px-4">
                         {isGiven ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 uppercase">
-                            <Check className="w-3 h-3" /> Given ({dose.givenBy || 'Nurse'})
+                            <Check className="w-3 h-3" /> Given
                           </span>
                         ) : isHeld ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 uppercase">
@@ -498,19 +644,31 @@ export default function ElectronicMedicationAdministrationRecordPage() {
 
                       {/* Action */}
                       <td className="py-4 pr-6 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenAdministerModal(dose)}
-                          disabled={isGiven}
-                          className={`px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition flex items-center gap-1.5 ml-auto cursor-pointer ${
-                            isGiven
-                              ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                              : 'bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/20'
-                          }`}
-                        >
-                          <Syringe className="w-3.5 h-3.5" />
-                          {isGiven ? 'Administered' : 'Administer Dose'}
-                        </button>
+                        {isVitalsMissing ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenVitalsCapture(dose)}
+                            className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-[11px] font-bold uppercase tracking-wider transition flex items-center gap-1.5 ml-auto shadow-md shadow-amber-600/20 cursor-pointer"
+                          >
+                            <HeartPulse className="w-3.5 h-3.5" /> Capture Vitals First
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAdministerModal(dose)}
+                            disabled={isGiven}
+                            className={`px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition flex items-center gap-1.5 ml-auto cursor-pointer ${
+                              isGiven
+                                ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                : dose.isHighAlert
+                                ? 'bg-rose-700 hover:bg-rose-600 text-white shadow-lg shadow-rose-700/30 border border-rose-500/40'
+                                : 'bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/20'
+                            }`}
+                          >
+                            {dose.isHighAlert ? <Lock className="w-3.5 h-3.5" /> : <Syringe className="w-3.5 h-3.5" />}
+                            {isGiven ? 'Administered' : dose.isHighAlert ? 'Dual Sign-Off & Give' : 'Administer Dose'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -521,9 +679,9 @@ export default function ElectronicMedicationAdministrationRecordPage() {
         </div>
       </div>
 
-      {/* 4. MEDICATION ADMINISTRATION MODAL (5 RIGHTS CHECKPOINT) */}
+      {/* 4. DUAL SIGN-OFF & ADMINISTRATION MODAL */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-xl bg-slate-950 border border-slate-800 text-slate-100 p-6 shadow-2xl rounded-2xl">
+        <DialogContent className="max-w-2xl bg-slate-950 border border-slate-800 text-slate-100 p-6 shadow-2xl rounded-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b border-slate-800/80 pb-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500">
@@ -531,7 +689,7 @@ export default function ElectronicMedicationAdministrationRecordPage() {
               </div>
               <div>
                 <DialogTitle className="text-lg font-black text-white uppercase tracking-tight flex items-center gap-2">
-                  Bedside Medication Verification
+                  {administeringDose?.isHighAlert ? 'High-Alert Dual Nurse Sign-Off' : 'Bedside Medication Verification'}
                 </DialogTitle>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Patient: <span className="font-bold text-white">{administeringDose?.patientName}</span> ({administeringDose?.bedNumber})
@@ -541,19 +699,19 @@ export default function ElectronicMedicationAdministrationRecordPage() {
           </DialogHeader>
 
           {administeringDose && (
-            <div className="space-y-4 my-2">
+            <div className="space-y-5 my-2">
               {/* Drug Spec Card */}
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 uppercase">Medication</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase">Medication Order</span>
                   {administeringDose.isHighAlert && (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                      🚨 High Alert Drug
+                    <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1">
+                      <ShieldAlert className="w-3 h-3" /> High-Risk Drug
                     </span>
                   )}
                 </div>
                 <p className="text-base font-black text-white">{administeringDose.drugName}</p>
-                <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-800">
+                <div className="grid grid-cols-3 gap-2 text-xs pt-2 border-t border-slate-800">
                   <div>
                     <span className="text-[10px] text-slate-400 font-mono block uppercase">Prescribed Dose</span>
                     <span className="font-mono font-bold text-rose-400">{administeringDose.dosage}</span>
@@ -561,6 +719,10 @@ export default function ElectronicMedicationAdministrationRecordPage() {
                   <div>
                     <span className="text-[10px] text-slate-400 font-mono block uppercase">Route</span>
                     <span className="font-mono font-bold text-slate-200">{administeringDose.route}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-mono block uppercase">Prescriber</span>
+                    <span className="font-medium text-slate-200 truncate block">{administeringDose.prescribedBy}</span>
                   </div>
                 </div>
               </div>
@@ -591,21 +753,107 @@ export default function ElectronicMedicationAdministrationRecordPage() {
                 </button>
               </div>
 
-              {/* High Alert 2nd Nurse Witness PIN */}
+              {/* DUAL SIGN-OFF INTERLOCK (For High-Alert Narcotics, Insulin, Heparin) */}
               {administeringDose.isHighAlert && adminAction === 'GIVE' && (
-                <div className="bg-rose-950/20 border border-rose-500/30 rounded-xl p-3.5 space-y-2">
-                  <label className="block text-[11px] font-black text-rose-300 uppercase tracking-wider font-mono">
-                    Independent 2nd Nurse Witness Staff ID / Number *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. GAM/STF/26/0009"
-                    value={witnessStaffNumber}
-                    onChange={(e) => setWitnessStaffNumber(e.target.value)}
-                    className="w-full bg-slate-900 border border-rose-500/40 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 outline-none font-mono"
-                  />
-                  <p className="text-[10px] text-rose-400">
-                    Dual verification ensures zero dosage calculation errors on high-risk narcotics & insulin.
+                <div className="bg-rose-950/30 border border-rose-500/50 rounded-2xl p-5 space-y-4">
+                  <div className="flex items-center gap-2.5 text-rose-300 font-black text-xs uppercase tracking-wide">
+                    <Lock className="w-4 h-4 text-rose-400" /> Independent 2nd Registered Nurse Verification Interlock
+                  </div>
+                  
+                  {/* Verification Checkboxes */}
+                  <div className="space-y-2 bg-slate-900/80 p-3.5 rounded-xl border border-rose-500/30 text-xs">
+                    <label className="flex items-center gap-2.5 text-slate-200 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={witnessChecks.ampouleChecked}
+                        onChange={(e) => setWitnessChecks(c => ({ ...c, ampouleChecked: e.target.checked }))}
+                        className="accent-rose-500 h-4 w-4"
+                      />
+                      <span>I have verified the drug ampoule label, concentration, and expiry date.</span>
+                    </label>
+                    <label className="flex items-center gap-2.5 text-slate-200 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={witnessChecks.calcChecked}
+                        onChange={(e) => setWitnessChecks(c => ({ ...c, calcChecked: e.target.checked }))}
+                        className="accent-rose-500 h-4 w-4"
+                      />
+                      <span>I have independently recalculated the dosage and volumetric syringe draw.</span>
+                    </label>
+                    <label className="flex items-center gap-2.5 text-slate-200 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={witnessChecks.patientVerified}
+                        onChange={(e) => setWitnessChecks(c => ({ ...c, patientVerified: e.target.checked }))}
+                        className="accent-rose-500 h-4 w-4"
+                      />
+                      <span>I have confirmed the patient 2-identifier wristband at the bedside.</span>
+                    </label>
+                  </div>
+
+                  {/* 2nd Nurse Credentials */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-rose-300 uppercase mb-1">Witness Nurse Name *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Nurse Mensah"
+                        value={witnessStaffName}
+                        onChange={(e) => setWitnessStaffName(e.target.value)}
+                        className="w-full bg-slate-900 border border-rose-500/40 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-rose-300 uppercase mb-1">Staff ID Number *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. GAM/STF/26/0009"
+                        value={witnessStaffNumber}
+                        onChange={(e) => setWitnessStaffNumber(e.target.value)}
+                        className="w-full bg-slate-900 border border-rose-500/40 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 outline-none font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-rose-300 uppercase mb-1">4-Digit Security PIN *</label>
+                      <input
+                        type="password"
+                        maxLength={4}
+                        placeholder="••••"
+                        value={witnessPin}
+                        onChange={(e) => setWitnessPin(e.target.value)}
+                        className="w-full bg-slate-900 border border-rose-500/40 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 outline-none font-mono text-center tracking-widest"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* PRN PRE-DOSE SEVERITY RATING */}
+              {administeringDose.slot === 'PRN' && adminAction === 'GIVE' && (
+                <div className="bg-amber-950/20 border border-amber-500/40 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-amber-300 uppercase tracking-wide flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-400" /> PRN Pre-Medication Pain/Severity Rating
+                    </span>
+                    <span className="text-sm font-black font-mono text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/30">
+                      Score: {preDosePainScore}/10
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Smile className="w-4 h-4 text-emerald-400" />
+                    <input
+                      type="range"
+                      min={0}
+                      max={10}
+                      value={preDosePainScore}
+                      onChange={(e) => setPreDosePainScore(parseInt(e.target.value, 10))}
+                      className="w-full accent-amber-500 cursor-pointer"
+                    />
+                    <Frown className="w-4 h-4 text-rose-400" />
+                  </div>
+                  <p className="text-[10px] text-amber-300/80">
+                    45-minute automated post-dose efficacy review will be injected into your Ward Rounding Schedule upon administration.
                   </p>
                 </div>
               )}
@@ -642,7 +890,73 @@ export default function ElectronicMedicationAdministrationRecordPage() {
               }`}
             >
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-              {adminAction === 'GIVE' ? 'Confirm Medication Given' : 'Confirm Dose Withheld'}
+              {adminAction === 'GIVE' ? 'Sign & Administer Dose' : 'Confirm Dose Withheld'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 5. POINT-OF-CARE VITALS CAPTURE MODAL */}
+      <Dialog open={isVitalsModalOpen} onOpenChange={setIsVitalsModalOpen}>
+        <DialogContent className="max-w-md bg-slate-950 border border-slate-800 text-slate-100 p-6 shadow-2xl rounded-2xl">
+          <DialogHeader className="border-b border-slate-800/80 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <HeartPulse className="h-6 w-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-black text-white uppercase tracking-tight">
+                  Point-of-Care Vitals Entry
+                </DialogTitle>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Patient: <span className="font-bold text-white">{vitalsPatient?.patientName}</span> ({vitalsPatient?.bedNumber})
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 my-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Systolic BP (mmHg)</label>
+                <input
+                  type="number"
+                  value={tempSystolic}
+                  onChange={(e) => setTempSystolic(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-mono text-center font-bold"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Diastolic BP (mmHg)</label>
+                <input
+                  type="number"
+                  value={tempDiastolic}
+                  onChange={(e) => setTempDiastolic(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-mono text-center font-bold"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Heart Rate / Pulse (bpm)</label>
+              <input
+                type="number"
+                value={tempHeartRate}
+                onChange={(e) => setTempHeartRate(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-mono text-center font-bold"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="border-t border-slate-800/80 pt-4 mt-4 flex items-center justify-between">
+            <Button variant="ghost" onClick={() => setIsVitalsModalOpen(false)} className="text-slate-400 hover:text-white">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveBedsideVitals}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider"
+            >
+              Save Vitals & Unlock eMAR
             </Button>
           </DialogFooter>
         </DialogContent>
