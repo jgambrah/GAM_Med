@@ -67,29 +67,39 @@ export default function ShiftQueriesAuditPage() {
   }, [firestore, user, hospitalId]);
   const { data: rawShiftQueries, isLoading: areShiftQueriesLoading } = useCollection<any>(shiftQueriesQuery);
 
-  // Combined Mapped Live Queries
+  const [selectedReasonCategory, setSelectedReasonCategory] = useState('UNRECORDED_FLOAT_DEPOSIT');
+  const [supervisorWitness, setSupervisorWitness] = useState('');
+
+  // Combined Mapped Live Queries (Deduplicated)
   const activeQueries: AuditQueryItem[] = useMemo(() => {
     const list: AuditQueryItem[] = [];
+    const seenKeys = new Set<string>();
 
     if (rawShiftQueries && rawShiftQueries.length > 0) {
       rawShiftQueries.forEach((sq: any) => {
-        list.push({
-          id: sq.id,
-          time: sq.createdAt?.toDate ? sq.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
-          type: sq.type === 'CASH_OVERAGE' ? 'OVERAGE_DISCREPANCY' : 'SHORTAGE_FLAG',
-          amount: Number(sq.varianceAmount || sq.amount || 0),
-          relatedReceipt: sq.relatedReceipt || 'RCP-8821',
-          message: sq.message || `System expected ₵${(sq.expectedCash || 0).toFixed(2)}, but you declared ₵${(sq.declaredCash || 0).toFixed(2)}. Please explain this variance.`,
-          status: sq.status || 'PENDING_RESPONSE',
-          flaggedBy: sq.flaggedBy || 'System Auto-Audit',
-          hospitalId: hospitalId,
-        });
+        const key = `${sq.type}_${Number(sq.varianceAmount || sq.amount || 0).toFixed(2)}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          list.push({
+            id: sq.id,
+            time: sq.createdAt?.toDate ? sq.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+            type: sq.type === 'CASH_OVERAGE' ? 'OVERAGE_DISCREPANCY' : 'SHORTAGE_FLAG',
+            amount: Number(sq.varianceAmount || sq.amount || 0),
+            relatedReceipt: sq.relatedReceipt || 'RCP-8821',
+            message: sq.message || `System expected ₵${(sq.expectedCash || 0).toFixed(2)}, but you declared ₵${(sq.declaredCash || 0).toFixed(2)}. Please explain this variance.`,
+            status: sq.status || 'PENDING_RESPONSE',
+            flaggedBy: sq.flaggedBy || 'System Auto-Audit',
+            hospitalId: hospitalId,
+          });
+        }
       });
     }
 
     if (rawQueriedTills && rawQueriedTills.length > 0) {
       rawQueriedTills.forEach((t: any) => {
-        if (!list.some(existing => existing.id === t.id)) {
+        const key = `${t.varianceType || 'CASH_OVERAGE'}_${Number(t.varianceAmount || 50).toFixed(2)}`;
+        if (!seenKeys.has(key) && !list.some(existing => existing.id === t.id)) {
+          seenKeys.add(key);
           list.push({
             id: t.id,
             time: t.closedAt?.toDate ? t.closedAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently',
@@ -111,6 +121,8 @@ export default function ShiftQueriesAuditPage() {
   const handleOpenExplanationModal = (item: AuditQueryItem) => {
     setSelectedQuery(item);
     setExplanationText('');
+    setSelectedReasonCategory('UNRECORDED_FLOAT_DEPOSIT');
+    setSupervisorWitness('');
     setIsExplainModalOpen(true);
   };
 
@@ -127,17 +139,32 @@ export default function ShiftQueriesAuditPage() {
     setIsSubmitting(true);
     try {
       const hospitalClean = hospitalId || 'GAM-GAR-7578';
-      const tillRef = doc(firestore, `hospitals/${hospitalClean}/cash_tills`, selectedQuery.id);
+      const batch = writeBatch(firestore);
 
-      await updateDocumentNonBlocking(tillRef, {
+      // 1. Update Shift Query record
+      const queryRef = doc(firestore, `hospitals/${hospitalClean}/shift_queries`, selectedQuery.id);
+      batch.set(queryRef, {
         status: 'EXPLANATION_SUBMITTED',
         cashierExplanation: explanationText.trim(),
+        reasonCategory: selectedReasonCategory,
+        supervisorWitness: supervisorWitness.trim() || 'Self-Certified by Cashier',
         cashierExplanationAt: serverTimestamp(),
-      });
+      }, { merge: true });
+
+      // 2. Update Cash Till record
+      const tillRef = doc(firestore, `hospitals/${hospitalClean}/cash_tills`, selectedQuery.id);
+      batch.set(tillRef, {
+        status: 'EXPLANATION_SUBMITTED',
+        cashierExplanation: explanationText.trim(),
+        reasonCategory: selectedReasonCategory,
+        cashierExplanationAt: serverTimestamp(),
+      }, { merge: true });
+
+      await batch.commit();
 
       toast({
-        title: "Variance Explanation Submitted",
-        description: "Finance Director and Internal Audit have been notified for reconciliation.",
+        title: "Variance Dossier Submitted to Finance Director",
+        description: "Formal explanation recorded in Treasury Audit Trail. Awaiting Director sign-off.",
       });
 
       setIsExplainModalOpen(false);
@@ -329,19 +356,57 @@ export default function ShiftQueriesAuditPage() {
           <div className="space-y-4 my-2 text-xs">
             <div className="bg-amber-950/30 border border-amber-800/40 p-3.5 rounded-xl text-amber-200">
               <p className="leading-relaxed">
-                <strong>Cashier Compliance Notice:</strong> Your written explanation will be reviewed by the Head of Finance and Internal Auditor. Provide exact denominations, transaction receipts, or till balance notes.
+                <strong>Cashier Compliance Notice:</strong> Your written explanation will be permanently recorded into the Treasury Audit Ledger and dispatched directly to the Finance Director and Lead Internal Auditor.
               </p>
             </div>
 
+            {/* Reason Classification */}
             <div>
-              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2 font-mono">
-                Cashier Formal Explanation Note *
+              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1.5 font-mono">
+                Variance Classification *
               </label>
+              <select
+                value={selectedReasonCategory}
+                onChange={(e) => setSelectedReasonCategory(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-emerald-500 font-bold"
+              >
+                <option value="UNRECORDED_FLOAT_DEPOSIT">Unrecorded Opening Float / Reserve Cash Deposit</option>
+                <option value="MOMO_MANUAL_CASH_CONVERSION">Mobile Money Cash-Out Transferred to Till</option>
+                <option value="PATIENT_UNCLAIMED_CHANGE">Patient Overpayment / Uncollected Change</option>
+                <option value="TILL_COUNT_DATA_ENTRY_TYPO">End-of-Shift Denomination Counting / Keypad Error</option>
+                <option value="OTHER_REASON">Other Verified Operational Discrepancy</option>
+              </select>
+            </div>
+
+            {/* Explanation Note */}
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider font-mono">
+                  Detailed Operational Justification *
+                </label>
+                <span className={`text-[10px] font-mono ${explanationText.trim().length >= 10 ? 'text-emerald-400 font-bold' : 'text-slate-500'}`}>
+                  {explanationText.trim().length}/10 chars min
+                </span>
+              </div>
               <textarea
                 rows={4}
                 value={explanationText}
                 onChange={(e) => setExplanationText(e.target.value)}
-                placeholder="e.g. Banknote miscount during shift handoff; physical ₵50 bill located in lower drop slot and handed over to Head Cashier with deposit slip #8812..."
+                placeholder="e.g. Extra ₵132.40 represents an unrecorded morning float replenishment authorized by supervisor, plus ₵2.40 patient coin rounding. All notes accounted for in safe drop #441..."
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-500 font-medium leading-relaxed"
+              />
+            </div>
+
+            {/* Supervisor Sign-Off / Witness */}
+            <div>
+              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1.5 font-mono">
+                Supervisor / Senior Cashier Witness (Optional)
+              </label>
+              <input
+                type="text"
+                value={supervisorWitness}
+                onChange={(e) => setSupervisorWitness(e.target.value)}
+                placeholder="e.g. Lead Cashier Marcus Amosah / Shift Lead"
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-500"
               />
             </div>
@@ -353,11 +418,11 @@ export default function ShiftQueriesAuditPage() {
             </Button>
             <Button
               onClick={handleSubmitExplanation}
-              disabled={isSubmitting}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider gap-2 shadow-lg shadow-emerald-600/20 cursor-pointer"
+              disabled={isSubmitting || explanationText.trim().length < 10}
+              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider gap-2 shadow-lg shadow-emerald-600/20 cursor-pointer"
             >
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Submit Formal Response
+              Submit to Finance Director
             </Button>
           </DialogFooter>
         </DialogContent>
