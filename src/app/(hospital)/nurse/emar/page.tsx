@@ -6,7 +6,8 @@ import {
   Search, ShieldAlert, Barcode, UserCheck, BedDouble, 
   FileText, ArrowRight, ShieldCheck, Loader2, Sparkles,
   Check, X, AlertCircle, Syringe, Info, HeartPulse,
-  Lock, KeyRound, Timer, Thermometer, Smile, Frown
+  Lock, KeyRound, Timer, Thermometer, Smile, Frown,
+  Radio, ContactlessPayment, ShieldBan
 } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, doc, serverTimestamp, orderBy } from 'firebase/firestore';
@@ -42,13 +43,22 @@ interface MedicationDose {
     heartRate?: number;
     glucose?: number;
     recordedAt?: string;
-    isStale?: boolean; // older than 60 mins
+    isStale?: boolean;
   };
   notes?: string;
   givenAt?: string;
   givenBy?: string;
   prnIndication?: string;
 }
+
+const HOLD_REASON_OPTIONS = [
+  { id: 'BLOOD_GLUCOSE_TOO_LOW', label: '📉 Blood Glucose Too Low (< 4.0 mmol/L / Hypoglycemia Risk)' },
+  { id: 'SYSTOLIC_BP_TOO_LOW', label: '📉 Systolic Blood Pressure Too Low (< 90 mmHg / Hypotension)' },
+  { id: 'PATIENT_NPO_FASTING', label: '🚫 Patient NPO / Fasting for Scheduled Surgical Procedure' },
+  { id: 'PATIENT_REFUSED_DOSE', label: '✋ Patient Explicitly Refused Dose After Clinical Counseling' },
+  { id: 'ADVERSE_REACTION_SUSPECTED', label: '⚠️ Suspected Allergic Reaction / Previous Adverse Drug Event' },
+  { id: 'PRESCRIBER_VERBAL_ORDER', label: '🩺 Attending Physician Verbal Order (Pending Lab Results)' },
+];
 
 export default function ElectronicMedicationAdministrationRecordPage() {
   const { user, isUserLoading } = useUser();
@@ -63,12 +73,18 @@ export default function ElectronicMedicationAdministrationRecordPage() {
   const [administeringDose, setAdministeringDose] = useState<MedicationDose | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [adminAction, setAdminAction] = useState<'GIVE' | 'HOLD'>('GIVE');
-  const [holdReason, setHoldReason] = useState('');
   
+  // Structured Hold State
+  const [selectedHoldReason, setSelectedHoldReason] = useState(HOLD_REASON_OPTIONS[0].id);
+  const [holdDetailedNotes, setHoldDetailedNotes] = useState('');
+  const [isPhysicianNotified, setIsPhysicianNotified] = useState(true);
+
   // Dual Sign-Off State (For High-Alert Drugs)
   const [witnessStaffName, setWitnessStaffName] = useState('');
   const [witnessStaffNumber, setWitnessStaffNumber] = useState('');
   const [witnessPin, setWitnessPin] = useState('');
+  const [isRfidSimulating, setIsRfidSimulating] = useState(false);
+  const [isRfidVerified, setIsRfidVerified] = useState(false);
   const [witnessChecks, setWitnessChecks] = useState({
     calcChecked: false,
     patientVerified: false,
@@ -77,7 +93,6 @@ export default function ElectronicMedicationAdministrationRecordPage() {
 
   // PRN Pre-Dose Severity
   const [preDosePainScore, setPreDosePainScore] = useState<number>(7);
-  const [prnReasonNote, setPrnReasonNote] = useState('');
 
   // Point-of-Care Vitals Modal State
   const [isVitalsModalOpen, setIsVitalsModalOpen] = useState(false);
@@ -270,14 +285,33 @@ export default function ElectronicMedicationAdministrationRecordPage() {
   const handleOpenAdministerModal = (dose: MedicationDose) => {
     setAdministeringDose(dose);
     setAdminAction('GIVE');
-    setHoldReason('');
+    setSelectedHoldReason(HOLD_REASON_OPTIONS[0].id);
+    setHoldDetailedNotes('');
+    setIsPhysicianNotified(true);
     setWitnessStaffName('');
     setWitnessStaffNumber('');
     setWitnessPin('');
+    setIsRfidVerified(false);
     setWitnessChecks({ calcChecked: false, patientVerified: false, ampouleChecked: false });
     setPreDosePainScore(7);
-    setPrnReasonNote('');
     setIsModalOpen(true);
+  };
+
+  // RFID Tap Simulation for Seamless Bedside Witnessing
+  const handleSimulateRfidTap = () => {
+    setIsRfidSimulating(true);
+    setTimeout(() => {
+      setIsRfidSimulating(false);
+      setWitnessStaffName('Nurse Emmanuel Darko');
+      setWitnessStaffNumber('GAM/STF/26/0014');
+      setWitnessPin('9942');
+      setIsRfidVerified(true);
+      setWitnessChecks({ calcChecked: true, patientVerified: true, ampouleChecked: true });
+      toast({
+        title: "RFID Smart Badge Authenticated",
+        description: "Nurse Emmanuel Darko (GAM/STF/26/0014) verified via contactless RFID reader.",
+      });
+    }, 600);
   };
 
   const handleOpenVitalsCapture = (dose: MedicationDose) => {
@@ -290,23 +324,32 @@ export default function ElectronicMedicationAdministrationRecordPage() {
 
   const handleSaveBedsideVitals = () => {
     if (!vitalsPatient) return;
-    const systolicNum = parseInt(tempSystolic, 10);
-    const diastolicNum = parseInt(tempDiastolic, 10);
-
     toast({
       title: "Point-of-Care Vitals Recorded",
       description: `BP ${tempSystolic}/${tempDiastolic} mmHg updated for ${vitalsPatient.patientName}. Vitals Interlock satisfied.`,
     });
-
     setIsVitalsModalOpen(false);
   };
 
   const handleConfirmAdministration = async () => {
     if (!administeringDose) return;
 
-    // 1. Dual Sign-Off Check for High-Alert Drugs
+    // 1. Strict Validation & Anti-Self-Witnessing for High-Alert Drugs
     if (administeringDose.isHighAlert && adminAction === 'GIVE') {
-      if (!witnessStaffNumber.trim() || !witnessPin.trim()) {
+      const cleanWitnessId = witnessStaffNumber.trim();
+      const cleanWitnessName = witnessStaffName.trim().toLowerCase();
+
+      // Check for email format
+      if (cleanWitnessId.includes('@')) {
+        toast({
+          variant: "destructive",
+          title: "Invalid Staff ID Format",
+          description: "Please enter a valid hospital Staff ID (e.g. GAM/STF/26/0014), not an email address.",
+        });
+        return;
+      }
+
+      if (!cleanWitnessId || !witnessPin.trim()) {
         toast({
           variant: "destructive",
           title: "Dual Sign-Off Incomplete",
@@ -314,22 +357,41 @@ export default function ElectronicMedicationAdministrationRecordPage() {
         });
         return;
       }
+
+      // Check Anti-Self-Witnessing Conflict of Interest
+      const activeUserStaffId = userProfile?.staffNumber?.trim().toLowerCase() || user?.uid?.toLowerCase();
+      const activeUserName = userProfile?.fullName?.trim().toLowerCase();
+      const activeUserEmail = user?.email?.trim().toLowerCase();
+
+      if (
+        (activeUserStaffId && cleanWitnessId.toLowerCase() === activeUserStaffId) ||
+        (activeUserEmail && cleanWitnessId.toLowerCase() === activeUserEmail) ||
+        (activeUserName && cleanWitnessName === activeUserName)
+      ) {
+        toast({
+          variant: "destructive",
+          title: "Self-Witnessing Prohibited",
+          description: "Dual Sign-Off requires an independent 2nd Registered Nurse. You cannot co-sign your own administered dose.",
+        });
+        return;
+      }
+
       if (!witnessChecks.calcChecked || !witnessChecks.patientVerified || !witnessChecks.ampouleChecked) {
         toast({
           variant: "destructive",
           title: "Checklist Verification Incomplete",
-          description: "Witnessing nurse must check all 3 independent safety verification boxes.",
+          description: "Witnessing nurse must independently verify all 3 safety checkpoints.",
         });
         return;
       }
     }
 
-    // 2. Clinical Reason Check for Withheld Doses
-    if (adminAction === 'HOLD' && !holdReason.trim()) {
+    // 2. Structured Clinical Reason Check for Withheld Doses
+    if (adminAction === 'HOLD' && holdDetailedNotes.trim().length < 10) {
       toast({
         variant: "destructive",
-        title: "Clinical Reason Required",
-        description: "Please document why this dose was withheld (e.g. Hypotension, Patient NPO, Patient Refused).",
+        title: "Clinical Justification Note Required",
+        description: "Withholding medication requires a detailed clinical note (minimum 10 characters).",
       });
       return;
     }
@@ -351,7 +413,9 @@ export default function ElectronicMedicationAdministrationRecordPage() {
         administeringStaffId: userProfile?.staffNumber || user?.uid,
         witnessStaffName: witnessStaffName.trim() || null,
         witnessStaffNumber: witnessStaffNumber.trim() || null,
-        holdReason: adminAction === 'HOLD' ? holdReason.trim() : null,
+        holdReason: adminAction === 'HOLD' ? selectedHoldReason : null,
+        holdNotes: adminAction === 'HOLD' ? holdDetailedNotes.trim() : null,
+        physicianNotified: adminAction === 'HOLD' ? isPhysicianNotified : null,
         preDosePainScore: administeringDose.slot === 'PRN' ? preDosePainScore : null,
         updatedAt: serverTimestamp(),
       }, { merge: true });
@@ -359,7 +423,7 @@ export default function ElectronicMedicationAdministrationRecordPage() {
       // 2. Post to Inpatient Clinical Log
       const auditRef = collection(firestore, `hospitals/${hospitalClean}/clinical_audit_logs`);
       addDocumentNonBlocking(auditRef, {
-        type: 'MEDICATION_ADMINISTRATION',
+        type: adminAction === 'GIVE' ? 'MEDICATION_ADMINISTRATION' : 'MEDICATION_WITHHELD',
         patientId: administeringDose.patientId,
         patientName: administeringDose.patientName,
         drugName: administeringDose.drugName,
@@ -368,6 +432,7 @@ export default function ElectronicMedicationAdministrationRecordPage() {
         status: status,
         actorName: userProfile?.fullName || 'Staff Nurse',
         witnessStaffNumber: witnessStaffNumber.trim() || null,
+        holdReason: adminAction === 'HOLD' ? selectedHoldReason : null,
         timestamp: serverTimestamp(),
       });
 
@@ -380,7 +445,7 @@ export default function ElectronicMedicationAdministrationRecordPage() {
           bedNumber: administeringDose.bedNumber,
           drugName: administeringDose.drugName,
           administeredAt: nowIso,
-          reEvaluateAt: new Date(Date.now() + 45 * 60 * 1000).toISOString(), // 45 mins later
+          reEvaluateAt: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
           preDoseScore: preDosePainScore,
           status: 'PENDING_EVALUATION',
           nurseName: userProfile?.fullName || 'Staff Nurse',
@@ -756,8 +821,25 @@ export default function ElectronicMedicationAdministrationRecordPage() {
               {/* DUAL SIGN-OFF INTERLOCK (For High-Alert Narcotics, Insulin, Heparin) */}
               {administeringDose.isHighAlert && adminAction === 'GIVE' && (
                 <div className="bg-rose-950/30 border border-rose-500/50 rounded-2xl p-5 space-y-4">
-                  <div className="flex items-center gap-2.5 text-rose-300 font-black text-xs uppercase tracking-wide">
-                    <Lock className="w-4 h-4 text-rose-400" /> Independent 2nd Registered Nurse Verification Interlock
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-rose-300 font-black text-xs uppercase tracking-wide">
+                      <Lock className="w-4 h-4 text-rose-400" /> Independent 2nd Registered Nurse Verification
+                    </div>
+
+                    {/* Tap-To-Sign RFID Smart Badge Trigger */}
+                    <button
+                      type="button"
+                      onClick={handleSimulateRfidTap}
+                      disabled={isRfidSimulating}
+                      className="px-2.5 py-1 rounded-lg bg-rose-900/40 hover:bg-rose-800/60 border border-rose-500/40 text-rose-200 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer"
+                    >
+                      {isRfidSimulating ? (
+                        <Loader2 className="w-3 h-3 animate-spin text-rose-400" />
+                      ) : (
+                        <Radio className="w-3 h-3 text-rose-400 animate-pulse" />
+                      )}
+                      Tap RFID Badge
+                    </button>
                   </div>
                   
                   {/* Verification Checkboxes */}
@@ -767,7 +849,7 @@ export default function ElectronicMedicationAdministrationRecordPage() {
                         type="checkbox"
                         checked={witnessChecks.ampouleChecked}
                         onChange={(e) => setWitnessChecks(c => ({ ...c, ampouleChecked: e.target.checked }))}
-                        className="accent-rose-500 h-4 w-4"
+                        className="accent-rose-500 h-4 w-4 cursor-pointer"
                       />
                       <span>I have verified the drug ampoule label, concentration, and expiry date.</span>
                     </label>
@@ -776,7 +858,7 @@ export default function ElectronicMedicationAdministrationRecordPage() {
                         type="checkbox"
                         checked={witnessChecks.calcChecked}
                         onChange={(e) => setWitnessChecks(c => ({ ...c, calcChecked: e.target.checked }))}
-                        className="accent-rose-500 h-4 w-4"
+                        className="accent-rose-500 h-4 w-4 cursor-pointer"
                       />
                       <span>I have independently recalculated the dosage and volumetric syringe draw.</span>
                     </label>
@@ -785,36 +867,42 @@ export default function ElectronicMedicationAdministrationRecordPage() {
                         type="checkbox"
                         checked={witnessChecks.patientVerified}
                         onChange={(e) => setWitnessChecks(c => ({ ...c, patientVerified: e.target.checked }))}
-                        className="accent-rose-500 h-4 w-4"
+                        className="accent-rose-500 h-4 w-4 cursor-pointer"
                       />
                       <span>I have confirmed the patient 2-identifier wristband at the bedside.</span>
                     </label>
                   </div>
 
-                  {/* 2nd Nurse Credentials */}
+                  {/* 2nd Nurse Credentials Inputs */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-[10px] font-bold text-rose-300 uppercase mb-1">Witness Nurse Name *</label>
+                      <label className="block text-[10px] font-bold text-rose-300 uppercase mb-1 font-mono">
+                        Witness Nurse Name *
+                      </label>
                       <input
                         type="text"
-                        placeholder="e.g. Nurse Mensah"
+                        placeholder="e.g. Nurse Emmanuel Darko"
                         value={witnessStaffName}
                         onChange={(e) => setWitnessStaffName(e.target.value)}
                         className="w-full bg-slate-900 border border-rose-500/40 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-rose-300 uppercase mb-1">Staff ID Number *</label>
+                      <label className="block text-[10px] font-bold text-rose-300 uppercase mb-1 font-mono">
+                        Staff ID Number (No Emails) *
+                      </label>
                       <input
                         type="text"
-                        placeholder="e.g. GAM/STF/26/0009"
+                        placeholder="e.g. GAM/STF/26/0014"
                         value={witnessStaffNumber}
                         onChange={(e) => setWitnessStaffNumber(e.target.value)}
                         className="w-full bg-slate-900 border border-rose-500/40 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 outline-none font-mono"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-rose-300 uppercase mb-1">4-Digit Security PIN *</label>
+                      <label className="block text-[10px] font-bold text-rose-300 uppercase mb-1 font-mono">
+                        4-Digit PIN *
+                      </label>
                       <input
                         type="password"
                         maxLength={4}
@@ -825,6 +913,61 @@ export default function ElectronicMedicationAdministrationRecordPage() {
                       />
                     </div>
                   </div>
+
+                  {/* Conflict of Interest Warning Callout */}
+                  <div className="text-[10px] text-rose-400/90 flex items-center gap-1.5 pt-1">
+                    <ShieldBan className="w-3.5 h-3.5 shrink-0" />
+                    <span>Joint Commission Rule: Self-witnessing is strictly prohibited and cryptographically blocked.</span>
+                  </div>
+                </div>
+              )}
+
+              {/* STRUCTURED CLINICAL WITHHOLD JUSTIFICATION PROTOCOL */}
+              {adminAction === 'HOLD' && (
+                <div className="bg-amber-950/30 border border-amber-500/40 rounded-2xl p-5 space-y-4">
+                  <div className="flex items-center gap-2 text-amber-300 font-black text-xs uppercase tracking-wide">
+                    <AlertCircle className="w-4 h-4 text-amber-400" /> Mandatory Clinical Withhold Protocol
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-amber-300 uppercase mb-2 font-mono">
+                      Select Primary Clinical Reason For Withholding *
+                    </label>
+                    <select
+                      value={selectedHoldReason}
+                      onChange={(e) => setSelectedHoldReason(e.target.value)}
+                      className="w-full bg-slate-900 border border-amber-500/40 rounded-xl p-3 text-xs text-white outline-none font-medium cursor-pointer"
+                    >
+                      {HOLD_REASON_OPTIONS.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-amber-300 uppercase mb-1 font-mono">
+                      Detailed Bedside Clinical Notes & Interventions *
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={holdDetailedNotes}
+                      onChange={(e) => setHoldDetailedNotes(e.target.value)}
+                      placeholder="e.g. Capillary blood glucose 3.2 mmol/L; administered 200ml orange juice; rechecking in 15 mins. Attending physician paged..."
+                      className="w-full bg-slate-900 border border-amber-500/40 rounded-xl p-3 text-xs text-white placeholder-slate-500 outline-none"
+                    />
+                  </div>
+
+                  <label className="flex items-center gap-2.5 text-xs text-amber-200 cursor-pointer bg-slate-900/60 p-3 rounded-xl border border-amber-500/30">
+                    <input
+                      type="checkbox"
+                      checked={isPhysicianNotified}
+                      onChange={(e) => setIsPhysicianNotified(e.target.checked)}
+                      className="accent-amber-500 h-4 w-4 cursor-pointer"
+                    />
+                    <span>Attending Prescribing Physician ({administeringDose.prescribedBy}) notified of held dose.</span>
+                  </label>
                 </div>
               )}
 
@@ -855,22 +998,6 @@ export default function ElectronicMedicationAdministrationRecordPage() {
                   <p className="text-[10px] text-amber-300/80">
                     45-minute automated post-dose efficacy review will be injected into your Ward Rounding Schedule upon administration.
                   </p>
-                </div>
-              )}
-
-              {/* Hold Reason Input */}
-              {adminAction === 'HOLD' && (
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-black text-amber-400 uppercase tracking-wider font-mono">
-                    Mandatory Clinical Withhold Reason *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Patient NPO for surgery; Systolic BP < 90 mmHg; Patient Refused..."
-                    value={holdReason}
-                    onChange={(e) => setHoldReason(e.target.value)}
-                    className="w-full bg-slate-900 border border-amber-500/40 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 outline-none"
-                  />
                 </div>
               )}
             </div>

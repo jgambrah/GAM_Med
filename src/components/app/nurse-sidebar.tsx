@@ -52,7 +52,7 @@ export function NurseSidebar() {
       links: [
         { name: "Patient Directory", href: "/patients", icon: Users },
         { name: "Lab Results & Panic Inbox", href: "/nurse/lab-inbox", icon: BellRing },
-        { name: "Ward Requisitions", href: "/requisitions/new", icon: PackagePlus },
+        { name: "Ward Requisitions", href: "/nurse/requisitions", icon: PackagePlus },
         { name: "Remote Patient Monitoring (RPM)", href: "/telehealth/rpm", icon: Radio },
         { name: "Telehealth Suite", href: "/telehealth", icon: Video },
       ]
