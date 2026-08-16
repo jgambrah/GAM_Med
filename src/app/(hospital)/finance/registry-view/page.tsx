@@ -1,3 +1,4 @@
+// GAM Med Cashier Read-Only Tariffs & Payer Registry Desk
 'use client';
 
 import React, { useState, useMemo } from 'react';

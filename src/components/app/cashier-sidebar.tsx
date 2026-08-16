@@ -1,3 +1,4 @@
+// GAM Med Enterprise Cashier Sidebar - v2.4 (SoD Compliant)
 'use client';
 
 import React from 'react';
