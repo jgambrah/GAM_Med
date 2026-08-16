@@ -37,9 +37,8 @@ const allMenuGroups = [
       { name: "Ward Rounding Workspace 🛏️", href: "/inpatient/rounds", icon: BedDouble, roles: ['DIRECTOR', 'DOCTOR', 'NURSE'] },
       { name: "Weekly Calendar", href: "/doctor/calendar", icon: CalendarDays, roles: ['DIRECTOR', 'DOCTOR'] },
       { name: "Set Availability", href: "/doctor/availability", icon: Clock, roles: ['DIRECTOR', 'DOCTOR'] },
-      { name: "Nursing Care & Station", href: "/nursing", icon: UserCheck, roles: ['DIRECTOR', 'ADMIN', 'NURSE'] },
-      { name: "Nursing Station", href: "/nurse", icon: UserCheck, roles: ['DIRECTOR', 'NURSE'] },
-      { name: "Triage Queue", href: "/nurse/triage", icon: Activity, roles: ['DIRECTOR', 'NURSE'] },
+      { name: "Nursing Station", href: "/nurse", icon: UserCheck, roles: ['DIRECTOR', 'ADMIN', 'NURSE'] },
+      { name: "Triage Queue", href: "/nurse/triage", icon: Activity, roles: ['DIRECTOR', 'ADMIN', 'NURSE'] },
       { name: "Shift Handover", href: "/nurse/handover", icon: ClipboardList, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE'] },
       { name: "Patients", href: "/patients", icon: Users, roles: ['DIRECTOR', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'RADIOLOGIST', 'LAB_TECH'] },
     ]
