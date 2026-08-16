@@ -26,45 +26,46 @@ export function NurseSidebar() {
   }, [user, firestore]);
   const { data: userProfile } = useDoc(userProfileRef);
 
-  const nurseNavigation = [
+  // Reordered Navigation Structure: Clinical First, Personal Admin Last
+  const navSections = [
     {
-      group: 'MY PORTAL',
-      items: [
-        { name: 'Clock In / Out', href: '/staff/clock-in', icon: Timer },
-        { name: 'Request Leave', href: '/staff/request-leave', icon: CalendarMinus },
-        { name: 'My Payslips', href: '/staff/payslips', icon: Banknote },
+      title: "OUTPATIENT & TRIAGE",
+      links: [
+        { name: "Triage Queue", href: "/nurse/triage", icon: Activity },
+        { name: "Outpatient Desk (OPD)", href: "/nurse", icon: HeartPulse },
+        { name: "Emergency (ER) Board", href: "/emergency", icon: AlertTriangle },
       ]
     },
     {
-      group: 'OUTPATIENT & TRIAGE',
-      items: [
-        { name: 'Triage Queue', href: '/nurse/triage', icon: Activity },
-        { name: 'Outpatient Desk (OPD)', href: '/opd', icon: HeartPulse },
-        { name: 'Emergency (ER) Board', href: '/emergency', icon: AlertTriangle },
+      title: "INPATIENT CARE & WARDS",
+      links: [
+        { name: "Nursing Station", href: "/nurse", icon: UserCheck },
+        { name: "Ward Rounding Workspace", href: "/inpatient/rounds", icon: BedDouble },
+        { name: "Shift Handover", href: "/nurse/handover", icon: ClipboardList },
+        { name: "Pediatrics & NICU", href: "/pediatrics", icon: Baby },
       ]
     },
     {
-      group: 'INPATIENT CARE & WARDS',
-      items: [
-        { name: 'Nursing Station', href: '/nurse', icon: UserCheck },
-        { name: 'Ward Rounding Workspace', href: '/inpatient/rounds', icon: BedDouble },
-        { name: 'Shift Handover', href: '/nurse/handover', icon: ClipboardList },
-        { name: 'Pediatrics & NICU', href: '/pediatrics', icon: Baby },
+      title: "CLINICAL TOOLS",
+      links: [
+        { name: "Patient Directory", href: "/patients", icon: Users },
+        { name: "Remote Patient Monitoring (RPM)", href: "/telehealth/rpm", icon: Radio },
+        { name: "Telehealth Suite", href: "/telehealth", icon: Video },
       ]
     },
     {
-      group: 'CLINICAL TOOLS',
-      items: [
-        { name: 'Patient Directory', href: '/patients', icon: Users },
-        { name: 'Remote Patient Monitoring (RPM)', href: '/telehealth/rpm', icon: Radio },
-        { name: 'Telehealth Suite', href: '/telehealth', icon: Video },
+      title: "MY PORTAL",
+      links: [
+        { name: "Clock In / Out", href: "/staff/clock-in", icon: Timer },
+        { name: "Request Leave", href: "/staff/request-leave", icon: CalendarMinus },
+        { name: "My Payslips", href: "/staff/payslips", icon: Banknote },
       ]
     }
   ];
 
   const handleLogout = async () => {
     if (auth && firestore && user?.uid) {
-      await autoClockOutIfNeeded(firestore, user.uid);
+      await autoClockOutIfNeeded(user.uid, firestore, userProfile);
     }
     if (auth) {
       await signOut(auth);
@@ -72,81 +73,88 @@ export function NurseSidebar() {
     }
   };
 
+  const getInitials = (name?: string) => {
+    if (!name) return 'AT';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
+
   return (
-    <aside className="w-72 bg-slate-950 text-slate-200 border-r border-slate-800 flex flex-col h-screen sticky top-0 select-none">
-      {/* Brand Header */}
-      <div className="p-5 border-b border-slate-800/80 bg-slate-900/40">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-rose-600 to-rose-400 flex items-center justify-center text-white shadow-lg shadow-rose-500/20">
-            <Stethoscope className="h-5 w-5" />
+    <aside className="w-64 min-h-screen bg-slate-900 text-slate-300 flex flex-col shadow-2xl border-r border-slate-800 shrink-0 select-none">
+      
+      {/* 1. GAM Med Header */}
+      <div className="p-6 bg-slate-950 border-b border-slate-800 shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-rose-600 to-rose-400 flex items-center justify-center text-white shadow-md shadow-rose-500/20">
+            <Stethoscope className="h-4 w-4" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-black tracking-tight text-white text-base uppercase">GAM Med</span>
-              <span className="text-[10px] bg-rose-500/20 text-rose-300 font-bold px-1.5 py-0.5 rounded border border-rose-500/30">NURSE</span>
-            </div>
-            <p className="text-[11px] text-slate-400 font-medium truncate max-w-[170px]">
-              {userProfile?.fullName || 'Clinical Station'}
-            </p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-extrabold text-white tracking-tight">GAM MED</h1>
+            <span className="bg-rose-900/40 text-rose-400 border border-rose-800/50 px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-widest">
+              Nurse
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Navigation Links */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-800">
-        {nurseNavigation.map((section) => (
-          <div key={section.group} className="space-y-1">
-            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-wider px-3 mb-2 font-mono">
-              {section.group}
+      {/* 2. Navigation Sections (Reordered: Clinical Care First) */}
+      <div className="flex-1 overflow-y-auto py-6 space-y-7 scrollbar-thin scrollbar-thumb-slate-800">
+        {navSections.map((section, idx) => (
+          <div key={idx}>
+            <h3 className="px-6 text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-2 font-mono">
+              {section.title}
             </h3>
-            <div className="space-y-0.5">
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href || (item.href !== '/nurse' && pathname.startsWith(item.href));
+            <ul className="space-y-0.5">
+              {section.links.map(link => {
+                const Icon = link.icon;
+                const isActive = pathname === link.href || (link.href !== '/nurse' && pathname.startsWith(link.href));
+                                 
                 return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 ${
-                      isActive
-                        ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20 font-bold'
-                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                      <span>{item.name}</span>
-                    </div>
-                    {isActive && <ChevronRight className="h-3.5 w-3.5 opacity-80" />}
-                  </Link>
+                  <li key={link.name}>
+                    <Link href={link.href}>
+                      <span className={`flex items-center justify-between px-6 py-2.5 text-xs font-semibold transition-all group ${
+                        isActive 
+                          ? 'bg-indigo-600/10 text-indigo-400 border-l-4 border-indigo-500 font-bold' 
+                          : 'text-slate-400 border-l-4 border-transparent hover:bg-slate-800/60 hover:text-white'
+                      }`}>
+                        <div className="flex items-center gap-3">
+                          <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                          <span>{link.name}</span>
+                        </div>
+                        {isActive && <ChevronRight className="h-3.5 w-3.5 opacity-80" />}
+                      </span>
+                    </Link>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           </div>
         ))}
-      </nav>
+      </div>
 
-      {/* Footer / User Profile & Logout */}
-      <div className="p-4 border-t border-slate-800/80 bg-slate-900/40">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-rose-400">
-              {userProfile?.fullName?.[0]?.toUpperCase() || 'N'}
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-white truncate">{userProfile?.fullName || 'Staff Nurse'}</p>
-              <p className="text-[10px] text-slate-400 truncate">{userProfile?.staffNumber || 'Clinical Dept'}</p>
-            </div>
+      {/* 3. Executive User Footer */}
+      <div className="p-4 bg-slate-950 border-t border-slate-800 shrink-0">
+        <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800/60 transition-colors group">
+          <div className="w-10 h-10 rounded-full bg-rose-900 text-rose-200 flex items-center justify-center font-bold border border-rose-700 group-hover:bg-rose-600 group-hover:text-white transition-colors text-xs">
+            {getInitials(userProfile?.fullName)}
           </div>
-          <button
+          <div className="flex-1 overflow-hidden min-w-0">
+            <p className="text-xs font-bold text-slate-200 truncate">{userProfile?.fullName || 'Staff Nurse'}</p>
+            <p className="text-[10px] text-slate-500 truncate font-mono">{userProfile?.staffNumber || 'GAM/STF/26/0003'}</p>
+          </div>
+          <button 
             onClick={handleLogout}
             title="Sign Out"
-            className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+            className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </div>
+
     </aside>
   );
 }
+
+export default NurseSidebar;

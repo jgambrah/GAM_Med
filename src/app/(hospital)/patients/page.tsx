@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { 
   FolderOpen, Search, UserPlus, Users, Loader2, Clock, 
@@ -12,6 +13,7 @@ import { collection, query, where, orderBy, limit, getDocs, doc, serverTimestamp
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { BreakTheGlassModal } from '@/components/patient/BreakTheGlassModal';
 
 interface Patient {
   id: string;
@@ -27,11 +29,16 @@ interface Patient {
 export default function PatientDirectoryPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
   const [isSearching, setIsSearching] = useState(false);
   const [deepSearchResults, setDeepSearchResults] = useState<Patient[] | null>(null);
+
+  // Break-The-Glass Security Protocol State
+  const [btgPatient, setBtgPatient] = useState<Patient | null>(null);
+  const [isBtgOpen, setIsBtgOpen] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -58,65 +65,113 @@ export default function PatientDirectoryPage() {
     if (!patients) return [];
     if (!searchTerm) return patients;
     const lowercasedTerm = searchTerm.toLowerCase();
-    return patients.filter(p => 
-      (p.firstName && p.firstName.toLowerCase().includes(lowercasedTerm)) ||
-      (p.lastName && p.lastName.toLowerCase().includes(lowercasedTerm)) ||
-      (p.ehrNumber && p.ehrNumber.toLowerCase().includes(lowercasedTerm)) ||
-      (p.phoneNumber && p.phoneNumber.includes(searchTerm)) ||
-      (p.ghanaCardId && p.ghanaCardId.toLowerCase().includes(lowercasedTerm))
-    );
+    return patients.filter(patient => {
+      const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase();
+      const ehr = patient.ehrNumber?.toLowerCase() || '';
+      const gha = patient.ghanaCardId?.toLowerCase() || '';
+      const phone = patient.phoneNumber || '';
+      return (
+        fullName.includes(lowercasedTerm) ||
+        ehr.includes(lowercasedTerm) ||
+        gha.includes(lowercasedTerm) ||
+        phone.includes(lowercasedTerm)
+      );
+    });
   }, [patients, searchTerm]);
-  
-  // --- 3. DEEP SEARCH FUNCTION (SERVER-SIDE) ---
-  const handleDeepSearch = async () => {
-    if (!searchTerm || !hospitalId || !firestore) return;
-    setIsSearching(true);
-    setDeepSearchResults(null);
 
+  // --- 3. SERVER-SIDE DEEP SEARCH ON ENTER ---
+  const handleDeepSearch = async () => {
+    if (!searchTerm.trim() || !firestore || !hospitalId) return;
+
+    setIsSearching(true);
+    const cleanTerm = searchTerm.trim();
+    const upperTerm = cleanTerm.toUpperCase();
     const patientsRef = collection(firestore, "hospitals", hospitalId, "patients");
 
-    const ehrQuery = query(patientsRef, where("ehrNumber", "==", searchTerm.toUpperCase()));
-    const phoneQuery = query(patientsRef, where("phoneNumber", "==", searchTerm));
-    const ghanaCardQuery = query(patientsRef, where("ghanaCardId", "==", searchTerm.toUpperCase()));
-
     try {
-      const [ehrSnap, phoneSnap, ghanaCardSnap] = await Promise.all([
-        getDocs(ehrQuery),
-        getDocs(phoneQuery),
-        getDocs(ghanaCardQuery),
+      // Execute indexed queries in parallel across identifiers
+      const [byEhr, byGhanaCard, byPhone, byLastName] = await Promise.all([
+        getDocs(query(patientsRef, where('ehrNumber', '==', upperTerm), limit(20))),
+        getDocs(query(patientsRef, where('ghanaCardId', '==', upperTerm), limit(20))),
+        getDocs(query(patientsRef, where('phoneNumber', '==', cleanTerm), limit(20))),
+        getDocs(query(patientsRef, where('lastName', '==', upperTerm), limit(20))),
       ]);
 
-      const found = [
-        ...ehrSnap.docs,
-        ...phoneSnap.docs,
-        ...ghanaCardSnap.docs
-      ].map(d => ({ id: d.id, ...d.data() } as Patient));
-      
-      const uniqueResults = Array.from(new Map(found.map(item => [item.id, item])).values());
-      setDeepSearchResults(uniqueResults);
+      const resultsMap = new Map<string, Patient>();
 
-    } catch (error) {
+      const addDocs = (snap: any) => {
+        snap.forEach((doc: any) => {
+          resultsMap.set(doc.id, { id: doc.id, ...doc.data() });
+        });
+      };
+
+      addDocs(byEhr);
+      addDocs(byGhanaCard);
+      addDocs(byPhone);
+      addDocs(byLastName);
+
+      const aggregatedResults = Array.from(resultsMap.values());
+      setDeepSearchResults(aggregatedResults);
+
+      if (aggregatedResults.length === 0) {
+        toast({
+          title: "Search Query Complete",
+          description: `No patient records found matching "${cleanTerm}".`,
+        });
+      } else {
+        toast({
+          title: "Master Index Matched",
+          description: `Found ${aggregatedResults.length} record(s) matching your query.`,
+        });
+      }
+    } catch (error: any) {
       console.error("Deep search error:", error);
-      setDeepSearchResults([]);
+      toast({
+        variant: "destructive",
+        title: "Search Index Error",
+        description: "Failed to search patient directory. Please check connectivity.",
+      });
     } finally {
       setIsSearching(false);
     }
   };
 
-  const handleCheckIn = (patientId: string, patientName: string) => {
-    if (!firestore || !hospitalId) return;
-    
-    const patientDocRef = doc(firestore, 'hospitals', hospitalId, 'patients', patientId);
-    
-    updateDocumentNonBlocking(patientDocRef, {
-      status: 'Awaiting Vitals',
-      checkInTime: serverTimestamp()
-    });
-    
-    toast({
-      title: "Patient Checked In",
-      description: `${patientName} has been moved to the Triage Queue for vitals.`
-    });
+  const handleCheckIn = async (patientId: string, patientName: string) => {
+    if (!firestore || !hospitalId || !user) return;
+    try {
+      const patientRef = doc(firestore, `hospitals/${hospitalId}/patients/${patientId}`);
+      updateDocumentNonBlocking(patientRef, {
+        status: 'Awaiting Vitals',
+        checkedInAt: serverTimestamp(),
+        checkedInBy: user.uid,
+      });
+
+      toast({
+        title: "Check-in Successful",
+        description: `${patientName} has been routed to the Triage Queue for vital signs.`,
+      });
+    } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "Check-in Failed",
+        description: e.message || "Failed to check in patient.",
+      });
+    }
+  };
+
+  // --- 4. BREAK-THE-GLASS ENCOUNTER INTERCEPTOR ---
+  const handleOpenFolder = (patient: Patient) => {
+    const role = userProfile?.role;
+    const isExecutiveOrDoctor = ['DIRECTOR', 'ADMIN', 'DOCTOR'].includes(role);
+    const hasActiveEncounter = patient.status === 'Awaiting Vitals' || patient.status === 'IN_CONSULTATION' || patient.status === 'ADMITTED';
+
+    if (isExecutiveOrDoctor || hasActiveEncounter) {
+      router.push(`/patients/folder/${patient.id}`);
+    } else {
+      // Nurse or Clinical Staff accessing an unadmitted/inactive patient -> Trigger Break The Glass Protocol!
+      setBtgPatient(patient);
+      setIsBtgOpen(true);
+    }
   };
 
   useEffect(() => {
@@ -277,9 +332,13 @@ export default function PatientDirectoryPage() {
                         {p.status === 'Awaiting Vitals' ? 'Checked In' : 'Check In'}
                       </button>
 
-                      <Link href={`/patients/folder/${p.id}`} className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-[10px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition shadow-sm uppercase tracking-wider cursor-pointer">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenFolder(p)}
+                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-[10px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition shadow-sm uppercase tracking-wider cursor-pointer"
+                      >
                         <FolderOpen className="w-3.5 h-3.5" /> Open Folder
-                      </Link>
+                      </button>
                     </td>
 
                   </tr>
@@ -299,6 +358,16 @@ export default function PatientDirectoryPage() {
           </table>
         </div>
       </div>
+
+      {/* 3. BREAK-THE-GLASS EMERGENCY OVERRIDE MODAL */}
+      <BreakTheGlassModal
+        isOpen={isBtgOpen}
+        onClose={() => setIsBtgOpen(false)}
+        patient={btgPatient}
+        currentUser={user}
+        userProfile={userProfile}
+        firestore={firestore}
+      />
 
     </div>
   );
