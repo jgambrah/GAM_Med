@@ -215,6 +215,22 @@ service cloud.firestore {
       allow read, write, list, get, create, update: if isSignedIn();
     }
 
+    match /{path=**}/billing_items/{itemId} {
+      allow read, write, list, get, create, update: if isSignedIn();
+    }
+
+    match /{path=**}/receipts/{receiptId} {
+      allow read, write, list, get, create, update: if isSignedIn();
+    }
+
+    match /{path=**}/transactions/{txnId} {
+      allow read, write, list, get, create, update: if isSignedIn();
+    }
+
+    match /{path=**}/invoices/{invoiceId} {
+      allow read, write, list, get, create, update: if isSignedIn();
+    }
+
 
 
 
@@ -594,6 +610,22 @@ service cloud.firestore {
 
       match /radiology_orders/{orderId} {
         allow read, write, list, get, create, update: if isSuperAdmin() || isStaffOfHospital(hospitalId) || isClinicalStaff(hospitalId);
+      }
+
+      match /billing_items/{itemId} {
+        allow read, write, list, get, create, update: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+      }
+
+      match /receipts/{receiptId} {
+        allow read, write, list, get, create, update: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+      }
+
+      match /transactions/{txnId} {
+        allow read, write, list, get, create, update: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+      }
+
+      match /invoices/{invoiceId} {
+        allow read, write, list, get, create, update: if isSuperAdmin() || isStaffOfHospital(hospitalId);
       }
 
       match /attendance_logs/{logId} {
