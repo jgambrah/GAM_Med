@@ -194,6 +194,15 @@ service cloud.firestore {
       allow read, write, list, create, update, delete: if isSignedIn();
     }
 
+    match /{path=**}/emar_doses/{doseId} {
+      allow read, write, list, get, create, update: if isSignedIn();
+    }
+
+    match /{path=**}/break_the_glass_logs/{logId} {
+      allow create, read, list, get: if isSignedIn();
+      allow update, delete: if false;
+    }
+
 
 
 
@@ -546,6 +555,16 @@ service cloud.firestore {
       match /nursing_handovers/{handoverId} {
         allow get, create, list: if isSuperAdmin() || isClinicalStaff(hospitalId);
         allow update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
+      match /emar_doses/{doseId} {
+        allow read, write, list, get, create, update: if isSuperAdmin() || isClinicalStaff(hospitalId);
+      }
+
+      match /break_the_glass_logs/{logId} {
+        allow create: if isSuperAdmin() || isClinicalStaff(hospitalId);
+        allow read, list, get: if isSuperAdmin() || isAuditorRole(hospitalId) || isDirectorOrAdmin(hospitalId);
+        allow update, delete: if false;
       }
 
       match /attendance_logs/{logId} {

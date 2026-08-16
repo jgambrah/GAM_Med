@@ -52,7 +52,7 @@ export default function LabResultsAndPanicInboxPage() {
   }, [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  const hospitalId = userProfile?.hospitalId || 'GAM-GAR-7578';
+  const hospitalId = userProfile?.hospitalId;
 
   // 1. Query Laboratory Orders / Published Results
   const labOrdersQuery = useMemoFirebase(() => {

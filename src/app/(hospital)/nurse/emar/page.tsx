@@ -57,7 +57,7 @@ export default function ElectronicMedicationAdministrationRecordPage() {
   }, [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  const hospitalId = userProfile?.hospitalId || 'GAM-GAR-7578';
+  const hospitalId = userProfile?.hospitalId;
 
   // 1. Fetch Admitted Inpatients
   const admissionsQuery = useMemoFirebase(() => {
