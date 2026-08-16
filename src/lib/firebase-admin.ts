@@ -1,4 +1,3 @@
-
 import * as admin from 'firebase-admin';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -43,3 +42,11 @@ if (!admin.apps.length) {
 
 export const adminDb = admin.firestore();
 export const adminAuth = admin.auth();
+
+export function getAdminFirestore() {
+  return admin.firestore();
+}
+
+export function getAdminAuth() {
+  return admin.auth();
+}

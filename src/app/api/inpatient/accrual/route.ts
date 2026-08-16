@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const batch = db.batch();
     const nowIso = new Date().toISOString();
 
-    admissionsSnap.docs.forEach((docSnap) => {
+    admissionsSnap.docs.forEach((docSnap: any) => {
       const data = docSnap.data();
       const wardCategory = data.bedCategory || 'GENERAL_WARD';
       const dailyRate = bedTariffs[wardCategory] || 250.00;

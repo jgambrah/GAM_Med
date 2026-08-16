@@ -7,7 +7,7 @@ import { doc, collection, query, where, orderBy } from 'firebase/firestore';
 import { 
   Activity, AlertTriangle, BrainCircuit, ShieldAlert, 
   CheckCircle2, Search, ChevronRight, Clock, 
-  X, ShieldCheck, Loader2, TrendingUp, DollarSign, Users, Building2, PackageAlert
+  X, ShieldCheck, Loader2, TrendingUp, DollarSign, Users, Building2
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import Link from 'next/link';

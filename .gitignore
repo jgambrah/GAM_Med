@@ -29,8 +29,14 @@ serviceAccountKey.json
 apphosting.yaml
 dataconnect/.dataconnect/
 
+# Kaggle / Kaggriculture Competition Isolation
+/kaggriculture_bot
+/replays
+episode-*.json
+submission.csv
+submission.py
+
 # Misc
 .DS_Store
 *.pem
 /scratch
-

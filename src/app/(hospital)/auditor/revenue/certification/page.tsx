@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { 
   ShieldCheck, Landmark, Banknote, Smartphone, 
@@ -65,7 +65,7 @@ export default function DailyRevenueCertification() {
       
       const certificateRef = doc(firestore, "revenue_certificates", reportId);
       // 2. CREATE THE PERMANENT AUDIT CERTIFICATE
-      await addDocumentNonBlocking(certificateRef, {
+      setDocumentNonBlocking(certificateRef, {
         date: selectedDate,
         hospitalId: hospitalId,
         totalRevenue: summary.cash + summary.momo,
@@ -76,11 +76,11 @@ export default function DailyRevenueCertification() {
         certifiedByName: userProfile.fullName,
         timestamp: serverTimestamp(),
         status: 'CERTIFIED'
-      });
+      }, { merge: true });
 
       // 3. LOG FOR CEO FORENSIC AUDIT
-      const auditRef = doc(collection(firestore, "global_audit_logs"));
-      await addDocumentNonBlocking(auditRef, {
+      const auditColRef = collection(firestore, "global_audit_logs");
+      addDocumentNonBlocking(auditColRef, {
         type: 'FINANCIAL',
         action: 'DAILY_REVENUE_CERTIFIED',
         hospitalId: hospitalId,
