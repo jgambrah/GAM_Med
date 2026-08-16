@@ -511,16 +511,16 @@ export default function ExecutiveFinanceReportsDashboard() {
                   </td>
 
                   <td className="p-4 text-slate-600 dark:text-slate-400">
-                    {txn.cashierName}
+                    {txn.cashierName || 'Cashier Desk'}
                   </td>
 
                   <td className="p-4 text-right font-mono font-black text-sm text-emerald-600 dark:text-emerald-400">
-                    ₵ {txn.totalAmount.toFixed(2)}
+                    ₵ {(Number(txn.totalAmount || (txn as any).amount || (txn as any).total || 0)).toFixed(2)}
                   </td>
 
                   <td className="p-4 text-center">
                     <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 rounded-md text-[9px] font-black uppercase">
-                      {txn.status}
+                      {txn.status || 'SETTLED'}
                     </span>
                   </td>
                 </tr>

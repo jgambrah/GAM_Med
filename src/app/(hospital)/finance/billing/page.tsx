@@ -6,7 +6,7 @@ import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocum
 import { collection, query, where, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
 } from '@/components/ui/dialog';
 import { 
   CreditCard, Search, Receipt, Clock, ArrowRight, 
@@ -483,43 +483,49 @@ export default function BillingQueuePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {matchingHistoricalDebts.map((debt) => (
-              <div key={debt.id} className="bg-slate-950/90 border border-slate-800 p-4 rounded-xl flex items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-white uppercase text-sm">{debt.patientName}</span>
-                    <span className="text-[10px] font-mono text-slate-400">MRN: {debt.ehrNumber}</span>
+            {matchingHistoricalDebts.map((debt) => {
+              const origBill = Number(debt.originalBill || (debt as any).grossBillAmount || 0);
+              const amtPaid = Number(debt.amountPaid || (debt as any).actualAmountPaidToday || 0);
+              const balDue = Number(debt.outstandingBalance || (debt as any).balanceDue || 0);
+
+              return (
+                <div key={debt.id} className="bg-slate-950/90 border border-slate-800 p-4 rounded-xl flex items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white uppercase text-sm">{debt.patientName}</span>
+                      <span className="text-[10px] font-mono text-slate-400">MRN: {debt.ehrNumber}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs font-mono mt-1 text-slate-400">
+                      <span>Original Bill: ₵{origBill.toFixed(2)}</span>
+                      <span>Paid: ₵{amtPaid.toFixed(2)}</span>
+                      <span className="text-rose-400 font-bold">Due: ₵{balDue.toFixed(2)}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 text-xs font-mono mt-1 text-slate-400">
-                    <span>Original Bill: ₵{debt.originalBill.toFixed(2)}</span>
-                    <span>Paid: ₵{debt.amountPaid.toFixed(2)}</span>
-                    <span className="text-rose-400 font-bold">Due: ₵{debt.outstandingBalance.toFixed(2)}</span>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDebtForCollection(debt);
+                        setDebtRecoveryAmount(balDue);
+                      }}
+                      className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase rounded-xl transition-all shadow cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Coins className="w-3.5 h-3.5" />
+                      <span>COLLECT ₵{balDue.toFixed(2)}</span>
+                    </button>
+
+                    <Link
+                      href={`/finance/billing/invoice/${debt.patientId || 'P-7578'}`}
+                      className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl transition-all border border-slate-800"
+                      title="Open Full Encounter Bill"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Link>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedDebtForCollection(debt);
-                      setDebtRecoveryAmount(debt.outstandingBalance);
-                    }}
-                    className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase rounded-xl transition-all shadow cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Coins className="w-3.5 h-3.5" />
-                    <span>COLLECT ₵{debt.outstandingBalance.toFixed(2)}</span>
-                  </button>
-
-                  <Link
-                    href={`/finance/billing/invoice/${debt.patientId || 'P-7578'}`}
-                    className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl transition-all border border-slate-800"
-                    title="Open Full Encounter Bill"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </Link>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -620,6 +626,9 @@ export default function BillingQueuePage() {
               <Coins className="w-5 h-5 text-rose-500" />
               <span>Collect Outstanding Patient Debt</span>
             </DialogTitle>
+            <DialogDescription className="text-xs text-slate-400">
+              Receive tender to settle outstanding patient accounts receivable debt.
+            </DialogDescription>
           </DialogHeader>
 
           {selectedDebtForCollection && (
@@ -639,7 +648,9 @@ export default function BillingQueuePage() {
                 </div>
                 <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-800">
                   <span className="text-slate-400 font-bold uppercase">Total Debt Due:</span>
-                  <span className="font-mono font-black text-rose-400 text-base">₵ {selectedDebtForCollection.outstandingBalance.toFixed(2)}</span>
+                  <span className="font-mono font-black text-rose-400 text-base">
+                    ₵ {(Number(selectedDebtForCollection.outstandingBalance || selectedDebtForCollection.balanceDue || 0)).toFixed(2)}
+                  </span>
                 </div>
               </div>
 
