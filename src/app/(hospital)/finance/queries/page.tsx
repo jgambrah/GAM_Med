@@ -179,6 +179,12 @@ export default function ShiftQueriesAuditPage() {
     }
   };
 
+  // Dynamically calculate the total variance from active audit queries
+  const totalVariance = useMemo(() => {
+    if (!activeQueries || activeQueries.length === 0) return 0;
+    return activeQueries.reduce((sum, q) => sum + (Number(q.amount) || 0), 0);
+  }, [activeQueries]);
+
   const isLoading = isUserLoading || isProfileLoading || areTillsLoading;
 
   if (isLoading) {
@@ -227,7 +233,9 @@ export default function ShiftQueriesAuditPage() {
             </div>
             <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl text-right min-w-[140px]">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-mono">Till Variance</span>
-              <span className="text-2xl font-mono font-black text-emerald-400">₵ 0.00</span>
+              <span className={`text-2xl font-mono font-black ${totalVariance === 0 ? 'text-emerald-400' : 'text-rose-500 animate-pulse'}`}>
+                ₵ {totalVariance.toFixed(2)}
+              </span>
             </div>
           </div>
         </div>
