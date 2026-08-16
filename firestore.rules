@@ -211,6 +211,10 @@ service cloud.firestore {
       allow read, write, list, get, create, update: if isSignedIn();
     }
 
+    match /{path=**}/cash_tills/{tillId} {
+      allow read, write, list, get, create, update: if isSignedIn();
+    }
+
 
 
 
@@ -411,10 +415,11 @@ service cloud.firestore {
       }
 
       match /cash_tills/{tillId} {
-        allow create: if isAnyStaff(hospitalId) && request.resource.data.cashierId == request.auth.uid;
-        allow read: if isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.cashierId == request.auth.uid);
-        allow list: if isDirectorOrAdmin(hospitalId); // Only Directors/Admins can see ALL tills.
-        allow update: if isDirectorOrAdmin(hospitalId) || isOwner(resource.data.cashierId);
+        allow create: if isSuperAdmin() || (isAnyStaff(hospitalId) && request.resource.data.cashierId == request.auth.uid);
+        allow read, get: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || (isAnyStaff(hospitalId) && resource.data.cashierId == request.auth.uid);
+        allow list: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isAnyStaff(hospitalId);
+        allow update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isOwner(resource.data.cashierId);
+        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
 
       match /till_sessions/{sessionId} {
