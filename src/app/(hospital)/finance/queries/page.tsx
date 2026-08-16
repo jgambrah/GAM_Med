@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { 
   ShieldCheck, AlertTriangle, MessageSquare, ArrowRight, 
   ShieldAlert, Loader2, CheckCircle2, RefreshCw, Clock, 
