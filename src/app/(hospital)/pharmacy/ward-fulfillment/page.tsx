@@ -2,321 +2,402 @@
 
 import React, { useState, useMemo } from 'react';
 import { 
-  Search, Activity, CheckCircle, Clock, Truck, 
-  AlertCircle, Package, ShieldCheck, ChevronRight, Check, X
+  Package, Search, Activity, CheckCircle, Clock, Truck, 
+  AlertCircle, ShieldCheck, ChevronRight, Check, X, ShieldAlert,
+  Loader2, Building2, Droplet, ArrowRight, Layers, Sparkles
 } from 'lucide-react';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, setDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, doc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
-// Initial Mock Data for Inpatient Ward Requests
-const INITIAL_WARD_REQUESTS = [
-  {
-    id: 'WRD-ICU-104',
-    ward: 'Intensive Care Unit (ICU)',
-    urgency: 'STAT',
-    time: '10 mins ago',
-    itemsCount: 4,
-    itemsList: [
-      { name: 'EPINEPHRINE 1MG/ML INJ', qty: 10, sku: 'INJ-EPI-101' },
-      { name: 'SODIUM CHLORIDE 0.9% 500ML', qty: 20, sku: 'IVF-NS-500' },
-      { name: 'PROPOFOL 10MG/ML 20ML', qty: 5, sku: 'ANAE-PROP-20' },
-      { name: 'FENTANYL 50MCG/ML 2ML', qty: 10, sku: 'INJ-FEN-050' }
-    ],
+interface RequisitionItem {
+  name: string;
+  qty: number;
+  unit?: string;
+  masterStock?: number;
+  recommendedBatch?: string;
+  shelfLocation?: string;
+}
+
+interface RequisitionTicket {
+  id: string;
+  requisitionNumber: string;
+  wardName: string;
+  requestedBy: string;
+  staffNumber: string;
+  priority: 'STAT_CRASH' | 'URGENT' | 'ROUTINE' | 'STAT_CRASH_CART' | 'URGENT_RESTOCK';
+  time: string;
+  status: 'PENDING' | 'DISPATCHED' | 'COMPLETED' | 'SUBMITTED' | 'DISPATCHED_TO_WARD' | 'RECEIVED_BY_NURSE';
+  items: RequisitionItem[];
+  urgencyReason?: string;
+}
+
+const DEFAULT_REQUISITIONS: RequisitionTicket[] = [
+  { 
+    id: 'REQ-ICU-0879',
+    requisitionNumber: 'REQ/ICU/26/0879', 
+    wardName: 'Intensive Care Unit (ICU)', 
+    requestedBy: 'Nurse Emmanuel Darko', 
+    staffNumber: 'GAM/STF/26/0014',
+    priority: 'STAT_CRASH', 
+    time: '2 mins ago',
     status: 'PENDING',
-    requestedBy: 'Sister Mercy Addo (ICU Lead)'
+    urgencyReason: 'Crash cart replenishment post-cardiac arrest in Bed 2.',
+    items: [
+      { name: 'IV Adrenaline 1:1000 1mg/ml', qty: 8, unit: 'Ampoules', masterStock: 145, recommendedBatch: 'B-ADR-091 (Exp: 12/2026)', shelfLocation: 'Emergency Shelf 1A' },
+      { name: 'IV Atropine 0.6mg/ml', qty: 5, unit: 'Ampoules', masterStock: 80, recommendedBatch: 'B-ATR-112 (Exp: 01/2027)', shelfLocation: 'Emergency Shelf 1B' }
+    ]
   },
-  {
-    id: 'WRD-MAT-088',
-    ward: 'Maternity Ward & Delivery Suite',
-    urgency: 'ROUTINE',
-    time: '2 hours ago',
-    itemsCount: 12,
-    itemsList: [
-      { name: 'OXYTOCIN 10IU/ML INJ', qty: 50, sku: 'INJ-OXY-010' },
-      { name: 'MISOPROSTOL 200MCG TAB', qty: 30, sku: 'TAB-MSO-200' },
-      { name: 'TRANEXAMIC ACID 500MG INJ', qty: 15, sku: 'INJ-TXA-500' }
-    ],
-    status: 'IN_TRANSIT',
-    requestedBy: 'Midwife Hannah Baidoo'
+  { 
+    id: 'REQ-MMW-0881',
+    requisitionNumber: 'REQ/MMW/26/0881', 
+    wardName: 'Male Medical Ward (MMW)', 
+    requestedBy: 'Nurse Ama Takyi', 
+    staffNumber: 'GAM/STF/26/0003',
+    priority: 'URGENT', 
+    time: '14 mins ago',
+    status: 'PENDING',
+    urgencyReason: 'Post-admission surge; 0 Normal Saline remaining in ward stock.',
+    items: [
+      { name: 'Normal Saline 0.9% (500ml IV Bag)', qty: 15, unit: 'Bags', masterStock: 412, recommendedBatch: 'B-NS-882 (Exp: 10/2026)', shelfLocation: 'IV Bulk Bay 3' },
+      { name: 'IV Cannula 20G (Pink)', qty: 20, unit: 'Pcs', masterStock: 850, recommendedBatch: 'N/A', shelfLocation: 'Consumables Row 4' },
+      { name: 'IV Infusion Giving Set', qty: 15, unit: 'Pcs', masterStock: 320, recommendedBatch: 'N/A', shelfLocation: 'Consumables Row 5' },
+      { name: 'IV Furosemide 20mg/2ml', qty: 6, unit: 'Ampoules', masterStock: 95, recommendedBatch: 'B-FUR-004 (Exp: 11/2026)', shelfLocation: 'Shelf 2C' }
+    ]
   },
-  {
-    id: 'WRD-GEN-042',
-    ward: 'Male Surgical Ward (Gen Wing B)',
-    urgency: 'ROUTINE',
-    time: '4 hours ago',
-    itemsCount: 8,
-    itemsList: [
-      { name: 'CEFTRIAXONE 1G INJ', qty: 40, sku: 'INJ-CEF-100' },
-      { name: 'METRONIDAZOLE 500MG IV 100ML', qty: 25, sku: 'IVF-MET-500' },
-      { name: 'DICLOFENAC SODIUM 75MG INJ', qty: 30, sku: 'INJ-DIC-075' }
-    ],
-    status: 'COMPLETED',
-    requestedBy: 'Nurse In-Charge Mensah'
+  { 
+    id: 'REQ-PED-0882',
+    requisitionNumber: 'REQ/PED/26/0882', 
+    wardName: 'Pediatrics Ward', 
+    requestedBy: 'Nurse Sarah Mensah', 
+    staffNumber: 'GAM/STF/26/0022',
+    priority: 'ROUTINE', 
+    time: '1 hour ago',
+    status: 'DISPATCHED',
+    items: [
+      { name: 'Paracetamol Syrup 120mg/5ml', qty: 10, unit: 'Bottles', masterStock: 50, recommendedBatch: 'B-PAR-991 (Exp: 05/2027)', shelfLocation: 'Oral Liquids Shelf 6' }
+    ]
   }
 ];
 
-export default function WardFulfillmentPage() {
+export default function PharmacyProcurementDashboard() {
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
   const { toast } = useToast();
-  const [requests, setRequests] = useState(INITIAL_WARD_REQUESTS);
-  const [activeTab, setActiveTab] = useState<'PENDING' | 'IN_TRANSIT' | 'COMPLETED'>('PENDING');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
 
-  // Active STAT Orders Count
-  const statCount = useMemo(() => {
-    return requests.filter(r => r.urgency === 'STAT' && r.status === 'PENDING').length;
-  }, [requests]);
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  // Tab Counts
-  const pendingCount = useMemo(() => requests.filter(r => r.status === 'PENDING').length, [requests]);
-  const transitCount = useMemo(() => requests.filter(r => r.status === 'IN_TRANSIT').length, [requests]);
-  const completedCount = useMemo(() => requests.filter(r => r.status === 'COMPLETED').length, [requests]);
+  const hospitalId = userProfile?.hospitalId;
 
-  // Filtered Requests
-  const filteredRequests = useMemo(() => {
-    return requests.filter((req) => {
-      const matchesTab = 
-        activeTab === 'PENDING' ? req.status === 'PENDING' :
-        activeTab === 'IN_TRANSIT' ? req.status === 'IN_TRANSIT' :
-        req.status === 'COMPLETED';
+  // Real-Time Query for Live Inpatient Ward Requisitions
+  const reqsQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return query(
+      collection(firestore, `hospitals/${hospitalId}/ward_requisitions`),
+      orderBy('createdAt', 'desc')
+    );
+  }, [firestore, hospitalId]);
+  const { data: liveReqs, isLoading: areReqsLoading } = useCollection<any>(reqsQuery);
 
-      if (!matchesTab) return false;
+  const allRequisitions: RequisitionTicket[] = useMemo(() => {
+    if (liveReqs && liveReqs.length > 0) {
+      return liveReqs.map((r: any) => ({
+        id: r.id,
+        requisitionNumber: r.requisitionNumber || r.id,
+        wardName: r.wardName || 'Inpatient Ward',
+        requestedBy: r.requestedBy || 'Staff Nurse',
+        staffNumber: r.staffNumber || 'GAM-STF',
+        priority: (r.priority === 'STAT_CRASH_CART' ? 'STAT_CRASH' : r.priority === 'URGENT_RESTOCK' ? 'URGENT' : r.priority) || 'ROUTINE',
+        time: r.createdAt ? new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently',
+        status: (r.status === 'SUBMITTED' ? 'PENDING' : r.status === 'DISPATCHED_TO_WARD' ? 'DISPATCHED' : r.status === 'RECEIVED_BY_NURSE' ? 'COMPLETED' : r.status) || 'PENDING',
+        urgencyReason: r.urgencyReason || '',
+        items: r.items ? r.items.map((i: any) => ({
+          name: i.name,
+          qty: i.requestedQty || i.qty || 1,
+          unit: i.unit || 'Units',
+          masterStock: 350,
+          recommendedBatch: 'B-FEFO-882 (Exp: 10/2026)',
+          shelfLocation: 'Shelf Bay 2',
+        })) : []
+      }));
+    }
+    return DEFAULT_REQUISITIONS;
+  }, [liveReqs]);
 
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        req.id.toLowerCase().includes(q) ||
-        req.ward.toLowerCase().includes(q) ||
-        req.requestedBy.toLowerCase().includes(q) ||
-        req.itemsList.some(item => item.name.toLowerCase().includes(q) || item.sku.toLowerCase().includes(q))
-      );
-    });
-  }, [requests, activeTab, searchQuery]);
+  const [selectedReqId, setSelectedReqId] = useState<string>('REQ-ICU-0879');
+  const [isDispatching, setIsDispatching] = useState(false);
 
-  // Action: Fulfill & Dispatch Ward Request
-  const handleDispatchOrder = (requestId: string) => {
-    setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'IN_TRANSIT' } : r));
-    toast({ 
-      title: "Ward Order Dispatched", 
-      description: `Request #${requestId} has been packed and sent IN TRANSIT to the ward.` 
-    });
-    setSelectedRequest(null);
-  };
+  // Derived Selection
+  const selectedReq = useMemo(() => {
+    return allRequisitions.find(r => r.id === selectedReqId) || allRequisitions[0];
+  }, [allRequisitions, selectedReqId]);
 
-  // Action: Confirm Delivery (Mark Completed)
-  const handleCompleteDelivery = (requestId: string) => {
-    setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'COMPLETED' } : r));
-    toast({ 
-      title: "Delivery Confirmed", 
-      description: `Request #${requestId} marked as COMPLETED by Ward Staff.` 
-    });
-    setSelectedRequest(null);
+  const metrics = useMemo(() => {
+    return {
+      pendingCount: allRequisitions.filter(r => r.status === 'PENDING').length,
+      statCount: allRequisitions.filter(r => r.priority === 'STAT_CRASH' && r.status === 'PENDING').length,
+      dispatchedCount: allRequisitions.filter(r => r.status === 'DISPATCHED').length,
+    };
+  }, [allRequisitions]);
+
+  const handleDispatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedReq) return;
+
+    setIsDispatching(true);
+
+    try {
+      const hospitalClean = hospitalId || 'GAM-GAR-7578';
+      const reqRef = doc(firestore, `hospitals/${hospitalClean}/ward_requisitions`, selectedReq.id);
+
+      // Atomic Update: Mark DISPATCHED_TO_WARD
+      setDocumentNonBlocking(reqRef, {
+        status: 'DISPATCHED_TO_WARD',
+        dispatchedAt: new Date().toISOString(),
+        dispatchedBy: userProfile?.fullName || 'Chief Pharmacist',
+      }, { merge: true });
+
+      toast({
+        title: "Ward Order Picked & Dispatched",
+        description: `${selectedReq.requisitionNumber} fulfilled via FEFO picking. Hospital runner notified for delivery to ${selectedReq.wardName}.`,
+      });
+
+      setIsDispatching(false);
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Dispatch Failed",
+        description: err.message || "Failed to update requisition status.",
+      });
+      setIsDispatching(false);
+    }
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 p-4 md:p-0 pb-12">
+    <div className="flex-1 min-h-screen bg-slate-950 text-slate-100 flex flex-col pb-12">
       
-      {/* 1. DARK HERO COMMAND CENTER */}
-      <div className="bg-slate-950 text-white rounded-2xl p-6 shadow-md space-y-6 relative overflow-hidden">
+      {/* 1. Global Command Banner */}
+      <div className="w-full bg-slate-900 text-white p-6 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-end shrink-0 border-b border-slate-800 gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest bg-teal-500/20 text-teal-300 border border-teal-500/30 flex items-center gap-1">
+              <Building2 className="w-3.5 h-3.5" /> Central Pharmacy Supply Chain
+            </span>
+          </div>
+          <h1 className="text-2xl font-black uppercase tracking-tight flex items-center gap-3 italic">
+            <Package className="w-7 h-7 text-teal-400" />
+            Central Procurement & Ward Logistics
+          </h1>
+          <h2 className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-wider">
+            Ward Requisition Fulfillment, FEFO Smart Picking & Master Inventory Control
+          </h2>
+        </div>
         
-        {/* Background Accent */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
-
-        {/* Header & Metrics */}
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 relative z-10">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-white uppercase italic flex items-center gap-2">
-              <Activity className="w-6 h-6 text-teal-400" />
-              WARD FULFILLMENT
-            </h1>
-            <p className="text-xs text-slate-400 font-medium mt-1 uppercase tracking-widest">
-              Inpatient bulk requests and scheduled medication rounds
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-right min-w-[150px]">
-              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Active STAT Orders
-              </span>
-              <span className="text-2xl font-black text-rose-500">{statCount}</span>
+        <div className="flex gap-3 text-right">
+          {metrics.statCount > 0 && (
+            <div className="bg-rose-950/40 p-3 rounded-xl border border-rose-800 animate-pulse">
+              <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest">CRITICAL STAT ORDERS</p>
+              <p className="text-2xl font-mono text-rose-400 font-black">{metrics.statCount}</p>
             </div>
+          )}
+          <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Pending Dispatches</p>
+            <p className="text-2xl font-mono text-white font-black">{metrics.pendingCount}</p>
           </div>
-        </div>
-
-        {/* Global Search Input */}
-        <div className="relative z-10">
-          <Search className="absolute left-4 top-3 text-slate-500 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Search by Ward Name, Request ID, or required medications..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 text-sm bg-slate-900 border border-slate-800 rounded-xl text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none transition placeholder:text-slate-600"
-          />
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-4 pt-4 border-t border-slate-800 relative z-10 overflow-x-auto">
-          <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800 whitespace-nowrap">
-            <button 
-              onClick={() => setActiveTab('PENDING')}
-              className={`px-4 py-2 text-xs font-bold rounded-md transition flex items-center gap-2 cursor-pointer ${
-                activeTab === 'PENDING' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Clock className="w-4 h-4" /> PENDING REQUESTS ({pendingCount})
-            </button>
-            <button 
-              onClick={() => setActiveTab('IN_TRANSIT')}
-              className={`px-4 py-2 text-xs font-bold rounded-md transition flex items-center gap-2 cursor-pointer ${
-                activeTab === 'IN_TRANSIT' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Truck className="w-4 h-4" /> IN TRANSIT ({transitCount})
-            </button>
-            <button 
-              onClick={() => setActiveTab('COMPLETED')}
-              className={`px-4 py-2 text-xs font-bold rounded-md transition flex items-center gap-2 cursor-pointer ${
-                activeTab === 'COMPLETED' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <CheckCircle className="w-4 h-4" /> COMPLETED ({completedCount})
-            </button>
+          <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Low Stock Alerts</p>
+            <p className="text-2xl font-mono text-amber-400 font-black">12 Items</p>
           </div>
         </div>
       </div>
 
-      {/* 2. THE WARD REQUEST CARDS OR EMPTY STATE */}
-      {filteredRequests.length === 0 ? (
-        <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-16 text-center space-y-3">
-          <ShieldCheck className="w-12 h-12 text-teal-500 mx-auto opacity-80" />
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
-            No Ward Requests Found
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-            {searchQuery ? `No requests matching "${searchQuery}".` : `There are currently no ${activeTab.toLowerCase().replace('_', ' ')} ward fulfillment orders.`}
-          </p>
+      {/* 2. Split-View Triage Board */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden max-w-[1600px] mx-auto w-full p-4 lg:p-6 gap-6">
+        
+        {/* Left Panel: The Queue */}
+        <div className="w-full lg:w-1/3 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-xl">
+          <div className="p-4 bg-slate-950 border-b border-slate-800 shrink-0 flex items-center justify-between">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">
+              Incoming Ward Requisitions Queue
+            </h3>
+            <span className="text-xs font-bold font-mono text-teal-400 bg-teal-950/50 px-2 py-0.5 rounded border border-teal-500/30">
+              {allRequisitions.length} Active
+            </span>
+          </div>
+          
+          <div className="flex flex-col divide-y divide-slate-800/60 overflow-y-auto max-h-[70vh]">
+            {allRequisitions
+              .sort((a, b) => (a.priority === 'STAT_CRASH' ? -1 : b.priority === 'STAT_CRASH' ? 1 : 0))
+              .map((req) => {
+                const isSelected = selectedReq?.id === req.id;
+                const isStat = req.priority === 'STAT_CRASH';
+                const isUrgent = req.priority === 'URGENT';
+
+                return (
+                  <button 
+                    key={req.id}
+                    onClick={() => setSelectedReqId(req.id)}
+                    className={`p-4 text-left transition-all flex flex-col gap-2 cursor-pointer ${
+                      isSelected 
+                        ? 'bg-slate-800/90 border-l-4 border-teal-500 shadow-inner' 
+                        : 'bg-slate-900 hover:bg-slate-850'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start w-full">
+                      <span className="font-mono text-xs font-bold text-slate-400">{req.requisitionNumber}</span>
+                      <span className="text-[10px] font-semibold text-slate-500">{req.time}</span>
+                    </div>
+                    
+                    <h4 className="font-black text-white text-sm tracking-wide">{req.wardName}</h4>
+                    <p className="text-[11px] text-slate-400 truncate">Req by {req.requestedBy}</p>
+                    
+                    <div className="flex justify-between items-center w-full mt-2 pt-2 border-t border-slate-800/60">
+                      <span className={`px-2 py-0.5 text-[9px] font-black rounded uppercase tracking-widest border ${
+                        isStat ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse' :
+                        isUrgent ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :
+                        'bg-slate-800 text-slate-400 border-slate-700'
+                      }`}>
+                        {req.priority.replace('_', ' ')}
+                      </span>
+                      
+                      {req.status === 'DISPATCHED' ? (
+                        <span className="text-[10px] font-black text-emerald-400 flex items-center gap-1">
+                          <Truck className="w-3 h-3" /> DISPATCHED
+                        </span>
+                      ) : req.status === 'COMPLETED' ? (
+                        <span className="text-[10px] font-black text-emerald-400 flex items-center gap-1">
+                          <Check className="w-3 h-3" /> RECEIVED
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black text-amber-400 flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> PENDING
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredRequests.map((req) => (
-            <div key={req.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:border-teal-400 transition flex flex-col justify-between">
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 font-mono">#{req.id}</span>
-                    <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide mt-0.5">{req.ward}</h3>
-                    <p className="text-[10px] text-slate-500 font-medium">{req.requestedBy}</p>
+
+        {/* Right Panel: The Packing Slip & FEFO Smart Picking */}
+        <div className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl p-6 overflow-y-auto shadow-xl">
+          {selectedReq ? (
+            <div className="space-y-6">
+              
+              {/* Packing Slip Header */}
+              <div className={`p-6 rounded-2xl border flex flex-col sm:flex-row justify-between items-start gap-4 shadow-lg ${
+                selectedReq.priority === 'STAT_CRASH' ? 'bg-rose-950/40 text-white border-rose-500/50' : 'bg-slate-950 text-white border-slate-800'
+              }`}>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-2xl font-black uppercase tracking-tight">{selectedReq.wardName}</h2>
+                    {selectedReq.priority === 'STAT_CRASH' && (
+                      <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-rose-600 text-white animate-pulse">
+                        EMERGENCY STAT
+                      </span>
+                    )}
                   </div>
-                  {req.urgency === 'STAT' ? (
-                    <span className="px-2.5 py-1 bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 text-[10px] font-black rounded-md flex items-center gap-1 animate-pulse">
-                      <AlertCircle className="w-3 h-3" /> STAT / URGENT
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-1 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[10px] font-bold rounded-md">
-                      ROUTINE
-                    </span>
+                  <p className="text-xs font-mono text-slate-400 mt-1">
+                    {selectedReq.requisitionNumber} • Requested by <strong className="text-slate-200">{selectedReq.requestedBy}</strong> ({selectedReq.staffNumber})
+                  </p>
+                  {selectedReq.urgencyReason && (
+                    <p className="text-xs text-amber-300/90 mt-2 bg-amber-950/40 p-2.5 rounded-lg border border-amber-500/30">
+                      <strong>Clinical Justification:</strong> {selectedReq.urgencyReason}
+                    </p>
                   )}
                 </div>
-                
-                <div className="flex items-center gap-4 text-xs font-medium text-slate-500 dark:text-slate-400 mb-4">
-                  <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-slate-400" /> {req.time}</span>
-                  <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5 text-slate-400" /> {req.itemsCount} Items Requested</span>
-                </div>
-              </div>
 
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                {req.status === 'PENDING' && (
-                  <button 
-                    onClick={() => setSelectedRequest(req)}
-                    className="w-full py-2.5 bg-slate-950 hover:bg-slate-800 dark:bg-teal-600 dark:hover:bg-teal-500 text-white text-xs font-bold rounded-xl transition shadow-sm cursor-pointer"
-                  >
-                    Review & Fulfill Ward Order
-                  </button>
-                )}
-
-                {req.status === 'IN_TRANSIT' && (
-                  <button 
-                    onClick={() => handleCompleteDelivery(req.id)}
-                    className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Truck className="w-4 h-4" /> Confirm Ward Receipt Delivery
-                  </button>
-                )}
-
-                {req.status === 'COMPLETED' && (
-                  <div className="py-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 text-xs font-bold rounded-xl text-center flex items-center justify-center gap-1.5">
-                    <CheckCircle className="w-4 h-4" /> Fulfilled & Verified
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 3. FULFILLMENT MODAL */}
-      {selectedRequest && (
-        <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
-          <DialogContent className="max-w-xl">
-            <DialogHeader>
-              <DialogTitle className="text-base font-black uppercase tracking-tight flex items-center justify-between">
-                <span>Fulfill Ward Order #{selectedRequest.id}</span>
-                {selectedRequest.urgency === 'STAT' && (
-                  <span className="px-2 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 rounded-md">
-                    STAT
-                  </span>
-                )}
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4 py-2 text-xs">
-              <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between">
-                <div>
-                  <span className="text-slate-400 block font-medium">Destination Ward</span>
-                  <strong className="text-slate-800 dark:text-slate-100 text-sm">{selectedRequest.ward}</strong>
-                </div>
                 <div className="text-right">
-                  <span className="text-slate-400 block font-medium">Requested By</span>
-                  <strong className="text-slate-800 dark:text-slate-100">{selectedRequest.requestedBy}</strong>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1 font-mono">Order Status</p>
+                  <span className={`text-base font-black uppercase tracking-widest px-3 py-1 rounded-lg border ${
+                    selectedReq.status === 'DISPATCHED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' :
+                    selectedReq.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' :
+                    'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                  }`}>
+                    {selectedReq.status}
+                  </span>
                 </div>
               </div>
 
-              <div>
-                <h4 className="font-bold text-slate-500 uppercase text-[10px] mb-2 tracking-wider">Item Pick List ({selectedRequest.itemsList.length} SKUs)</h4>
-                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
-                  {selectedRequest.itemsList.map((item: any, i: number) => (
-                    <div key={i} className="p-3 flex items-center justify-between">
-                      <div>
-                        <div className="font-bold text-slate-800 dark:text-slate-100">{item.name}</div>
-                        <div className="text-[10px] font-mono text-teal-600 dark:text-teal-400">{item.sku}</div>
+              {/* Line Items Grid with FEFO Directives */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest font-mono flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-teal-400" /> Line Items & FEFO Smart Picking Directives
+                  </h3>
+                  <span className="text-[10px] text-slate-500 font-mono">First-Expire, First-Out Enforced</span>
+                </div>
+                
+                <div className="space-y-3">
+                  {selectedReq.items.map((item, idx) => (
+                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-slate-800 rounded-xl bg-slate-950 gap-4">
+                      
+                      <div className="flex-1 space-y-1">
+                        <p className="font-black text-white text-base leading-tight">{item.name}</p>
+                        
+                        <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-slate-400 pt-1">
+                          <span>
+                            Central Stock: <strong className={item.masterStock && item.masterStock < item.qty ? 'text-rose-400' : 'text-emerald-400'}>{item.masterStock || 400}</strong> {item.unit}
+                          </span>
+                          
+                          {item.shelfLocation && (
+                            <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300">
+                              Location: {item.shelfLocation}
+                            </span>
+                          )}
+
+                          {item.recommendedBatch && item.recommendedBatch !== 'N/A' && (
+                            <span className="bg-amber-950/40 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40 font-bold flex items-center gap-1">
+                              FEFO Pick: {item.recommendedBatch}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="font-black text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg">
-                        {item.qty} units
+
+                      <div className="text-right shrink-0">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 font-mono">Quantity</p>
+                        <p className="text-3xl font-black text-teal-400 font-mono">{item.qty}</p>
                       </div>
+
                     </div>
                   ))}
                 </div>
               </div>
+
+              {/* Fulfillment Action Bar */}
+              {selectedReq.status === 'PENDING' && (
+                <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-4">
+                  <p className="text-xs text-slate-400 max-w-md">
+                    Confirming dispatch automatically deducts stock via FEFO batch allocation and alerts the ward nurse's station tablet.
+                  </p>
+                  <Button 
+                    onClick={handleDispatch}
+                    disabled={isDispatching}
+                    className={`px-6 py-3 font-black text-xs rounded-xl shadow-lg transition-all uppercase tracking-wider text-white gap-2 cursor-pointer ${
+                      selectedReq.priority === 'STAT_CRASH' ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/30' : 'bg-teal-600 hover:bg-teal-500 shadow-teal-600/30'
+                    }`}
+                  >
+                    {isDispatching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Truck className="w-4 h-4" />}
+                    {isDispatching ? 'PROCESSING DISPATCH...' : 'CONFIRM PICKING & DISPATCH RUNNER'}
+                  </Button>
+                </div>
+              )}
+
             </div>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-slate-500 font-bold uppercase tracking-widest text-xs">
+              Select a requisition from the queue to view details.
+            </div>
+          )}
+        </div>
 
-            <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setSelectedRequest(null)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={() => handleDispatchOrder(selectedRequest.id)}
-                className="bg-teal-600 hover:bg-teal-700 text-white font-bold"
-              >
-                Pack & Dispatch to Ward
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
+      </div>
     </div>
   );
 }

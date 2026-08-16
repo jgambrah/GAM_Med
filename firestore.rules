@@ -203,6 +203,14 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /{path=**}/ward_requisitions/{reqId} {
+      allow read, write, list, get, create, update: if isSignedIn();
+    }
+
+    match /{path=**}/prn_evaluations/{evalId} {
+      allow read, write, list, get, create, update: if isSignedIn();
+    }
+
 
 
 
@@ -565,6 +573,14 @@ service cloud.firestore {
         allow create: if isSuperAdmin() || isClinicalStaff(hospitalId);
         allow read, list, get: if isSuperAdmin() || isAuditorRole(hospitalId) || isDirectorOrAdmin(hospitalId);
         allow update, delete: if false;
+      }
+
+      match /ward_requisitions/{reqId} {
+        allow read, write, list, get, create, update: if isSuperAdmin() || isStaffOfHospital(hospitalId) || isClinicalStaff(hospitalId);
+      }
+
+      match /prn_evaluations/{evalId} {
+        allow read, write, list, get, create, update: if isSuperAdmin() || isStaffOfHospital(hospitalId) || isClinicalStaff(hospitalId);
       }
 
       match /attendance_logs/{logId} {
