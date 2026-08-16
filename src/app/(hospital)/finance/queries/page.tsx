@@ -45,7 +45,7 @@ export default function ShiftQueriesAuditPage() {
 
   const hospitalId = userProfile?.hospitalId;
 
-  // Real-Time Query for Cashier's Flagged / Queried Tills
+  // 1. Real-Time Query for Cashier's Flagged / Queried Tills
   const queriedTillQuery = useMemoFirebase(() => {
     if (!firestore || !user || !hospitalId) return null;
     return query(
@@ -54,26 +54,59 @@ export default function ShiftQueriesAuditPage() {
       where("status", "==", "QUERIED")
     );
   }, [firestore, user, hospitalId]);
-
   const { data: rawQueriedTills, isLoading: areTillsLoading } = useCollection<any>(queriedTillQuery);
 
-  // Mapped Live Queries
+  // 2. Real-Time Query for Dedicated Shift Queries Collection
+  const shiftQueriesQuery = useMemoFirebase(() => {
+    if (!firestore || !user || !hospitalId) return null;
+    return query(
+      collection(firestore, `hospitals/${hospitalId}/shift_queries`),
+      where("cashierId", "==", user.uid),
+      where("status", "==", "PENDING_RESPONSE")
+    );
+  }, [firestore, user, hospitalId]);
+  const { data: rawShiftQueries, isLoading: areShiftQueriesLoading } = useCollection<any>(shiftQueriesQuery);
+
+  // Combined Mapped Live Queries
   const activeQueries: AuditQueryItem[] = useMemo(() => {
-    if (rawQueriedTills && rawQueriedTills.length > 0) {
-      return rawQueriedTills.map((t: any) => ({
-        id: t.id,
-        time: t.queriedAt?.toDate ? t.queriedAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently',
-        type: t.queryType || 'SHORTAGE_FLAG',
-        amount: t.varianceAmount || t.discrepancy || 50.00,
-        relatedReceipt: t.relatedReceipt || 'RCP-8821',
-        message: t.queryMessage || t.auditorNote || 'Cash deposit envelope for Shift A had a discrepancy. Please review your drawer and submit a variance report.',
-        status: t.status === 'QUERIED' ? 'PENDING_RESPONSE' : 'EXPLANATION_SUBMITTED',
-        flaggedBy: t.flaggedBy || 'Finance Director',
-        hospitalId: hospitalId,
-      }));
+    const list: AuditQueryItem[] = [];
+
+    if (rawShiftQueries && rawShiftQueries.length > 0) {
+      rawShiftQueries.forEach((sq: any) => {
+        list.push({
+          id: sq.id,
+          time: sq.createdAt?.toDate ? sq.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+          type: sq.type === 'CASH_OVERAGE' ? 'OVERAGE_DISCREPANCY' : 'SHORTAGE_FLAG',
+          amount: Number(sq.varianceAmount || sq.amount || 0),
+          relatedReceipt: sq.relatedReceipt || 'RCP-8821',
+          message: sq.message || `System expected ₵${(sq.expectedCash || 0).toFixed(2)}, but you declared ₵${(sq.declaredCash || 0).toFixed(2)}. Please explain this variance.`,
+          status: sq.status || 'PENDING_RESPONSE',
+          flaggedBy: sq.flaggedBy || 'System Auto-Audit',
+          hospitalId: hospitalId,
+        });
+      });
     }
-    return [];
-  }, [rawQueriedTills, hospitalId]);
+
+    if (rawQueriedTills && rawQueriedTills.length > 0) {
+      rawQueriedTills.forEach((t: any) => {
+        if (!list.some(existing => existing.id === t.id)) {
+          list.push({
+            id: t.id,
+            time: t.closedAt?.toDate ? t.closedAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently',
+            type: t.varianceType === 'CASH_OVERAGE' ? 'OVERAGE_DISCREPANCY' : 'SHORTAGE_FLAG',
+            amount: Number(t.varianceAmount || 50.00),
+            relatedReceipt: t.relatedReceipt || 'RCP-8821',
+            message: t.queryMessage || `Declared cash ₵${(t.declaredPhysicalCash || 0).toFixed(2)} differs from expected system cash ₵${(t.systemExpectedCash || 0).toFixed(2)}.`,
+            status: t.status === 'QUERIED' ? 'PENDING_RESPONSE' : 'EXPLANATION_SUBMITTED',
+            flaggedBy: t.flaggedBy || 'Finance Auto-Audit',
+            hospitalId: hospitalId,
+          });
+        }
+      });
+    }
+
+    return list;
+  }, [rawShiftQueries, rawQueriedTills, hospitalId]);
 
   const handleOpenExplanationModal = (item: AuditQueryItem) => {
     setSelectedQuery(item);

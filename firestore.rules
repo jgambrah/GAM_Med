@@ -231,6 +231,10 @@ service cloud.firestore {
       allow read, write, list, get, create, update: if isSignedIn();
     }
 
+    match /{path=**}/shift_queries/{queryId} {
+      allow read, write, list, get, create, update: if isSignedIn();
+    }
+
 
 
 
@@ -625,6 +629,10 @@ service cloud.firestore {
       }
 
       match /invoices/{invoiceId} {
+        allow read, write, list, get, create, update: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+      }
+
+      match /shift_queries/{queryId} {
         allow read, write, list, get, create, update: if isSuperAdmin() || isStaffOfHospital(hospitalId);
       }
 

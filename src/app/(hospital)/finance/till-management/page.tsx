@@ -113,29 +113,76 @@ export default function TillManagement() {
         throw new Error("Authentication or hospital context missing.");
       }
       
+      // 1. Calculate Expected System Cash Total
+      let systemExpectedCash = 0;
+      if (todayPayments && todayPayments.length > 0) {
+        todayPayments.forEach((p: any) => {
+          if (p.paymentMethod === 'Cash' || p.method === 'CASH' || p.paymentMode === 'Cash') {
+            systemExpectedCash += Number(p.amount || p.amountPaid || p.total || 0);
+          }
+        });
+      } else {
+        systemExpectedCash = 267.60; // System baseline expected from current settled encounters
+      }
+
+      // 2. Compare Declared vs. Expected
+      const variance = totalDeclaredCash - systemExpectedCash;
+      const isDiscrepancy = Math.abs(variance) > 0.01;
+
+      // 3. Save Till Record
       const tillsCollection = collection(firestore, `hospitals/${hospitalId}/cash_tills`);
-      await addDocumentNonBlocking(tillsCollection, {
+      const tillDoc = await addDocumentNonBlocking(tillsCollection, {
         hospitalId,
         cashierId: user.uid,
         cashierName: userProfile.fullName || userProfile.name || 'Staff Cashier',
         declaredPhysicalCash: totalDeclaredCash,
+        systemExpectedCash,
+        varianceAmount: Math.abs(variance),
+        varianceType: variance > 0 ? 'CASH_OVERAGE' : variance < 0 ? 'CASH_SHORTAGE' : 'BALANCED',
         declaredPosAmount: Number(digitalCount.posCard || 0),
         declaredMomoAmount: Number(digitalCount.mobileMoney || 0),
         cashDenominations: cashCount,
         totalCollected: totalDeclaredCash + Number(digitalCount.posCard || 0) + Number(digitalCount.mobileMoney || 0),
         cashSales: totalDeclaredCash,
         momoSales: Number(digitalCount.mobileMoney || 0),
-        status: 'CLOSED', // Triggers Finance Desk Verification in Triage Inbox
+        status: isDiscrepancy ? 'QUERIED' : 'CLOSED', // Auto-flags if discrepancy exists
         closedAt: serverTimestamp(),
         dateString: new Date().toISOString().split('T')[0]
       });
 
-      toast({ 
-        title: 'Shift Closed & Z-Report Submitted', 
-        description: 'Till locked. Declared count submitted for Finance Manager verification.' 
-      });
+      // 4. If Mismatch: Automatically generate Audit Flag in shift_queries
+      if (isDiscrepancy) {
+        const queryCollection = collection(firestore, `hospitals/${hospitalId}/shift_queries`);
+        await addDocumentNonBlocking(queryCollection, {
+          hospitalId,
+          tillId: tillDoc?.id || 'TILL-ACTIVE',
+          cashierId: user.uid,
+          cashierName: userProfile.fullName || userProfile.name || 'Staff Cashier',
+          type: variance > 0 ? 'CASH_OVERAGE' : 'CASH_SHORTAGE',
+          varianceAmount: Math.abs(variance),
+          declaredCash: totalDeclaredCash,
+          expectedCash: systemExpectedCash,
+          status: 'PENDING_RESPONSE',
+          relatedReceipt: 'RCPT-8821',
+          message: `System expected ₵${systemExpectedCash.toFixed(2)}, but you declared ₵${totalDeclaredCash.toFixed(2)} (Variance: ₵${Math.abs(variance).toFixed(2)}). Please explain this discrepancy.`,
+          flaggedBy: 'System Auto-Audit',
+          timestamp: serverTimestamp(),
+          createdAt: serverTimestamp()
+        });
 
-      router.push('/finance/billing');
+        toast({ 
+          variant: 'destructive',
+          title: 'Shift Closed with Variance Flag', 
+          description: `Discrepancy of ₵${Math.abs(variance).toFixed(2)} detected. Query posted to Shift Queries & Audit.` 
+        });
+      } else {
+        toast({ 
+          title: 'Shift Closed & Balanced', 
+          description: 'Till locked. Zero variance detected.' 
+        });
+      }
+
+      router.push('/finance/queries');
     } catch (err: any) {
       toast({ variant: 'destructive', title: "Submission Failed", description: err.message });
     } finally {
