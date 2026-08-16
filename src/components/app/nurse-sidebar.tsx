@@ -6,7 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { 
   HeartPulse, Activity, AlertTriangle, UserCheck, BedDouble, 
   ClipboardList, Baby, Users, Radio, Video, Timer, 
-  CalendarMinus, Banknote, LogOut, ChevronRight, Stethoscope
+  CalendarMinus, Banknote, LogOut, ChevronRight, Stethoscope,
+  Pill, BellRing, PackagePlus
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -26,7 +27,7 @@ export function NurseSidebar() {
   }, [user, firestore]);
   const { data: userProfile } = useDoc(userProfileRef);
 
-  // Reordered Navigation Structure: Clinical First, Personal Admin Last
+  // Complete Tier-1 Clinical Nursing Command Navigation
   const navSections = [
     {
       title: "OUTPATIENT & TRIAGE",
@@ -41,6 +42,7 @@ export function NurseSidebar() {
       links: [
         { name: "Nursing Station", href: "/nurse", icon: UserCheck },
         { name: "Ward Rounding Workspace", href: "/inpatient/rounds", icon: BedDouble },
+        { name: "Medication Admin (eMAR)", href: "/nurse/emar", icon: Pill },
         { name: "Shift Handover", href: "/nurse/handover", icon: ClipboardList },
         { name: "Pediatrics & NICU", href: "/pediatrics", icon: Baby },
       ]
@@ -49,6 +51,8 @@ export function NurseSidebar() {
       title: "CLINICAL TOOLS",
       links: [
         { name: "Patient Directory", href: "/patients", icon: Users },
+        { name: "Lab Results & Panic Inbox", href: "/nurse/lab-inbox", icon: BellRing },
+        { name: "Ward Requisitions", href: "/requisitions/new", icon: PackagePlus },
         { name: "Remote Patient Monitoring (RPM)", href: "/telehealth/rpm", icon: Radio },
         { name: "Telehealth Suite", href: "/telehealth", icon: Video },
       ]
