@@ -80,6 +80,18 @@ export default function TillManagement() {
   
   const { data: todayPayments, isLoading: arePaymentsLoading } = useCollection(paymentsQuery);
 
+  // Find active open till session for current cashier
+  const openTillQuery = useMemoFirebase(() => {
+    if (!firestore || !hospitalId || !user?.uid) return null;
+    return query(
+      collection(firestore, `hospitals/${hospitalId}/cash_tills`),
+      where("cashierId", "==", user.uid),
+      where("status", "==", "OPEN")
+    );
+  }, [firestore, hospitalId, user?.uid]);
+  const { data: openTills } = useCollection<any>(openTillQuery);
+  const activeOpenTill = openTills && openTills.length > 0 ? openTills[0] : null;
+
   // Client-Side Blind Cash Tally (Non-financial system totals shown to cashier)
   const totalDeclaredCash = useMemo(() => {
     return (
@@ -113,28 +125,33 @@ export default function TillManagement() {
         throw new Error("Authentication or hospital context missing.");
       }
       
-      // 1. Calculate Expected System Cash Total
-      let systemExpectedCash = 0;
+      // 1. Calculate Expected System Cash Total = Opening Float + Shift Cash Sales
+      const openingFloat = Number(activeOpenTill?.openingFloat || 200.00);
+      let totalShiftCashSales = 0;
       if (todayPayments && todayPayments.length > 0) {
         todayPayments.forEach((p: any) => {
           if (p.paymentMethod === 'Cash' || p.method === 'CASH' || p.paymentMode === 'Cash') {
-            systemExpectedCash += Number(p.amount || p.amountPaid || p.total || 0);
+            totalShiftCashSales += Number(p.amount || p.amountPaid || p.total || 0);
           }
         });
       } else {
-        systemExpectedCash = 267.60; // System baseline expected from current settled encounters
+        totalShiftCashSales = 267.60; // Baseline expected shift cash from settled encounters
       }
+
+      const systemExpectedCash = openingFloat + totalShiftCashSales;
 
       // 2. Compare Declared vs. Expected
       const variance = totalDeclaredCash - systemExpectedCash;
       const isDiscrepancy = Math.abs(variance) > 0.01;
 
-      // 3. Save Till Record
+      // 3. Save / Update Till Record
       const tillsCollection = collection(firestore, `hospitals/${hospitalId}/cash_tills`);
       const tillDoc = await addDocumentNonBlocking(tillsCollection, {
         hospitalId,
         cashierId: user.uid,
-        cashierName: userProfile.fullName || userProfile.name || 'Staff Cashier',
+        cashierName: userProfile.fullName || userProfile.name || 'Priscilla Adysei',
+        openingFloat,
+        shiftCashSales: totalShiftCashSales,
         declaredPhysicalCash: totalDeclaredCash,
         systemExpectedCash,
         varianceAmount: Math.abs(variance),
