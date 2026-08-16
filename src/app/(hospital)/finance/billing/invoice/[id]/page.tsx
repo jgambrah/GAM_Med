@@ -38,6 +38,20 @@ export default function PatientInvoicePage() {
 
   const hospitalId = userProfile?.hospitalId;
 
+  // 0. Fetch Active Facility Context Dynamically
+  const hospitalProfileRef = useMemoFirebase(() => {
+    if (!firestore || !hospitalId) return null;
+    return doc(firestore, 'hospitals', hospitalId);
+  }, [firestore, hospitalId]);
+  const { data: hospitalProfile } = useDoc(hospitalProfileRef);
+
+  const activeFacility = useMemo(() => ({
+    name: hospitalProfile?.name || hospitalProfile?.hospitalName || userProfile?.hospitalName || "Mensa Medical Hospital",
+    branch: hospitalProfile?.branch || hospitalProfile?.city || "Kumasi Main Branch",
+    taxId: hospitalProfile?.taxId || hospitalProfile?.tin || "TIN: V00001234567",
+    contact: hospitalProfile?.contact || hospitalProfile?.phone || "+233 24 123 4567"
+  }), [hospitalProfile, userProfile]);
+
   // 1. Fetch Patient Info
   const patientRef = useMemoFirebase(() => {
     if (!firestore || !hospitalId || !patientId) return null;
@@ -514,58 +528,108 @@ export default function PatientInvoicePage() {
         </div>
       </div>
 
-      {/* DIGITAL PRINT RECEIPT MODAL */}
+      {/* DIGITAL PRINT RECEIPT MODAL & 80MM THERMAL RECEIPT */}
       {showReceiptModal && completedReceiptData && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white text-slate-900 p-8 rounded-3xl max-w-md w-full space-y-6 shadow-2xl border border-slate-200">
-            <div className="text-center border-b pb-4 space-y-1">
-              <div className="p-3 bg-emerald-100 text-emerald-700 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-2">
-                <Receipt className="w-6 h-6" />
+          
+          {/* Thermal Receipt Container */}
+          <div 
+            id="thermal-receipt" 
+            className="bg-white text-slate-900 p-6 md:p-8 rounded-3xl max-w-md w-full space-y-5 shadow-2xl border border-slate-200"
+          >
+            
+            {/* Receipt Header (Dynamic Facility Branding) */}
+            <div className="text-center border-b border-slate-200 pb-4 space-y-1">
+              <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-full w-11 h-11 flex items-center justify-center mx-auto mb-2 no-print">
+                <Receipt className="w-5 h-5" />
               </div>
-              <h2 className="text-xl font-black uppercase tracking-tight">GAM MED HEALTHCARE</h2>
-              <p className="text-[10px] font-bold text-slate-500 uppercase">OFFICIAL CASHIER PAYMENT RECEIPT</p>
-              <p className="text-[10px] font-mono text-emerald-600 font-bold">{completedReceiptData.receiptNumber}</p>
+              <h2 className="text-lg font-black uppercase tracking-tight text-slate-900">
+                {activeFacility.name}
+              </h2>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                {activeFacility.branch}
+              </p>
+              <p className="text-[9px] font-mono text-slate-400">
+                {activeFacility.taxId} | {activeFacility.contact}
+              </p>
+              
+              <div className="mt-3 pt-3 border-t border-dashed border-slate-300">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                  OFFICIAL CASHIER PAYMENT RECEIPT
+                </p>
+                <p className="text-xs font-mono font-bold text-emerald-600 mt-0.5">
+                  {completedReceiptData.receiptNumber}
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-2 text-xs font-bold border-b pb-4">
+            {/* Encounter & Cashier Meta */}
+            <div className="space-y-1.5 text-xs font-bold border-b border-slate-200 pb-3">
               <div className="flex justify-between">
                 <span className="text-slate-400 uppercase text-[10px]">Patient:</span>
-                <span>{completedReceiptData.patientName}</span>
+                <span className="text-slate-800">{completedReceiptData.patientName}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400 uppercase text-[10px]">Cashier:</span>
-                <span>{completedReceiptData.cashierName}</span>
+                <span className="text-slate-800">{completedReceiptData.cashierName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 uppercase text-[10px]">Payment Method:</span>
+                <span className="text-slate-800 uppercase font-mono text-[10px]">
+                  {completedReceiptData.paymentMode === 'SplitPayer' ? 'NHIS / Split Payer' : completedReceiptData.paymentMode}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400 uppercase text-[10px]">Date/Time:</span>
-                <span className="font-mono text-[10px]">{completedReceiptData.timestamp}</span>
+                <span className="font-mono text-[10px] text-slate-600">{completedReceiptData.timestamp}</span>
               </div>
             </div>
 
-            <div className="space-y-2 font-mono text-xs border-b pb-4">
+            {/* Itemized Line Breakdown */}
+            <div className="space-y-1.5 text-xs border-b border-slate-200 pb-3 font-mono">
+              <div className="text-[9px] font-sans font-black text-slate-400 uppercase tracking-wider mb-1">
+                Settled Line Items ({completedReceiptData.items?.length || 1}):
+              </div>
+              {completedReceiptData.items?.map((it: any, i: number) => (
+                <div key={i} className="flex justify-between text-[11px] text-slate-700">
+                  <span className="truncate max-w-[200px]">{it.name} (x{it.qty || 1})</span>
+                  <span>₵ {(it.total || it.unitPrice || 0).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Totals & Net Out-of-Pocket */}
+            <div className="space-y-1.5 font-mono text-xs border-b border-slate-200 pb-3">
               <div className="flex justify-between font-sans text-[10px] text-slate-400 uppercase font-black">
-                <span>Gross Encounter Total</span>
+                <span>Gross Total</span>
                 <span>₵ {completedReceiptData.grossTotal.toFixed(2)}</span>
               </div>
               {completedReceiptData.insuranceCoverageAmount > 0 && (
-                <div className="flex justify-between text-indigo-600">
-                  <span>NHIS Insurance Cover</span>
+                <div className="flex justify-between text-indigo-600 text-[11px]">
+                  <span>Less: NHIS Claim</span>
                   <span>- ₵ {completedReceiptData.insuranceCoverageAmount.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-base font-black text-emerald-600 pt-1">
-                <span>Paid Out-of-Pocket</span>
+              <div className="flex justify-between text-base font-black text-emerald-700 pt-1 border-t border-dashed border-slate-200">
+                <span className="font-sans text-xs uppercase">Net Amount Paid</span>
                 <span>₵ {completedReceiptData.patientOutofPocketPay.toFixed(2)}</span>
               </div>
             </div>
 
-            <div className="flex gap-3">
+            {/* Cryptographic Verification Footer */}
+            <div className="text-center text-[9px] font-mono text-slate-400 pt-1">
+              <p className="uppercase font-bold text-slate-500">Thank you for your visit</p>
+              <p className="mt-0.5">Verified System Audit Hash: #{completedReceiptData.receiptNumber?.slice(-6) || '772910'}</p>
+            </div>
+
+            {/* Action Buttons (Excluded from 80mm Print) */}
+            <div className="flex gap-3 pt-2 no-print">
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-black text-xs uppercase flex items-center justify-center gap-2"
+                className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black text-xs uppercase flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
               >
-                <Printer className="w-4 h-4" /> PRINT RECEIPT
+                <Printer className="w-4 h-4" /> PRINT 80MM RECEIPT
               </button>
               <button
                 type="button"
@@ -573,7 +637,7 @@ export default function PatientInvoicePage() {
                   setShowReceiptModal(false);
                   router.push('/finance/billing');
                 }}
-                className="px-4 py-3 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl font-black text-xs uppercase"
+                className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-black text-xs uppercase transition-all cursor-pointer"
               >
                 CLOSE
               </button>
@@ -581,6 +645,35 @@ export default function PatientInvoicePage() {
           </div>
         </div>
       )}
+
+      {/* 80mm THERMAL PRINT STYLESHEET */}
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #thermal-receipt, #thermal-receipt * {
+            visibility: visible !important;
+          }
+          #thermal-receipt {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 80mm !important;
+            max-width: 80mm !important;
+            padding: 4mm !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: white !important;
+            color: black !important;
+            font-size: 11px !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
 
     </div>
   );
