@@ -6,7 +6,8 @@ import { collection, query, serverTimestamp, doc, updateDoc, deleteDoc } from 'f
 import { 
   Cog, Plus, Loader2, ShieldAlert, Package, Trash2, Search, 
   Building2, BedDouble, Stethoscope, CheckCircle2, AlertTriangle, 
-  Wrench, Activity, Landmark, User, RefreshCw, Sparkles, Layers
+  Wrench, Activity, Landmark, User, RefreshCw, Sparkles, Layers,
+  DollarSign, FileSpreadsheet, Lock, ArrowUpRight, ArrowDownLeft
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -18,6 +19,17 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+
+type GLAccountNode = {
+  code: string;
+  name: string;
+  type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+  category: string;
+  balance: number;
+  currency: string;
+  isSystemLocked?: boolean;
+  linkedDepartment?: string;
+};
 
 type DepartmentNode = {
   id: string;
@@ -57,9 +69,16 @@ export default function GeneralServicesSetupPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'DEPARTMENTS' | 'BED_MATRIX' | 'SERVICE_NODES'>('DEPARTMENTS');
+  const [activeTab, setActiveTab] = useState<'CHART_OF_ACCOUNTS' | 'DEPARTMENTS' | 'BED_MATRIX' | 'SERVICE_NODES'>('CHART_OF_ACCOUNTS');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+
+  // New GL Account Form State
+  const [newAccCode, setNewAccCode] = useState('');
+  const [newAccName, setNewAccName] = useState('');
+  const [newAccType, setNewAccType] = useState<'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE'>('REVENUE');
+  const [newAccCategory, setNewAccCategory] = useState('Operating Revenue');
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -69,19 +88,39 @@ export default function GeneralServicesSetupPage() {
 
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
-  const isAuthorized = userRole === 'DIRECTOR' || userRole === 'ADMIN' || userRole === 'ACCOUNTANT' || userRole === 'SUPER_ADMIN';
+  const isAuthorized = userRole === 'DIRECTOR' || userRole === 'ADMIN' || userRole === 'ACCOUNTANT' || userRole === 'SUPER_ADMIN' || userRole === 'FINANCE_DIRECTOR';
 
-  // Real-Time Collections
-  const bedsQuery = useMemoFirebase(() => hospitalId && firestore ? query(collection(firestore, `hospitals/${hospitalId}/infrastructure_nodes`)) : null, [firestore, hospitalId]);
-  const { data: rawBeds, isLoading: bedsLoading } = useCollection<HospitalBedNode>(bedsQuery);
+  // Demo Fallback Data for Chart of Accounts (COA)
+  const initialChartOfAccounts: GLAccountNode[] = useMemo(() => [
+    // 1000 - ASSETS
+    { code: '1010', name: 'Cash in Vault & Cashier Tills', type: 'ASSET', category: 'Cash & Cash Equivalents', balance: 1200.00, currency: 'GHS', isSystemLocked: true },
+    { code: '1020', name: 'Paystack MoMo Settlement Clearing', type: 'ASSET', category: 'Digital Gateway Clearing', balance: 3450.00, currency: 'GHS', isSystemLocked: true },
+    { code: '1030', name: 'Bank Operating Account (Ecobank Ghana)', type: 'ASSET', category: 'Cash & Bank Balances', balance: 125000.00, currency: 'GHS', isSystemLocked: true },
+    { code: '1200', name: 'Accounts Receivable (AR) - Patient Out-of-Pocket Debt', type: 'ASSET', category: 'Receivables', balance: 4850.00, currency: 'GHS', isSystemLocked: true },
+    { code: '1210', name: 'Accounts Receivable (AR) - NHIA Claims Portfolio', type: 'ASSET', category: 'Receivables', balance: 345000.00, currency: 'GHS', isSystemLocked: true },
+    { code: '1220', name: 'Accounts Receivable (AR) - Private HMOs & Corporate', type: 'ASSET', category: 'Receivables', balance: 137000.00, currency: 'GHS', isSystemLocked: true },
+    
+    // 2000 - LIABILITIES
+    { code: '2010', name: 'Accounts Payable (AP) - Pharmaceutical Suppliers', type: 'LIABILITY', category: 'Trade Payables', balance: 85000.00, currency: 'GHS' },
+    { code: '2050', name: 'Unearned Revenue / Patient Advance Deposits', type: 'LIABILITY', category: 'Deferred Income', balance: 12400.00, currency: 'GHS' },
+    
+    // 4000 - REVENUE CENTERS
+    { code: '4010', name: 'OPD Consultation & Clinical Examination Revenue', type: 'REVENUE', category: 'Clinical Services', balance: 280000.00, currency: 'GHS', linkedDepartment: 'OPD' },
+    { code: '4020', name: 'Diagnostic Imaging & Radiology Revenue', type: 'REVENUE', category: 'Clinical Services', balance: 195000.00, currency: 'GHS', linkedDepartment: 'RAD' },
+    { code: '4030', name: 'Pharmacy & Medication Dispensing Revenue', type: 'REVENUE', category: 'Pharmaceuticals', balance: 340000.00, currency: 'GHS', linkedDepartment: 'PHARM' },
+    { code: '4040', name: 'Inpatient Ward Bed Accommodation Fees', type: 'REVENUE', category: 'Inpatient Care', balance: 110000.00, currency: 'GHS', linkedDepartment: 'IPD' },
+    { code: '4050', name: 'Mortuary & Pathology Preservation Revenue', type: 'REVENUE', category: 'Pathology & Mortuary', balance: 65000.00, currency: 'GHS', linkedDepartment: 'MORT' },
+  ], []);
+
+  const [chartOfAccounts, setChartOfAccounts] = useState<GLAccountNode[]>(initialChartOfAccounts);
 
   // Demo Fallback Data for Departments
   const demoDepartments: DepartmentNode[] = useMemo(() => [
-    { id: 'dep-01', name: 'Outpatient Department (OPD)', code: 'OPD', revenueAccountCode: '4001', expenseAccountCode: '5001', headOfDepartment: 'Dr. Kwabena Frimpong', status: 'ACTIVE' },
-    { id: 'dep-02', name: 'Maternity & Antenatal Ward', code: 'MAT', revenueAccountCode: '4002', expenseAccountCode: '5002', headOfDepartment: 'Dr. Abena Osei', status: 'ACTIVE' },
-    { id: 'dep-03', name: 'Diagnostic Radiology & Imaging', code: 'RAD', revenueAccountCode: '4003', expenseAccountCode: '5003', headOfDepartment: 'Dr. Michael Taylor', status: 'ACTIVE' },
-    { id: 'dep-04', name: 'Main Clinical Laboratory', code: 'LAB', revenueAccountCode: '4004', expenseAccountCode: '5004', headOfDepartment: 'Dr. Sarah Kwarteng', status: 'ACTIVE' },
-    { id: 'dep-05', name: 'Intensive Care Unit (ICU)', code: 'ICU', revenueAccountCode: '4005', expenseAccountCode: '5005', headOfDepartment: 'Dr. Marcus Amosah', status: 'ACTIVE' }
+    { id: 'dep-01', name: 'Outpatient Department (OPD)', code: 'OPD', revenueAccountCode: '4010', expenseAccountCode: '5001', headOfDepartment: 'Dr. Kwabena Frimpong', status: 'ACTIVE' },
+    { id: 'dep-02', name: 'Maternity & Antenatal Ward', code: 'MAT', revenueAccountCode: '4040', expenseAccountCode: '5002', headOfDepartment: 'Dr. Abena Osei', status: 'ACTIVE' },
+    { id: 'dep-03', name: 'Diagnostic Radiology & Imaging', code: 'RAD', revenueAccountCode: '4020', expenseAccountCode: '5003', headOfDepartment: 'Dr. Michael Taylor', status: 'ACTIVE' },
+    { id: 'dep-04', name: 'Main Clinical Laboratory', code: 'LAB', revenueAccountCode: '4020', expenseAccountCode: '5004', headOfDepartment: 'Dr. Sarah Kwarteng', status: 'ACTIVE' },
+    { id: 'dep-05', name: 'Intensive Care Unit (ICU)', code: 'ICU', revenueAccountCode: '4040', expenseAccountCode: '5005', headOfDepartment: 'Dr. Marcus Amosah', status: 'ACTIVE' }
   ], []);
 
   // Demo Fallback Data for Hospital Beds
@@ -89,7 +128,6 @@ export default function GeneralServicesSetupPage() {
     { id: 'bed-mat-01', departmentId: 'dep-02', wardName: 'Maternity Ward A', bedNumber: '01', bedType: 'GENERAL', status: 'AVAILABLE', dailyTariffCode: 'ACC-GEN-01', dailyRate: 150.00 },
     { id: 'bed-mat-02', departmentId: 'dep-02', wardName: 'Maternity Ward A', bedNumber: '02', bedType: 'GENERAL', status: 'OCCUPIED', activePatientId: 'P-99201 (Abena M.)', dailyTariffCode: 'ACC-GEN-01', dailyRate: 150.00 },
     { id: 'bed-mat-03', departmentId: 'dep-02', wardName: 'Maternity Ward A', bedNumber: '03', bedType: 'VIP', status: 'OCCUPIED', activePatientId: 'P-88402 (Grace A.)', dailyTariffCode: 'ACC-VIP-01', dailyRate: 450.00 },
-    { id: 'bed-mat-04', departmentId: 'dep-02', wardName: 'Maternity Ward A', bedNumber: '04', bedType: 'GENERAL', status: 'MAINTENANCE', dailyTariffCode: 'ACC-GEN-01', dailyRate: 150.00 },
     { id: 'bed-icu-01', departmentId: 'dep-05', wardName: 'ICU High Dependency', bedNumber: 'ICU-01', bedType: 'ICU', status: 'OCCUPIED', activePatientId: 'P-77109 (Kofi O.)', dailyTariffCode: 'ACC-ICU-01', dailyRate: 850.00 },
     { id: 'bed-icu-02', departmentId: 'dep-05', wardName: 'ICU High Dependency', bedNumber: 'ICU-02', bedType: 'ICU', status: 'AVAILABLE', dailyTariffCode: 'ACC-ICU-01', dailyRate: 850.00 }
   ], []);
@@ -101,50 +139,64 @@ export default function GeneralServicesSetupPage() {
     { id: 'srv-03', name: 'Full Blood Count Automated Panel', clinicalModule: 'Laboratory', tariffCode: 'LAB-012', price: 120.00, nhisCap: 45.00, autoBillOnComplete: true }
   ], []);
 
-  const bedsList = useMemo(() => {
-    return rawBeds && rawBeds.length > 0 ? rawBeds : demoBeds;
-  }, [rawBeds, demoBeds]);
+  // Filtered Chart of Accounts
+  const filteredAccounts = useMemo(() => {
+    if (!searchQuery.trim()) return chartOfAccounts;
+    const lower = searchQuery.toLowerCase();
+    return chartOfAccounts.filter(acc => 
+      acc.code.toLowerCase().includes(lower) || 
+      acc.name.toLowerCase().includes(lower) ||
+      acc.category.toLowerCase().includes(lower) ||
+      acc.type.toLowerCase().includes(lower)
+    );
+  }, [chartOfAccounts, searchQuery]);
 
-  // Group beds by Ward Name for Matrix
-  const groupedWards = useMemo(() => {
-    return bedsList.reduce((acc, bed) => {
-      const ward = bed.wardName || 'General Ward';
-      if (!acc[ward]) acc[ward] = [];
-      acc[ward].push(bed);
-      return acc;
-    }, {} as Record<string, HospitalBedNode[]>);
-  }, [bedsList]);
+  // Executive COA Metrics
+  const coaMetrics = useMemo(() => {
+    let totalAssets = 0, totalLiabilities = 0, totalRevenue = 0;
+    chartOfAccounts.forEach(acc => {
+      if (acc.type === 'ASSET') totalAssets += acc.balance;
+      if (acc.type === 'LIABILITY') totalLiabilities += acc.balance;
+      if (acc.type === 'REVENUE') totalRevenue += acc.balance;
+    });
+    return { totalAssets, totalLiabilities, totalRevenue };
+  }, [chartOfAccounts]);
 
-  // Bed Telemetry
-  const totalBedsCount = bedsList.length;
-  const occupiedBedsCount = bedsList.filter(b => b.status === 'OCCUPIED').length;
-  const availableBedsCount = bedsList.filter(b => b.status === 'AVAILABLE').length;
-  const maintenanceBedsCount = bedsList.filter(b => b.status === 'MAINTENANCE').length;
-  const occupancyRate = totalBedsCount > 0 ? Math.round((occupiedBedsCount / totalBedsCount) * 100) : 0;
-
-  const toggleBedMaintenance = async (bedId: string, currentStatus: string) => {
-    if (currentStatus === 'OCCUPIED') {
-      toast({ variant: 'destructive', title: 'Action Blocked', description: 'Cannot mark an occupied bed for maintenance.' });
+  const handleCreateGLAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAccCode || !newAccName) {
+      toast({ variant: 'destructive', title: 'Missing Information', description: 'Account code and name are required.' });
       return;
     }
 
-    const newStatus = currentStatus === 'MAINTENANCE' ? 'AVAILABLE' : 'MAINTENANCE';
+    const newAcc: GLAccountNode = {
+      code: newAccCode,
+      name: newAccName,
+      type: newAccType,
+      category: newAccCategory,
+      balance: 0,
+      currency: 'GHS'
+    };
 
-    try {
-      if (firestore && hospitalId) {
-        const bedRef = doc(firestore, `hospitals/${hospitalId}/infrastructure_nodes`, bedId);
-        await updateDoc(bedRef, { status: newStatus });
-      }
-      toast({
-        title: 'Bed Status Updated',
-        description: `Bed state changed to ${newStatus}.`
+    if (firestore && hospitalId) {
+      addDocumentNonBlocking(collection(firestore, `hospitals/${hospitalId}/chart_of_accounts`), {
+        ...newAcc,
+        createdAt: serverTimestamp()
       });
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Update Failed', description: e.message });
     }
+
+    setChartOfAccounts(prev => [...prev, newAcc]);
+    toast({
+      title: "GL Account Created",
+      description: `Account ${newAccCode} - ${newAccName} registered into Master Ledger.`
+    });
+
+    setNewAccCode('');
+    setNewAccName('');
+    setIsAddAccountOpen(false);
   };
 
-  const isLoading = isUserLoading || isProfileLoading || bedsLoading;
+  const isLoading = isUserLoading || isProfileLoading;
   const userName = user?.displayName || userProfile?.name || 'MARCUS AMOSAH HENAKU';
   const userInitials = userName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || 'MH';
 
@@ -162,7 +214,7 @@ export default function GeneralServicesSetupPage() {
         <div className="text-center bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md">
           <ShieldAlert className="h-16 w-16 text-rose-500 mx-auto mb-4" />
           <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-slate-100">Access Denied</h1>
-          <p className="text-slate-500 text-sm mt-2">You are not authorized for Infrastructure & Revenue Setup.</p>
+          <p className="text-slate-500 text-sm mt-2">You are not authorized for Master Financial Setup.</p>
           <Button onClick={() => router.push('/dashboard')} className="mt-6 bg-slate-900 text-white rounded-xl">
             Return Home
           </Button>
@@ -174,176 +226,333 @@ export default function GeneralServicesSetupPage() {
   return (
     <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 max-w-7xl mx-auto space-y-6 pb-12">
       
-      {/* ========================================== */}
-      {/* 1. SIGNATURE DARK HERO COMMAND BANNER      */}
-      {/* ========================================== */}
-      <div className="bg-slate-950 text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden mb-6 border border-slate-800">
-        {/* Ambient Radial Accent Glows */}
+      {/* 1. EXECUTIVE COMMAND BANNER */}
+      <div className="bg-slate-950 text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden border border-slate-800">
         <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-12 w-64 h-64 bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 -mb-12 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
 
-        {/* Top Row: Title, Subtitle, User Context */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8 relative z-10">
           <div>
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-400">
-                <Cog className="w-7 h-7" />
+                <Landmark className="w-7 h-7" />
               </div>
               <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-wider text-white">
-                HOSPITAL INFRASTRUCTURE & REVENUE CENTER SETUP
+                GENERAL LEDGER & MASTER FINANCIAL SETUP
               </h1>
             </div>
-            <p className="mt-2 text-xs md:text-sm text-slate-400 font-medium">
-              CONFIGURE DEPARTMENTS, BED WARDS, SERVICE NODES, AND REVENUE LEDGER MAPPINGS.
+            <p className="mt-2 text-xs md:text-sm text-slate-400 font-medium uppercase tracking-wide">
+              CHART OF ACCOUNTS (COA), REVENUE STREAM MAPPINGS, AND INFRASTRUCTURE COST CENTERS.
             </p>
           </div>
 
-          {/* User Context */}
           <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2.5 self-start xl:self-auto">
             <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-white text-xs">
               {userInitials}
             </div>
             <div>
               <div className="text-[11px] font-bold text-white tracking-wide uppercase">{userName}</div>
-              <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">CHIEF ACCOUNTANT</div>
+              <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">CHIEF FINANCIAL OFFICER</div>
             </div>
           </div>
         </div>
 
-        {/* Bottom Row / Contextual Telemetry */}
+        {/* Top Financial Balance Telemetry */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 relative z-10">
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Active Departments</span>
-              <div className="text-2xl font-black text-emerald-400 font-mono">14 Departments</div>
-              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">Mapped to GL Ledger Codes</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Total Master Assets</span>
+              <div className="text-2xl font-black text-emerald-400 font-mono">
+                ₵ {coaMetrics.totalAssets.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">Vault Cash, MoMo, Bank & AR Ledgers</span>
             </div>
             <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
-              <Building2 className="w-6 h-6" />
+              <DollarSign className="w-6 h-6" />
             </div>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Total Bed Capacity</span>
-              <div className="text-2xl font-black text-sky-400 font-mono">{totalBedsCount} Beds</div>
-              <span className="text-[10px] font-bold text-sky-400 mt-0.5 block">{availableBedsCount} Available • {maintenanceBedsCount} Cleaning</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Recognized Revenue (YTD)</span>
+              <div className="text-2xl font-black text-sky-400 font-mono">
+                ₵ {coaMetrics.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </div>
+              <span className="text-[10px] font-bold text-sky-400 mt-0.5 block">Clinical, Pharmacy & Diagnostics</span>
             </div>
             <div className="p-3 bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded-xl">
-              <BedDouble className="w-6 h-6" />
+              <ArrowUpRight className="w-6 h-6" />
             </div>
           </div>
 
-          <div className="bg-slate-900 border border-emerald-500/30 p-4 rounded-xl flex items-center justify-between ring-1 ring-emerald-500/20 shadow-lg">
+          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-1">Current Occupancy Rate</span>
-              <div className="text-2xl font-black text-emerald-400 font-mono">{occupancyRate}%</div>
-              <span className="text-[10px] font-bold text-emerald-400 mt-0.5 block">Automated Midnight Census</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Active COA Sub-Ledgers</span>
+              <div className="text-2xl font-black text-indigo-400 font-mono">{chartOfAccounts.length} Accounts</div>
+              <span className="text-[10px] font-bold text-indigo-400 mt-0.5 block">Fully Audited Double-Entry Nodes</span>
             </div>
-            <div className="p-3 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-xl">
-              <Activity className="w-6 h-6" />
+            <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl">
+              <FileSpreadsheet className="w-6 h-6" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* ========================================== */}
-      {/* 2. INFRASTRUCTURE CONTROL CENTER TABS      */}
-      {/* ========================================== */}
-      <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
-        <button
-          type="button"
-          onClick={() => setActiveTab('DEPARTMENTS')}
-          className={`px-5 py-2.5 font-black text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
-            activeTab === 'DEPARTMENTS'
-              ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-lg'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          <span>DEPARTMENTS & REVENUE CENTERS</span>
-        </button>
+      {/* 2. NAVIGATION BAR & ACTION ROW */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        
+        {/* Module Switcher Tabs */}
+        <div className="flex flex-wrap items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setActiveTab('CHART_OF_ACCOUNTS')}
+            className={`px-4 py-2 text-xs font-black uppercase rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'CHART_OF_ACCOUNTS' ? 'bg-slate-950 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            <Landmark className="w-4 h-4 text-emerald-400" />
+            <span>Chart of Accounts ({chartOfAccounts.length})</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('BED_MATRIX')}
-          className={`px-5 py-2.5 font-black text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
-            activeTab === 'BED_MATRIX'
-              ? 'bg-emerald-600 text-white shadow-lg'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
-          }`}
-        >
-          <BedDouble className="w-4 h-4" />
-          <span>BED MANAGEMENT MATRIX</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('DEPARTMENTS')}
+            className={`px-4 py-2 text-xs font-black uppercase rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'DEPARTMENTS' ? 'bg-slate-950 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            <Building2 className="w-4 h-4 text-sky-400" />
+            <span>Departments ({demoDepartments.length})</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('SERVICE_NODES')}
-          className={`px-5 py-2.5 font-black text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
-            activeTab === 'SERVICE_NODES'
-              ? 'bg-sky-600 text-white shadow-lg'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span>SERVICE NODES & TARIFF BRIDGE</span>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('BED_MATRIX')}
+            className={`px-4 py-2 text-xs font-black uppercase rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'BED_MATRIX' ? 'bg-slate-950 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            <BedDouble className="w-4 h-4 text-amber-400" />
+            <span>Bed Wards ({demoBeds.length})</span>
+          </button>
 
-      {/* ========================================== */}
-      {/* 3. TAB 1: DEPARTMENTS & GL REVENUE MAPPINGS */}
-      {/* ========================================== */}
-      {activeTab === 'DEPARTMENTS' && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden space-y-4 p-6">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-            <div>
-              <h2 className="text-lg font-black uppercase text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <Landmark className="w-5 h-5 text-emerald-500" />
-                <span>Departmental Revenue & Cost Center Ledger Mappings</span>
-              </h2>
-              <p className="text-xs text-slate-400 font-medium mt-1">
-                Hard-linked GL revenue codes ensure billing proceeds route to exact departmental P&L accounts.
-              </p>
-            </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('SERVICE_NODES')}
+            className={`px-4 py-2 text-xs font-black uppercase rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'SERVICE_NODES' ? 'bg-slate-950 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            <Layers className="w-4 h-4 text-purple-400" />
+            <span>Service Bridges ({demoServices.length})</span>
+          </button>
+        </div>
+
+        {/* Search & Actions */}
+        <div className="flex items-center gap-3">
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search code, name, category..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+            />
           </div>
 
+          {activeTab === 'CHART_OF_ACCOUNTS' && (
+            <Dialog open={isAddAccountOpen} onOpenChange={setIsAddAccountOpen}>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow flex items-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ NEW GL ACCOUNT</span>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-black uppercase text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <Landmark className="w-5 h-5 text-emerald-500" />
+                    <span>Create General Ledger Sub-Account</span>
+                  </DialogTitle>
+                </DialogHeader>
+
+                <form onSubmit={handleCreateGLAccount} className="space-y-4 pt-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-500 block">GL Account Code</label>
+                    <input
+                      type="text"
+                      value={newAccCode}
+                      onChange={(e) => setNewAccCode(e.target.value)}
+                      placeholder="e.g. 4060 or 1040"
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-mono text-xs font-bold outline-none text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-500 block">Account Title</label>
+                    <input
+                      type="text"
+                      value={newAccName}
+                      onChange={(e) => setNewAccName(e.target.value)}
+                      placeholder="e.g. Mortuary Ambulance Transport Revenue"
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold outline-none text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-slate-500 block">Account Type</label>
+                      <select
+                        value={newAccType}
+                        onChange={(e: any) => setNewAccType(e.target.value)}
+                        className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold outline-none text-slate-900 dark:text-slate-100"
+                      >
+                        <option value="ASSET">1000 - Asset</option>
+                        <option value="LIABILITY">2000 - Liability</option>
+                        <option value="EQUITY">3000 - Equity</option>
+                        <option value="REVENUE">4000 - Revenue</option>
+                        <option value="EXPENSE">5000 - Expense</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-slate-500 block">Category</label>
+                      <input
+                        type="text"
+                        value={newAccCategory}
+                        onChange={(e) => setNewAccCategory(e.target.value)}
+                        placeholder="e.g. Operating Revenue"
+                        className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold outline-none text-slate-900 dark:text-slate-100"
+                      />
+                    </div>
+                  </div>
+
+                  <DialogFooter className="pt-4">
+                    <button
+                      type="submit"
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow cursor-pointer"
+                    >
+                      SAVE GL ACCOUNT TO MASTER LEDGER
+                    </button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      </div>
+
+      {/* ============================================================ */}
+      {/* 3A. TAB 1: CHART OF ACCOUNTS (COA) MASTER HUB                */}
+      {/* ============================================================ */}
+      {activeTab === 'CHART_OF_ACCOUNTS' && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-slate-900 text-white uppercase text-[9px] tracking-widest">
+              <tr>
+                <th className="p-4">GL Code</th>
+                <th className="p-4">Account Title & Ledger Description</th>
+                <th className="p-4">Type</th>
+                <th className="p-4">Category</th>
+                <th className="p-4 text-right">Current Balance (GHS)</th>
+                <th className="p-4 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {filteredAccounts.map(acc => {
+                const isAsset = acc.type === 'ASSET';
+                const isRev = acc.type === 'REVENUE';
+                const isLiab = acc.type === 'LIABILITY';
+
+                return (
+                  <tr key={acc.code} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all">
+                    <td className="p-4 font-mono font-black text-sm text-slate-900 dark:text-white">
+                      {acc.code}
+                    </td>
+
+                    <td className="p-4">
+                      <p className="font-bold text-slate-900 dark:text-slate-100">{acc.name}</p>
+                      {acc.linkedDepartment && (
+                        <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 block mt-0.5">
+                          Linked Center: {acc.linkedDepartment} Department
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="p-4">
+                      <span className={`px-2.5 py-1 text-[9px] font-black uppercase rounded-md ${
+                        isAsset ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
+                        isRev ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300' :
+                        'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                      }`}>
+                        {acc.type}
+                      </span>
+                    </td>
+
+                    <td className="p-4 text-slate-500 font-medium">
+                      {acc.category}
+                    </td>
+
+                    <td className="p-4 text-right font-mono font-black text-sm text-slate-900 dark:text-slate-100">
+                      ₵ {acc.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </td>
+
+                    <td className="p-4 text-center">
+                      {acc.isSystemLocked ? (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                          <Lock className="w-3 h-3" /> SYSTEM
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-400">
+                          ACTIVE
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* 3B. TAB 2: DEPARTMENTS MAPPING                               */}
+      {/* ============================================================ */}
+      {activeTab === 'DEPARTMENTS' && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <table className="w-full text-xs text-left">
             <thead className="bg-slate-900 text-white uppercase text-[9px] tracking-widest">
               <tr>
                 <th className="p-4">Department Name</th>
-                <th className="p-4">Dept Code</th>
-                <th className="p-4 text-center">Revenue Ledger Account</th>
-                <th className="p-4 text-center">Expense Cost Center</th>
+                <th className="p-4">Code</th>
+                <th className="p-4">Revenue GL Account</th>
                 <th className="p-4">Head of Department</th>
                 <th className="p-4 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {demoDepartments.map(dept => (
-                <tr key={dept.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all">
+              {demoDepartments.map(dep => (
+                <tr key={dep.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all">
                   <td className="p-4 font-black uppercase text-slate-900 dark:text-slate-100">
-                    {dept.name}
+                    {dep.name}
                   </td>
-                  <td className="p-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                    {dept.code}
+                  <td className="p-4 font-mono font-bold text-sky-600 dark:text-sky-400">
+                    {dep.code}
                   </td>
-                  <td className="p-4 text-center font-mono font-bold text-slate-900 dark:text-slate-100">
-                    <span className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-800 dark:text-emerald-300">
-                      Code {dept.revenueAccountCode}
-                    </span>
+                  <td className="p-4 font-mono font-bold text-slate-700 dark:text-slate-300">
+                    GL #{dep.revenueAccountCode}
                   </td>
-                  <td className="p-4 text-center font-mono font-bold text-slate-900 dark:text-slate-100">
-                    <span className="px-2.5 py-1 bg-sky-50 dark:bg-sky-950 border border-sky-200 dark:border-sky-800 rounded-lg text-sky-800 dark:text-sky-300">
-                      Code {dept.expenseAccountCode}
-                    </span>
-                  </td>
-                  <td className="p-4 font-bold text-slate-600 dark:text-slate-300">
-                    {dept.headOfDepartment}
+                  <td className="p-4 text-slate-600 dark:text-slate-300 font-medium">
+                    {dep.headOfDepartment}
                   </td>
                   <td className="p-4 text-center">
-                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-black text-[9px] uppercase rounded">
-                      {dept.status}
+                    <span className="px-2.5 py-1 text-[9px] font-black uppercase rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                      {dep.status}
                     </span>
                   </td>
                 </tr>
@@ -353,129 +562,54 @@ export default function GeneralServicesSetupPage() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 4. TAB 2: BED MANAGEMENT MATRIX            */}
-      {/* ========================================== */}
+      {/* ============================================================ */}
+      {/* 3C. TAB 3: BED MATRIX & WARDS                                */}
+      {/* ============================================================ */}
       {activeTab === 'BED_MATRIX' && (
-        <div className="space-y-6">
-          {/* Status Legend */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-emerald-500" />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Available ({availableBedsCount})</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-rose-500" />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Occupied ({occupiedBedsCount})</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-amber-400" />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Maintenance / Cleaning ({maintenanceBedsCount})</span>
-            </div>
-          </div>
-
-          {/* Wards Matrix Grid */}
-          {Object.keys(groupedWards).map(wardName => (
-            <div key={wardName} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-              <h3 className="text-base font-black uppercase text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-                <BedDouble className="w-5 h-5 text-emerald-500" />
-                <span>{wardName}</span>
-              </h3>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {groupedWards[wardName].map(bed => {
-                  const isAvailable = bed.status === 'AVAILABLE';
-                  const isOccupied = bed.status === 'OCCUPIED';
-                  const isMaintenance = bed.status === 'MAINTENANCE';
-
-                  return (
-                    <div
-                      key={bed.id}
-                      onClick={() => toggleBedMaintenance(bed.id, bed.status)}
-                      className={`p-4 rounded-2xl border-2 transition-all shadow-sm flex flex-col items-center justify-between h-28 relative cursor-pointer ${
-                        isAvailable ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 hover:bg-emerald-100 dark:hover:bg-emerald-950/80' : ''
-                      } ${
-                        isOccupied ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-500 cursor-not-allowed' : ''
-                      } ${
-                        isMaintenance ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-400 border-dashed hover:bg-amber-100 dark:hover:bg-amber-950/80' : ''
-                      }`}
-                    >
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{bed.bedType}</span>
-                      <span className={`text-2xl font-black ${
-                        isAvailable ? 'text-emerald-700 dark:text-emerald-300' : isOccupied ? 'text-rose-700 dark:text-rose-300' : 'text-amber-700 dark:text-amber-300'
-                      }`}>
-                        {bed.bedNumber}
-                      </span>
-                      <span className="text-[9px] font-bold text-slate-500 font-mono">
-                        ₵ {bed.dailyRate.toFixed(2)}/night
-                      </span>
-
-                      {/* Active Patient Badge */}
-                      {isOccupied && bed.activePatientId && (
-                        <div className="absolute -top-2.5 -right-2 bg-slate-950 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md truncate max-w-[110px] border border-slate-800">
-                          {bed.activePatientId}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-6 space-y-4">
+          <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider">Hospital Ward Infrastructure</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {demoBeds.map(bed => (
+              <div key={bed.id} className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                <div>
+                  <span className="text-[10px] font-black uppercase text-slate-400 block">{bed.wardName}</span>
+                  <p className="text-base font-black text-slate-900 dark:text-white">Bed #{bed.bedNumber} ({bed.bedType})</p>
+                  <p className="text-xs font-mono text-emerald-600 dark:text-emerald-400 mt-1">₵{bed.dailyRate.toFixed(2)} / night</p>
+                </div>
+                <span className={`px-2.5 py-1 text-[9px] font-black uppercase rounded-md ${
+                  bed.status === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {bed.status}
+                </span>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 5. TAB 3: SERVICE NODES & TARIFF BRIDGE    */}
-      {/* ========================================== */}
+      {/* ============================================================ */}
+      {/* 3D. TAB 4: SERVICE BRIDGES                                   */}
+      {/* ============================================================ */}
       {activeTab === 'SERVICE_NODES' && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-6 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-            <div>
-              <h2 className="text-lg font-black uppercase text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <Layers className="w-5 h-5 text-sky-500" />
-                <span>Clinical Action to Tariff Master Billing Bridge</span>
-              </h2>
-              <p className="text-xs text-slate-400 font-medium mt-1">
-                Clinical orders (lab, radiology scans, specialist visits) automatically push Tariff Master items to patient billing sessions.
-              </p>
-            </div>
-          </div>
-
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <table className="w-full text-xs text-left">
             <thead className="bg-slate-900 text-white uppercase text-[9px] tracking-widest">
               <tr>
-                <th className="p-4">Clinical Action Node</th>
+                <th className="p-4">Service Bridge</th>
                 <th className="p-4">Clinical Module</th>
-                <th className="p-4 font-mono">Tariff Master Code</th>
-                <th className="p-4 text-right">Base Cash Rate (₵)</th>
-                <th className="p-4 text-right">NHIS Tariff Cap (₵)</th>
-                <th className="p-4 text-center">Auto-Bill Status</th>
+                <th className="p-4">Tariff Code</th>
+                <th className="p-4 text-right">Standard Price</th>
+                <th className="p-4 text-right">NHIS Payer Cap</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {demoServices.map(srv => (
                 <tr key={srv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all">
-                  <td className="p-4 font-black uppercase text-slate-900 dark:text-slate-100">
-                    {srv.name}
-                  </td>
-                  <td className="p-4 font-bold text-slate-600 dark:text-slate-300">
-                    {srv.clinicalModule}
-                  </td>
-                  <td className="p-4 font-mono font-bold text-sky-600 dark:text-sky-400">
-                    {srv.tariffCode}
-                  </td>
-                  <td className="p-4 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
-                    ₵ {srv.price.toFixed(2)}
-                  </td>
-                  <td className="p-4 text-right font-mono font-bold text-slate-500">
-                    ₵ {srv.nhisCap.toFixed(2)}
-                  </td>
-                  <td className="p-4 text-center">
-                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-black text-[9px] uppercase rounded">
-                      AUTO-BILL ACTIVE
-                    </span>
-                  </td>
+                  <td className="p-4 font-black text-slate-900 dark:text-slate-100">{srv.name}</td>
+                  <td className="p-4 text-slate-500 font-bold">{srv.clinicalModule}</td>
+                  <td className="p-4 font-mono font-bold text-sky-600">{srv.tariffCode}</td>
+                  <td className="p-4 text-right font-mono font-bold">₵ {srv.price.toFixed(2)}</td>
+                  <td className="p-4 text-right font-mono text-emerald-600 font-bold">₵ {srv.nhisCap.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>

@@ -83,10 +83,47 @@ export async function POST(req: NextRequest) {
                 paystackReference: event.data.reference
               });
 
-              // Mark all billing items as PAID
+              // 1. Mark all billing items as PAID
               billingItemIds.forEach((itemId: string) => {
                 const itemRef = hospitalRef.collection('billing_items').doc(itemId);
-                transaction.update(itemRef, { status: 'PAID', paymentId: paymentId });
+                transaction.update(itemRef, { 
+                  status: 'PAID', 
+                  paymentId: paymentId,
+                  paymentMode: 'MoMo',
+                  paidAt: FieldValue.serverTimestamp() 
+                });
+              });
+
+              // 2. Write Immutable Revenue Receipt document
+              const receiptRef = hospitalRef.collection('receipts').doc(paymentId);
+              transaction.set(receiptRef, {
+                receiptNumber: paymentId,
+                patientId: patientId,
+                patientName: patientName,
+                grossTotal: totalAmount,
+                amountPaid: totalAmount,
+                patientOutofPocketPay: totalAmount,
+                paymentMode: 'MoMo',
+                paymentMethod: 'MOMO',
+                cashierName: 'Paystack MoMo Gateway',
+                status: 'PAID',
+                paystackReference: event.data.reference,
+                createdAt: FieldValue.serverTimestamp(),
+                timestamp: new Date().toLocaleString('en-GB')
+              });
+
+              // 3. Write Transaction Ledger document
+              const txnRef = hospitalRef.collection('transactions').doc(paymentId);
+              transaction.set(txnRef, {
+                receiptNumber: paymentId,
+                patientId: patientId,
+                patientName: patientName,
+                amount: totalAmount,
+                grossTotal: totalAmount,
+                paymentMode: 'MoMo',
+                cashierName: 'Paystack MoMo Gateway',
+                status: 'COMPLETED',
+                createdAt: FieldValue.serverTimestamp()
               });
 
               // If it's a mortuary record, finalize the release and free the chamber

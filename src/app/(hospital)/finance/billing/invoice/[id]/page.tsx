@@ -3,10 +3,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where, writeBatch, serverTimestamp, increment, runTransaction, getDocs, addDoc } from 'firebase/firestore';
+import { doc, collection, query, where, writeBatch, serverTimestamp, increment, runTransaction, getDocs, addDoc, onSnapshot } from 'firebase/firestore';
 import { 
   Receipt, CreditCard, Wallet, Landmark, Printer, CheckCircle2, Loader2, User, FileText, 
-  Plus, Trash2, ArrowLeft, ShieldAlert, Zap, AlertTriangle, Percent, ArrowRight
+  Plus, Trash2, ArrowLeft, ShieldAlert, Zap, AlertTriangle, Percent, ArrowRight,
+  Smartphone, Radio, Sparkles
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,16 @@ export default function PatientInvoicePage() {
   const [insuranceCoverageRate, setInsuranceCoverageRate] = useState<number>(70); // 70% Covered by NHIS
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [completedReceiptData, setCompletedReceiptData] = useState<any>(null);
+
+  // Partial Payment & Deposit State (Accounts Receivable)
+  const [settlementType, setSettlementType] = useState<'FULL' | 'PARTIAL'>('FULL');
+  const [customAmountTendered, setCustomAmountTendered] = useState<string>('250.00');
+
+  // Paystack Digital Checkout & Webhook Listener State
+  const [isWaitingForMoMoWebhook, setIsWaitingForMoMoWebhook] = useState(false);
+  const [activePaystackRef, setActivePaystackRef] = useState<string | null>(null);
+  const [momoPhone, setMomoPhone] = useState('0244123456');
+  const [momoNetwork, setMomoNetwork] = useState<'MTN' | 'TELECEL' | 'AT'>('MTN');
 
   // Tariff Combobox Add Item State
   const [tariffSearch, setTariffSearch] = useState('');
@@ -149,7 +160,109 @@ export default function PatientInvoicePage() {
     return Math.max(0, grossTotal - insuranceCoverageAmount);
   }, [grossTotal, insuranceCoverageAmount]);
 
+  // Actual amount collected from patient today (Tendered Cash / Digital)
+  const actualAmountPaidToday = useMemo(() => {
+    if (settlementType === 'FULL') {
+      return patientOutofPocketPay;
+    }
+    const parsed = parseFloat(customAmountTendered);
+    if (isNaN(parsed) || parsed < 0) return 0;
+    return Math.min(parsed, patientOutofPocketPay);
+  }, [settlementType, customAmountTendered, patientOutofPocketPay]);
+
+  // Outstanding patient balance transferred to Accounts Receivable debt ledger
+  const outstandingBalanceDue = useMemo(() => {
+    return Math.max(0, patientOutofPocketPay - actualAmountPaidToday);
+  }, [patientOutofPocketPay, actualAmountPaidToday]);
+
+  const displayName = `${patient?.firstName} ${patient?.lastName}`;
+
+  // ---------------------------------------------------------------------------------
+  // ZERO-TRUST REAL-TIME WEBHOOK LISTENER (onSnapshot)
+  // ---------------------------------------------------------------------------------
+  useEffect(() => {
+    if (!isWaitingForMoMoWebhook || !firestore || !hospitalId || !activePaystackRef) return;
+
+    // Listen for the receipt or payment document created by the server-side webhook
+    const receiptsRef = collection(firestore, `hospitals/${hospitalId}/receipts`);
+    const q = query(receiptsRef, where("paystackReference", "==", activePaystackRef));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        const receiptDoc = snapshot.docs[0].data();
+        setIsWaitingForMoMoWebhook(false);
+        setCompletedReceiptData({
+          receiptNumber: receiptDoc.receiptNumber || activePaystackRef,
+          patientName: receiptDoc.patientName || displayName,
+          patientId: patient?.id,
+          items: localBillItems,
+          grossTotal: receiptDoc.grossTotal || grossTotal,
+          insuranceCoverageAmount,
+          patientOutofPocketPay: receiptDoc.amountPaid || actualAmountPaidToday,
+          totalPatientShare: patientOutofPocketPay,
+          outstandingBalanceDue,
+          isPartialPayment: settlementType === 'PARTIAL' && outstandingBalanceDue > 0.01,
+          paymentMode: receiptDoc.paymentMode || 'MoMo',
+          cashierName: user?.displayName || userProfile?.name || 'Priscilla Adysei',
+          timestamp: receiptDoc.timestamp || new Date().toLocaleString('en-GB')
+        });
+        setShowReceiptModal(true);
+        toast({
+          title: "🎉 MoMo Payment Confirmed via Webhook!",
+          description: `Bank settlement verified. Receipt ${receiptDoc.receiptNumber || activePaystackRef} generated automatically.`
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [isWaitingForMoMoWebhook, firestore, hospitalId, activePaystackRef, displayName, grossTotal, insuranceCoverageAmount, patientOutofPocketPay, actualAmountPaidToday, outstandingBalanceDue, settlementType, user, userProfile, localBillItems, patient?.id, toast]);
+
+  const handleInitiatePaystackPayment = async () => {
+    if (localBillItems.length === 0) {
+      toast({ variant: 'destructive', title: "Empty Cart", description: "No items present on patient bill." });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/payments/paystack-init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          facilityId: hospitalId,
+          hospitalId: hospitalId,
+          encounterId: patient?.id || patientId,
+          patientId: patient?.id || patientId,
+          patientName: displayName,
+          patientPhone: momoPhone,
+          amount: actualAmountPaidToday,
+          billingItemIds: localBillItems.map(it => it.id).filter(Boolean)
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Failed to initialize Paystack gateway.');
+      }
+
+      setActivePaystackRef(data.reference);
+      setIsWaitingForMoMoWebhook(true);
+      toast({
+        title: "USSD Push Dispatched to Patient Device",
+        description: `Prompt sent to ${momoPhone} (${momoNetwork}) for ₵${actualAmountPaidToday.toFixed(2)}. Awaiting PIN authorization...`
+      });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: "Payment Initialization Failed", description: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleProcessPayment = async () => {
+    if (paymentMode === 'MobileMoney' || paymentMode === 'POS') {
+      return handleInitiatePaystackPayment();
+    }
+
     if (localBillItems.length === 0) {
       toast({ variant: 'destructive', title: "Empty Cart", description: "No items present on patient bill." });
       return;
@@ -158,17 +271,22 @@ export default function PatientInvoicePage() {
     setLoading(true);
 
     const receiptNumber = `REC/2026/08/${Math.floor(1000 + Math.random() * 9000)}`;
+    const isPartial = settlementType === 'PARTIAL' && outstandingBalanceDue > 0.01;
+    const finalPaymentStatus = isPartial ? 'PARTIALLY_PAID' : 'PAID';
 
     const receiptData = {
       receiptNumber,
-      patientName: `${patient.firstName} ${patient.lastName}`,
-      patientId: patient.id,
+      patientName: `${patient?.firstName || ''} ${patient?.lastName || ''}`.trim() || displayName,
+      patientId: patient?.id || patientId,
       items: localBillItems,
       grossTotal,
       insuranceCoverageAmount,
-      patientOutofPocketPay,
+      patientOutofPocketPay: actualAmountPaidToday,
+      totalPatientShare: patientOutofPocketPay,
+      outstandingBalanceDue,
+      isPartialPayment: isPartial,
       paymentMode,
-      cashierName: user?.displayName || userProfile?.name || 'MARCUS AMOSAH HENAKU',
+      cashierName: user?.displayName || userProfile?.name || 'Priscilla Adysei',
       timestamp: new Date().toLocaleString('en-GB')
     };
 
@@ -194,9 +312,10 @@ export default function PatientInvoicePage() {
           // Existing document: safely update status with merge
           itemRef = doc(firestore, `hospitals/${hospitalId}/billing_items`, item.id);
           batch.set(itemRef, { 
-            status: 'PAID',
+            status: finalPaymentStatus,
             paymentMode,
-            outOfPocketPaid: patientOutofPocketPay,
+            outOfPocketPaid: actualAmountPaidToday,
+            outstandingDebt: outstandingBalanceDue,
             insuranceClaimed: insuranceCoverageAmount,
             paidAt: serverTimestamp()
           }, { merge: true });
@@ -204,17 +323,18 @@ export default function PatientInvoicePage() {
           // Newly added POS item or demo cart item: create real document in Firestore
           itemRef = doc(collection(firestore, `hospitals/${hospitalId}/billing_items`));
           batch.set(itemRef, {
-            patientId: patient.id,
-            patientName: `${patient.firstName} ${patient.lastName}`,
+            patientId: patient?.id || patientId,
+            patientName: displayName,
             name: item.name,
             serviceName: item.name,
             category: item.category || 'GENERAL',
             qty: item.qty || 1,
             unitPrice: item.unitPrice || item.total || 0,
             total: item.total || 0,
-            status: 'PAID',
+            status: finalPaymentStatus,
             paymentMode,
-            outOfPocketPaid: patientOutofPocketPay,
+            outOfPocketPaid: actualAmountPaidToday,
+            outstandingDebt: outstandingBalanceDue,
             insuranceClaimed: insuranceCoverageAmount,
             receiptNumber,
             paidAt: serverTimestamp(),
@@ -230,33 +350,55 @@ export default function PatientInvoicePage() {
         createdAt: serverTimestamp()
       });
 
-      // Write Transaction Ledger document
+      // Write Transaction Ledger document (Only actual physical/digital cash received into till!)
       const txnRef = doc(collection(firestore, `hospitals/${hospitalId}/transactions`));
       batch.set(txnRef, {
         receiptNumber,
-        patientId: patient.id,
-        patientName: `${patient.firstName} ${patient.lastName}`,
-        amount: patientOutofPocketPay,
+        patientId: patient?.id || patientId,
+        patientName: displayName,
+        amount: actualAmountPaidToday, // Cashier till only records what is physically collected!
         grossTotal,
+        outstandingDebt: outstandingBalanceDue,
+        isPartial,
         paymentMode,
         cashierName: receiptData.cashierName,
-        status: 'COMPLETED',
+        status: isPartial ? 'PARTIAL_SETTLEMENT' : 'COMPLETED',
         createdAt: serverTimestamp()
       });
+
+      // If Partial Payment: Post remaining balance to Accounts Receivable (Patient Debt Ledger)
+      if (isPartial) {
+        const arRef = doc(collection(firestore, `hospitals/${hospitalId}/patient_receivables`));
+        batch.set(arRef, {
+          patientId: patient?.id || patientId,
+          patientName: displayName,
+          ehrNumber: patient?.ehrNumber || `GAM-P-${patientId}`,
+          receiptNumber,
+          originalBill: patientOutofPocketPay,
+          amountPaid: actualAmountPaidToday,
+          outstandingBalance: outstandingBalanceDue,
+          status: 'OPEN_DEBT',
+          cashierName: receiptData.cashierName,
+          createdAt: serverTimestamp()
+        });
+      }
 
       await batch.commit();
 
       setCompletedReceiptData(receiptData);
       setShowReceiptModal(true);
-      toast({ title: "Payment Authorized", description: `Receipt ${receiptNumber} generated and posted to General Ledger.` });
+      toast({ 
+        title: isPartial ? "Partial Deposit Received & AR Debt Logged" : "Payment Authorized", 
+        description: isPartial 
+          ? `Collected ₵${actualAmountPaidToday.toFixed(2)}. ₵${outstandingBalanceDue.toFixed(2)} posted to Accounts Receivable.`
+          : `Receipt ${receiptNumber} generated and posted to General Ledger.` 
+      });
     } catch (e: any) {
       toast({ variant: 'destructive', title: "Payment Failed", description: e.message });
     } finally {
       setLoading(false);
     }
   };
-
-  const displayName = `${patient?.firstName} ${patient?.lastName}`;
 
   return (
     <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 max-w-7xl mx-auto space-y-6 pb-12">
@@ -501,6 +643,116 @@ export default function PatientInvoicePage() {
             </div>
           </div>
 
+          {/* Mobile Money Phone & Network Selector */}
+          {paymentMode === 'MobileMoney' && (
+            <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-3">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-[10px] font-black uppercase text-slate-300 flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5 text-amber-400" /> Patient MoMo Network & Number
+                </span>
+                <span className="text-[9px] font-mono text-emerald-400 font-bold">PAYSTACK USSD PUSH</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {(['MTN', 'TELECEL', 'AT'] as const).map(net => (
+                  <button
+                    key={net}
+                    type="button"
+                    onClick={() => setMomoNetwork(net)}
+                    className={`py-1.5 text-center rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer border ${
+                      momoNetwork === net ? 'bg-amber-500 text-slate-950 border-amber-400 font-extrabold shadow' : 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}
+                  >
+                    {net}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative">
+                <input
+                  type="tel"
+                  value={momoPhone}
+                  onChange={(e) => setMomoPhone(e.target.value)}
+                  placeholder="0244123456"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono font-bold text-white outline-none focus:border-amber-400"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Settlement Type: Full Settlement vs Partial / Deposit */}
+          <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-[10px] font-black uppercase text-slate-300">Settlement Agreement</span>
+              <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                settlementType === 'FULL' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+              }`}>
+                {settlementType === 'FULL' ? '100% SETTLEMENT' : 'AR PATIENT DEBT'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSettlementType('FULL')}
+                className={`py-2 px-3 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer border text-center ${
+                  settlementType === 'FULL' 
+                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-md font-bold' 
+                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-750'
+                }`}
+              >
+                Full Settlement (100%)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSettlementType('PARTIAL')}
+                className={`py-2 px-3 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer border text-center ${
+                  settlementType === 'PARTIAL' 
+                    ? 'bg-rose-600 text-white border-rose-500 shadow-md font-bold' 
+                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-750'
+                }`}
+              >
+                Partial / Deposit
+              </button>
+            </div>
+
+            {/* Editable Tender Field for Partial Payment */}
+            {settlementType === 'PARTIAL' && (
+              <div className="pt-2 border-t border-slate-800 space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-300 block">
+                  Amount Tendered Today (₵ GHS)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-mono font-bold text-slate-400">₵</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max={patientOutofPocketPay}
+                    value={customAmountTendered}
+                    onChange={(e) => setCustomAmountTendered(e.target.value)}
+                    placeholder="250.00"
+                    className="w-full pl-7 pr-3 py-2 bg-slate-950 border border-slate-700 focus:border-rose-500 rounded-lg text-sm font-mono font-bold text-white outline-none"
+                  />
+                </div>
+
+                {/* Live Accounts Receivable Debt Notification */}
+                {outstandingBalanceDue > 0 && (
+                  <div className="p-2.5 bg-rose-950/40 border border-rose-800/80 rounded-lg text-rose-300 text-[10px] font-mono space-y-1">
+                    <div className="flex justify-between font-bold">
+                      <span className="uppercase">Balance Due (Accounts Receivable):</span>
+                      <span className="text-rose-400 font-extrabold text-xs">₵ {outstandingBalanceDue.toFixed(2)}</span>
+                    </div>
+                    <p className="text-[9px] text-rose-400 font-sans leading-tight">
+                      ⚠️ ₵{outstandingBalanceDue.toFixed(2)} will be attached as patient debt to {displayName}&apos;s MRN in the General Ledger.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Insurance Coverage Slider if Split Payer Selected */}
           {paymentMode === 'SplitPayer' && (
             <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-3">
@@ -539,12 +791,26 @@ export default function PatientInvoicePage() {
               </div>
             )}
 
+            <div className="flex justify-between text-slate-300">
+              <span className="font-sans text-[10px] uppercase font-bold">Total Patient Share Due</span>
+              <span>₵ {patientOutofPocketPay.toFixed(2)}</span>
+            </div>
+
             <div className="flex justify-between text-xl font-black text-white pt-2 border-t border-slate-800">
-              <span className="font-sans text-xs uppercase tracking-wider text-emerald-400">Patient Cash Out-of-Pocket</span>
+              <span className="font-sans text-xs uppercase tracking-wider text-emerald-400">
+                {settlementType === 'PARTIAL' ? 'Amount Tendered Today' : 'Patient Cash Out-of-Pocket'}
+              </span>
               <span className="text-emerald-400">
-                ₵ {patientOutofPocketPay.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ₵ {actualAmountPaidToday.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
+
+            {settlementType === 'PARTIAL' && outstandingBalanceDue > 0 && (
+              <div className="flex justify-between text-xs font-black text-rose-400 pt-1">
+                <span className="font-sans text-[10px] uppercase tracking-wider">Remaining Patient Debt (AR)</span>
+                <span>₵ {outstandingBalanceDue.toFixed(2)}</span>
+              </div>
+            )}
           </div>
 
           {/* Action Checkout Button */}
@@ -552,19 +818,88 @@ export default function PatientInvoicePage() {
             type="button"
             onClick={handleProcessPayment}
             disabled={loading}
-            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className={`w-full py-4 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
+              paymentMode === 'MobileMoney' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'
+            }`}
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
+            ) : paymentMode === 'MobileMoney' ? (
+              <>
+                <Smartphone className="w-4 h-4" />
+                <span>DISPATCH USSD MOMO PROMPT (₵{actualAmountPaidToday.toFixed(2)})</span>
+              </>
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4" />
-                <span>PROCESS PAYMENT & PRINT RECEIPT</span>
+                <span>
+                  {settlementType === 'PARTIAL' 
+                    ? `PROCESS PARTIAL DEPOSIT (₵${actualAmountPaidToday.toFixed(2)})` 
+                    : 'PROCESS PAYMENT & PRINT RECEIPT'}
+                </span>
               </>
             )}
           </button>
         </div>
       </div>
+
+      {/* ZERO-TRUST MOMO WAITING ROOM MODAL (Real-time Webhook Radar) */}
+      {isWaitingForMoMoWebhook && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 text-white p-8 rounded-3xl max-w-md w-full text-center space-y-6 shadow-2xl relative overflow-hidden">
+            
+            {/* Animated Radar Pulse */}
+            <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full bg-amber-500/20 animate-ping" />
+              <div className="absolute inset-2 rounded-full bg-amber-500/30 animate-pulse" />
+              <div className="relative w-14 h-14 bg-amber-500 rounded-full flex items-center justify-center text-slate-950 shadow-lg">
+                <Smartphone className="w-7 h-7" />
+              </div>
+            </div>
+
+            <div>
+              <span className="px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Awaiting Bank Webhook Settlement
+              </span>
+              <h2 className="text-xl font-black uppercase tracking-tight text-white mt-2">
+                USSD Prompt Sent to Phone
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Prompt delivered to <strong className="text-amber-300">{momoPhone} ({momoNetwork})</strong>. Patient must enter their MoMo PIN to authorize.
+              </p>
+            </div>
+
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2 text-left text-xs font-mono">
+              <div className="flex justify-between text-slate-400">
+                <span>Amount:</span>
+                <span className="text-amber-400 font-bold text-sm">₵ {patientOutofPocketPay.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Gateway Ref:</span>
+                <span className="text-slate-300 text-[10px]">{activePaystackRef}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Audit Status:</span>
+                <span className="text-amber-400 font-bold flex items-center gap-1.5 text-[10px]">
+                  <Loader2 className="w-3 h-3 animate-spin text-amber-400" /> LISTENING TO WEBHOOK
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-slate-500">
+              ⚡ The screen will automatically close and print the official receipt the exact millisecond Paystack confirms payment.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setIsWaitingForMoMoWebhook(false)}
+              className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase rounded-xl transition-all cursor-pointer"
+            >
+              Cancel / Switch Payment Method
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* DIGITAL PRINT RECEIPT MODAL & 80MM THERMAL RECEIPT */}
       {showReceiptModal && completedReceiptData && (
@@ -636,10 +971,10 @@ export default function PatientInvoicePage() {
               ))}
             </div>
 
-            {/* Totals & Net Out-of-Pocket */}
+            {/* Totals, Net Out-of-Pocket, and Outstanding Balance */}
             <div className="space-y-1.5 font-mono text-xs border-b border-slate-200 pb-3">
               <div className="flex justify-between font-sans text-[10px] text-slate-400 uppercase font-black">
-                <span>Gross Total</span>
+                <span>Gross Bill</span>
                 <span>₵ {completedReceiptData.grossTotal.toFixed(2)}</span>
               </div>
               {completedReceiptData.insuranceCoverageAmount > 0 && (
@@ -648,15 +983,31 @@ export default function PatientInvoicePage() {
                   <span>- ₵ {completedReceiptData.insuranceCoverageAmount.toFixed(2)}</span>
                 </div>
               )}
+              {completedReceiptData.totalPatientShare > completedReceiptData.patientOutofPocketPay && (
+                <div className="flex justify-between text-slate-600 text-[11px]">
+                  <span>Patient Total Due</span>
+                  <span>₵ {completedReceiptData.totalPatientShare.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-base font-black text-emerald-700 pt-1 border-t border-dashed border-slate-200">
-                <span className="font-sans text-xs uppercase">Net Amount Paid</span>
+                <span className="font-sans text-xs uppercase">Amount Paid Today</span>
                 <span>₵ {completedReceiptData.patientOutofPocketPay.toFixed(2)}</span>
               </div>
+
+              {/* Outstanding AR Debt Banner on Receipt */}
+              {completedReceiptData.outstandingBalanceDue > 0 && (
+                <div className="mt-2 p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 flex justify-between items-center font-bold">
+                  <span className="font-sans text-[9px] uppercase tracking-wider">Outstanding Balance (AR):</span>
+                  <span className="text-rose-700 font-extrabold text-xs">₵ {completedReceiptData.outstandingBalanceDue.toFixed(2)}</span>
+                </div>
+              )}
             </div>
 
             {/* Cryptographic Verification Footer */}
             <div className="text-center text-[9px] font-mono text-slate-400 pt-1">
-              <p className="uppercase font-bold text-slate-500">Thank you for your visit</p>
+              <p className="uppercase font-bold text-slate-500">
+                {completedReceiptData.isPartialPayment ? 'PARTIAL PAYMENT / DEBT NOTED' : 'Thank you for your visit'}
+              </p>
               <p className="mt-0.5">Verified System Audit Hash: #{completedReceiptData.receiptNumber?.slice(-6) || '772910'}</p>
             </div>
 

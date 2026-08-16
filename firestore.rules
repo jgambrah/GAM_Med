@@ -235,6 +235,10 @@ service cloud.firestore {
       allow read, write, list, get, create, update: if isSignedIn();
     }
 
+    match /{path=**}/patient_receivables/{recId} {
+      allow read, write, list, get, create, update: if isSignedIn();
+    }
+
 
 
 
@@ -633,6 +637,10 @@ service cloud.firestore {
       }
 
       match /shift_queries/{queryId} {
+        allow read, write, list, get, create, update: if isSuperAdmin() || isStaffOfHospital(hospitalId);
+      }
+
+      match /patient_receivables/{recId} {
         allow read, write, list, get, create, update: if isSuperAdmin() || isStaffOfHospital(hospitalId);
       }
 
