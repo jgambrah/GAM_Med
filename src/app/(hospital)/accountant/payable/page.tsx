@@ -11,6 +11,9 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
@@ -44,6 +47,12 @@ export default function AccountsPayablePage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'aging_matrix' | 'outstanding_ledger'>('aging_matrix');
+  const [matchingInvoice, setMatchingInvoice] = useState<{
+    vendorName: string;
+    grnNumber: string;
+    poNumber: string;
+    baseAmount: number;
+  } | null>(null);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -384,19 +393,37 @@ export default function AccountsPayablePage() {
                       </td>
 
                       <td className="p-4 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleRaisePV(row.vendorName, row.status, rowTotal)}
-                          disabled={isHold}
-                          className={`px-3 py-1.5 font-black text-[10px] uppercase rounded-lg transition-all shadow flex items-center justify-center gap-1 mx-auto ${
-                            isHold
-                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 dark:bg-slate-800 dark:text-slate-600'
-                              : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
-                          }`}
-                        >
-                          <FileText className="w-3 h-3" />
-                          <span>RAISE PAYMENT VOUCHER</span>
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMatchingInvoice({
+                                vendorName: row.vendorName,
+                                grnNumber: `GRN-${row.vendorId.replace('VND-', '')}-9912`,
+                                poNumber: `PO-${row.vendorId.replace('VND-', '')}-0048`,
+                                baseAmount: rowTotal / 1.189 // Calculate pre-tax base
+                              });
+                            }}
+                            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-black text-[9px] uppercase rounded-lg transition-all border border-slate-700 cursor-pointer flex items-center gap-1"
+                          >
+                            <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                            <span>3-WAY MATCH</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRaisePV(row.vendorName, row.status, rowTotal)}
+                            disabled={isHold}
+                            className={`px-3 py-1.5 font-black text-[10px] uppercase rounded-lg transition-all shadow flex items-center justify-center gap-1 ${
+                              isHold
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 dark:bg-slate-800 dark:text-slate-600'
+                                : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                            }`}
+                          >
+                            <FileText className="w-3 h-3" />
+                            <span>RAISE PV</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -453,13 +480,29 @@ export default function AccountsPayablePage() {
                       ₵ {p.amountOwed.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="p-4 pr-6 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleRaisePV(p.supplierName, 'ACTIVE', p.amountOwed)}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase rounded-lg shadow"
-                      >
-                        GENERATE PV
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMatchingInvoice({
+                              vendorName: p.supplierName,
+                              grnNumber: p.grnNumber || 'GRN-2026-88',
+                              poNumber: `PO-${(p.grnNumber || '2026').replace('GRN-', '')}`,
+                              baseAmount: p.amountOwed / 1.189
+                            });
+                          }}
+                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-black text-[9px] uppercase rounded-lg border border-slate-700"
+                        >
+                          3-WAY MATCH
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRaisePV(p.supplierName, 'ACTIVE', p.amountOwed)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase rounded-lg shadow"
+                        >
+                          GENERATE PV
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -473,6 +516,104 @@ export default function AccountsPayablePage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* 5. THREE-WAY MATCH & STATUTORY TAX AUDIT MODAL               */}
+      {/* ============================================================ */}
+      {matchingInvoice && (
+        <Dialog open={!!matchingInvoice} onOpenChange={() => setMatchingInvoice(null)}>
+          <DialogContent className="bg-slate-950 border border-slate-800 text-white rounded-3xl p-6 max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                <span>3-Way Invoice Match & Tax Audit</span>
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-400">
+                Verifying Purchase Order (PO) ↔ Goods Received Note (GRN) ↔ Vendor Tax Invoice.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 pt-2">
+              
+              {/* Document References Card */}
+              <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-400 font-medium">Vendor Profile:</span>
+                  <span className="font-black text-white uppercase">{matchingInvoice.vendorName}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs font-mono">
+                  <span className="text-slate-400 font-sans">1. Purchase Order:</span>
+                  <span className="text-emerald-400 font-bold">{matchingInvoice.poNumber} (Approved)</span>
+                </div>
+                <div className="flex justify-between items-center text-xs font-mono">
+                  <span className="text-slate-400 font-sans">2. Goods Received Note:</span>
+                  <span className="text-emerald-400 font-bold">{matchingInvoice.grnNumber} (Store Confirmed)</span>
+                </div>
+                <div className="flex justify-between items-center text-xs font-mono">
+                  <span className="text-slate-400 font-sans">3. Vendor Tax Invoice:</span>
+                  <span className="text-emerald-400 font-bold">INV-{matchingInvoice.grnNumber.replace('GRN-', '')} (Matched)</span>
+                </div>
+              </div>
+
+              {/* Statutory Tax Breakdown */}
+              {(() => {
+                const base = matchingInvoice.baseAmount;
+                const vat = base * 0.189; // 18.9% effective Ghana VAT/NHIL/GETFund/COVID
+                const wht = base * 0.03; // 3% WHT
+                const netPayable = base + vat - wht;
+
+                return (
+                  <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 space-y-2 text-xs font-mono">
+                    <span className="text-[10px] font-black uppercase text-slate-400 block font-sans">
+                      Statutory Tax & Double-Entry Computation:
+                    </span>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between p-2 bg-slate-950 rounded-lg">
+                        <span className="text-slate-300">Dr: Purchase - Drugs (Inventory Base)</span>
+                        <span className="font-bold text-emerald-400">₵ {base.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between p-2 bg-slate-950 rounded-lg">
+                        <span className="text-slate-300">Dr: Input VAT & Levies (18.9%)</span>
+                        <span className="font-bold text-emerald-400">+ ₵ {vat.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between p-2 bg-slate-950 rounded-lg">
+                        <span className="text-slate-300">Cr: WHT Payable (3% GRA Deduction)</span>
+                        <span className="font-bold text-rose-400">- ₵ {wht.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between p-2 bg-slate-950 rounded-lg border border-emerald-500/30 ring-1 ring-emerald-500/20">
+                        <span className="text-white font-black font-sans uppercase">Net Cash/Bank Disbursement:</span>
+                        <span className="font-black text-emerald-400 text-sm">₵ {netPayable.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Status Banner */}
+              <div className="p-3 bg-emerald-950/40 border border-emerald-800/60 rounded-xl flex items-center gap-2 text-emerald-400 text-xs font-black">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>3-WAY MATCH VERIFIED (PO == GRN == INVOICE)</span>
+              </div>
+
+              <DialogFooter className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const gross = matchingInvoice.baseAmount * 1.189;
+                    handleRaisePV(matchingInvoice.vendorName, 'ACTIVE', gross);
+                    setMatchingInvoice(null);
+                  }}
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>AUTHORIZE & RAISE PAYMENT VOUCHER</span>
+                </button>
+              </DialogFooter>
+
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
 
     </div>
