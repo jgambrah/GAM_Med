@@ -101,7 +101,7 @@ export default function IncomeStatement() {
       {/* 1. SIGNATURE DARK HERO COMMAND BANNER      */}
       {/* ========================================== */}
       <div className="bg-slate-950 text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden mb-6 border border-slate-800 no-print">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-400">
@@ -116,6 +116,8 @@ export default function IncomeStatement() {
             </p>
           </div>
 
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="hidden md:flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5">
               <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-white text-xs">
                 {userInitials}
               </div>
