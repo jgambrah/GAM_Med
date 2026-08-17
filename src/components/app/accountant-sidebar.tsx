@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Wallet, FolderTree, FileText, 
   Landmark, Building2, TrendingUp, CreditCard,
-  Settings, LogOut, ChevronRight, Calculator, ArrowLeftRight, BarChart3, Tag, Zap, UserCheck, History, AlertCircle, Calendar, Lock, TrendingDown, CheckCircle2, FileSearch, Library, Clock, GraduationCap, Award
+  Settings, LogOut, ChevronRight, Calculator, ArrowLeftRight, BarChart3, Tag, Zap, UserCheck, History, AlertCircle, Calendar, Lock, TrendingDown, CheckCircle2, FileSearch, Library, Clock, GraduationCap, Award, Scale
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -42,6 +42,7 @@ const menuGroups = [
   {
     title: "Revenue & Payables",
     items: [
+      { name: "Gateway Reconciliation", href: "/finance/gateway-reconciliation", icon: Scale },
       { name: "Accounts Payable", href: "/accountant/payable", icon: Landmark },
       { name: "Payer Registry", href: "/finance/receivables", icon: Building2 },
       { name: "AR Aging Report", href: "/finance/receivables/ledger", icon: TrendingUp },
