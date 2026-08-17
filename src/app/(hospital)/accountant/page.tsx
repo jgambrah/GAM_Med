@@ -98,8 +98,8 @@ export default function AccountantConsoleHub() {
     ] : []),
     {
       id: 'PV-7578-096425-1',
-      account: 'PURCHASE - DRUGS (INVENTORY)',
-      description: 'PAYMENT FOR GOODS RECEIVED AGAINST GRN #GRN-ZPM5-194',
+      account: 'PURCHASE - DRUGS (INVENTORY BASE)',
+      description: 'GOODS RECEIVED AGAINST GRN #GRN-ZPM5-194',
       amount: 2400.00,
       type: 'DEBIT' as const,
       ref: 'PV-7578-096425',
@@ -107,16 +107,16 @@ export default function AccountantConsoleHub() {
     },
     {
       id: 'PV-7578-096425-2',
-      account: 'INPUT VAT & STATUTORY LEVIES (18.9%)',
-      description: 'INPUT VAT + NHIL + GETFUND + COVID LEVY TAX CREDIT (GRN-ZPM5-194)',
-      amount: 453.60,
+      account: 'INPUT VAT & STATUTORY LEVIES (21.9% COMPOUNDED)',
+      description: 'INPUT VAT (15%) + NHIL (2.5%) + GETFUND (2.5%) + COVID LEVY (1%) TAX CREDIT',
+      amount: 525.60,
       type: 'DEBIT' as const,
       ref: 'PV-7578-096425',
       time: '10:42 AM'
     },
     {
       id: 'PV-7578-096425-3',
-      account: 'WHT PAYABLE (3% GRA TAX)',
+      account: 'WHT PAYABLE (3% GRA TAX DEDUCTION)',
       description: 'STATUTORY WITHHOLDING TAX DEDUCTED (3% OF ₵2,400 BASE)',
       amount: -72.00,
       type: 'CREDIT' as const,
@@ -126,16 +126,16 @@ export default function AccountantConsoleHub() {
     {
       id: 'PV-7578-096425-4',
       account: 'MAIN VAULT (CASH DISBURSED)',
-      description: 'NET PHYSICAL CASH PAID TO SUPPLIER (GROSS ₵2,853.60 - WHT ₵72.00)',
-      amount: -2781.60,
+      description: 'NET PHYSICAL CASH PAID TO SUPPLIER (GROSS ₵2,925.60 - WHT ₵72.00)',
+      amount: -2853.60,
       type: 'CREDIT' as const,
       ref: 'PV-7578-096425',
       time: '10:42 AM'
     },
     {
       id: 'PV-7578-793428-1',
-      account: 'PURCHASE - DRUGS (INVENTORY)',
-      description: 'PAYMENT FOR GOODS RECEIVED AGAINST GRN #GRN-318925',
+      account: 'PURCHASE - DRUGS (INVENTORY BASE)',
+      description: 'GOODS RECEIVED AGAINST GRN #GRN-318925',
       amount: 1850.00,
       type: 'DEBIT' as const,
       ref: 'PV-7578-793428',
@@ -143,16 +143,16 @@ export default function AccountantConsoleHub() {
     },
     {
       id: 'PV-7578-793428-2',
-      account: 'INPUT VAT & STATUTORY LEVIES (18.9%)',
-      description: 'INPUT VAT + NHIL + GETFUND + COVID LEVY (AABON VENTURES)',
-      amount: 349.65,
+      account: 'INPUT VAT & STATUTORY LEVIES (21.9% COMPOUNDED)',
+      description: 'INPUT VAT (15%) + NHIL (2.5%) + GETFUND (2.5%) + COVID LEVY (1%)',
+      amount: 405.15,
       type: 'DEBIT' as const,
       ref: 'PV-7578-793428',
       time: '09:15 AM'
     },
     {
       id: 'PV-7578-793428-3',
-      account: 'WHT PAYABLE (3% GRA TAX)',
+      account: 'WHT PAYABLE (3% GRA TAX DEDUCTION)',
       description: 'STATUTORY WITHHOLDING TAX DEDUCTED (3% OF ₵1,850 BASE)',
       amount: -55.50,
       type: 'CREDIT' as const,
@@ -162,8 +162,8 @@ export default function AccountantConsoleHub() {
     {
       id: 'PV-7578-793428-4',
       account: 'MAIN VAULT (CASH DISBURSED)',
-      description: 'NET PHYSICAL CASH PAID TO AABON VENTURES (GROSS ₵2,199.65 - WHT ₵55.50)',
-      amount: -2144.15,
+      description: 'NET PHYSICAL CASH PAID TO AABON VENTURES (GROSS ₵2,255.15 - WHT ₵55.50)',
+      amount: -2199.65,
       type: 'CREDIT' as const,
       ref: 'PV-7578-793428',
       time: '09:15 AM'
@@ -415,45 +415,21 @@ export default function AccountantConsoleHub() {
             </button>
           </div>
 
-          <div className="p-5 flex-1 bg-slate-50/30 dark:bg-slate-900">
+          <div className="p-5 flex-1 bg-slate-50/30 dark:bg-slate-900 overflow-y-auto max-h-[680px]">
             <div className="space-y-4">
-              {activeLedgerActivity.map((entry) => (
-                <div key={entry.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 shadow-sm hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors group">
-                  
-                  <div className="flex items-start gap-4">
-                    <div className={`p-2.5 rounded-lg shrink-0 mt-0.5 border ${
-                      entry.amount > 0 
-                        ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800' 
-                        : 'bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-800'
-                    }`}>
-                      <ArrowRightLeft className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h3 className="font-black text-slate-900 dark:text-slate-100 text-xs uppercase tracking-wide">
-                        {entry.account}
-                      </h3>
-                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1 max-w-md truncate" title={entry.description}>
-                        {entry.description}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="font-mono text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-                          REF: {entry.ref}
-                        </span>
-                        <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
-                          <CalendarDays className="w-3 h-3" /> {entry.time}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+              {(() => {
+                // Group active ledger entries by reference (e.g. PV-7578-096425)
+                const grouped = activeLedgerActivity.reduce((acc: Record<string, any[]>, entry: any) => {
+                  const refKey = entry.ref || 'GENERAL-TX';
+                  if (!acc[refKey]) acc[refKey] = [];
+                  acc[refKey].push(entry);
+                  return acc;
+                }, {});
 
-                  <div className="flex items-center justify-end">
-                    <div className={`text-lg font-mono font-black ${entry.amount > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                      {entry.amount > 0 ? '+' : '-'} <span className="text-xs mr-0.5">GHS</span>{Math.abs(entry.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                  </div>
-
-                </div>
-              ))}
+                return Object.entries(grouped).map(([refKey, lines]: [string, any]) => {
+                  return <JournalGroupCard key={refKey} refKey={refKey} lines={lines} />;
+                });
+              })()}
             </div>
           </div>
         </div>
@@ -647,3 +623,106 @@ export default function AccountantConsoleHub() {
     </div>
   );
 }
+
+function JournalGroupCard({ refKey, lines }: { refKey: string; lines: any[] }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const totalDebits = lines.reduce((acc, l) => acc + (l.type === 'DEBIT' ? Math.abs(l.amount) : 0), 0);
+  const totalCredits = lines.reduce((acc, l) => acc + (l.type === 'CREDIT' ? Math.abs(l.amount) : 0), 0);
+  const isBalanced = Math.abs(totalDebits - totalCredits) < 0.01 && totalDebits > 0;
+
+  const timeStr = lines[0]?.time || '10:42 AM';
+  const mainDescription = lines[0]?.description || 'PAYMENT VOUCHER DISBURSEMENT';
+
+  // If there are more than 2 lines (e.g. 4-leg VAT/WHT splits), show first 2 and allow expanding
+  const hasHiddenSplits = lines.length > 2;
+  const visibleLines = (isExpanded || !hasHiddenSplits) ? lines : [lines[0], lines[lines.length - 1]];
+
+  return (
+    <div className="bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm hover:border-indigo-400 dark:hover:border-indigo-600 transition-all space-y-3">
+      
+      {/* Group Header */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-700/60">
+        <div className="flex items-center gap-2">
+          <span className="font-mono font-black text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
+            REF: {refKey}
+          </span>
+          <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+            <CalendarDays className="w-3 h-3" /> {timeStr}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
+            isBalanced 
+              ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' 
+              : 'bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+          }`}>
+            {isBalanced ? `BALANCED: GHS ${totalDebits.toFixed(2)}` : `UNBALANCED DIFF: GHS ${Math.abs(totalDebits - totalCredits).toFixed(2)}`}
+          </span>
+        </div>
+      </div>
+
+      {/* Primary Narration */}
+      <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 truncate" title={mainDescription}>
+        {mainDescription}
+      </p>
+
+      {/* Double-Entry Legs */}
+      <div className="space-y-1.5 pt-1">
+        {visibleLines.map((line: any, idx: number) => {
+          const isDebit = line.type === 'DEBIT';
+          return (
+            <div 
+              key={line.id || idx} 
+              className={`flex items-center justify-between p-2.5 rounded-xl border text-xs ${
+                isDebit 
+                  ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/40' 
+                  : 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/40'
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded font-mono ${
+                  isDebit 
+                    ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-300' 
+                    : 'bg-rose-100 dark:bg-rose-900 text-rose-800 dark:text-rose-300'
+                }`}>
+                  {isDebit ? 'DR' : 'CR'}
+                </span>
+                <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                  {line.account}
+                </span>
+              </div>
+
+              <div className={`font-mono font-black shrink-0 ${isDebit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                {isDebit ? '+ ' : '- '} <span className="text-[10px] mr-0.5 font-sans">GHS</span>
+                {Math.abs(line.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Expand / Collapse Details Drawer */}
+      {hasHiddenSplits && (
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full mt-2 py-1.5 px-3 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+        >
+          {isExpanded ? (
+            <>
+              <span>▲ HIDE STATUTORY TAX SPLITS</span>
+            </>
+          ) : (
+            <>
+              <span>▼ AUDIT ALL {lines.length} LEGS (VIEW 21.9% VAT & 3% WHT SPLITS)</span>
+            </>
+          )}
+        </button>
+      )}
+
+    </div>
+  );
+}
+
