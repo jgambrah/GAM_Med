@@ -103,54 +103,54 @@ export default function AccountantConsoleHub() {
   const demoLedgerActivity = useMemo(() => [
     {
       id: 'PV-7578-096425-1',
-      account: 'PURCHASE - DRUGS',
+      account: 'PURCHASE - DRUGS (INVENTORY)',
       description: 'PAYMENT FOR GOODS RECEIVED AGAINST GRN #GRN-ZPM5-194',
-      amount: -2400.00,
+      amount: 2400.00,
       type: 'DEBIT',
       ref: 'PV-7578-096425',
       time: '10:42 AM'
     },
     {
       id: 'PV-7578-096425-2',
-      account: 'CASH',
-      description: 'PAYMENT FOR GOODS RECEIVED AGAINST GRN #GRN-ZPM5-194',
-      amount: 2853.60,
+      account: 'MAIN VAULT (CASH OUTFLOW)',
+      description: 'NET CASH DISBURSED TO SUPPLIER (GROSS ₵2,400 - 3% WHT ₵72)',
+      amount: -2328.00,
       type: 'CREDIT',
       ref: 'PV-7578-096425',
       time: '10:42 AM'
     },
     {
       id: 'PV-7578-096425-3',
-      account: 'WHT PAYABLE ACCOUNT',
-      description: 'WHT FOR AABON VENTURES ENTERPRISE',
-      amount: 72.00,
+      account: 'WHT PAYABLE (3% GRA TAX)',
+      description: 'STATUTORY WITHHOLDING TAX ON DRUG PURCHASE #GRN-ZPM5-194',
+      amount: -72.00,
       type: 'CREDIT',
       ref: 'PV-7578-096425',
       time: '10:42 AM'
     },
     {
       id: 'PV-7578-793428-1',
-      account: 'CASH',
+      account: 'PURCHASE - DRUGS (INVENTORY)',
       description: 'PAYMENT FOR GOODS RECEIVED AGAINST GRN #GRN-318925',
-      amount: 2199.65,
-      type: 'CREDIT',
-      ref: 'PV-7578-793428',
-      time: '09:15 AM'
-    },
-    {
-      id: 'PV-7578-793428-2',
-      account: 'PURCHASE - DRUGS',
-      description: 'PAYMENT FOR GOODS RECEIVED AGAINST GRN #GRN-318925',
-      amount: -1850.00,
+      amount: 1850.00,
       type: 'DEBIT',
       ref: 'PV-7578-793428',
       time: '09:15 AM'
     },
     {
+      id: 'PV-7578-793428-2',
+      account: 'MAIN VAULT (CASH OUTFLOW)',
+      description: 'NET CASH DISBURSED TO AABON VENTURES (GROSS ₵1,850 - 3% WHT ₵55.50)',
+      amount: -1794.50,
+      type: 'CREDIT',
+      ref: 'PV-7578-793428',
+      time: '09:15 AM'
+    },
+    {
       id: 'PV-7578-793428-3',
-      account: 'WHT PAYABLE ACCOUNT',
-      description: 'WHT FOR AABON VENTURES ENTERPRISE',
-      amount: 55.50,
+      account: 'WHT PAYABLE (3% GRA TAX)',
+      description: 'STATUTORY WITHHOLDING TAX ON DRUG PURCHASE (AABON VENTURES)',
+      amount: -55.50,
       type: 'CREDIT',
       ref: 'PV-7578-793428',
       time: '09:15 AM'
@@ -161,7 +161,7 @@ export default function AccountantConsoleHub() {
     if (recentTransactions && recentTransactions.length > 0) {
       return recentTransactions.map((tx: any, idx: number) => {
         const isDebit = (tx.debit || 0) > 0;
-        const val = isDebit ? -(tx.debit || 0) : (tx.credit || 0);
+        const val = isDebit ? (tx.debit || 0) : -(tx.credit || 0);
 
         let timeStr = '10:42 AM';
         if (tx.createdAt?.toDate) {
@@ -420,9 +420,21 @@ export default function AccountantConsoleHub() {
                       </span>
                     )}
                   </div>
-                  <div className={`text-xl font-mono font-black ${fund.balance < 0 ? 'text-rose-400' : 'text-white'}`}>
-                    <span className="text-xs text-slate-500 mr-1 font-sans">GHS</span>
-                    {fund.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <div className="flex items-center justify-between">
+                    <div className={`text-xl font-mono font-black ${fund.balance < 0 ? 'text-rose-400' : 'text-white'}`}>
+                      <span className="text-xs text-slate-500 mr-1 font-sans">GHS</span>
+                      {fund.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+
+                    {fund.type === 'CASH' && fund.balance < 0 && (
+                      <button
+                        type="button"
+                        onClick={() => router.push('/accountant/journals')}
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition-all shadow cursor-pointer flex items-center gap-1"
+                      >
+                        + REPLENISH FLOAT
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

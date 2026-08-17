@@ -385,6 +385,75 @@ export default function JournalEntryManager() {
       {/* ========================================== */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden space-y-4">
         
+        {/* Quick-Template Launchers */}
+        <div className="p-4 bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
+            ⚡ Quick Accounting Templates:
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setNarration('Main Vault Petty Cash Imprest Replenishment via Ecobank Operating Cheque #088192');
+                setLines([
+                  { accountId: 'acc-vault', accountName: '1015 - Main Vault Cash on Hand (Asset)', debit: 15000, credit: 0 },
+                  { accountId: 'acc-1', accountName: '1030 - Ecobank Corporate Operating Account (Asset)', debit: 0, credit: 15000 }
+                ]);
+                toast({ title: "Template Loaded: Vault Replenishment", description: "₵15,000.00 Imprest Replenishment pre-populated." });
+              }}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow cursor-pointer flex items-center gap-1.5"
+            >
+              🏦 + Replenish Vault Float (₵15,000)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setNarration('Emergency Generator Diesel Fuel & Power Logistics - 500 Liters');
+                setLines([
+                  { accountId: 'acc-power', accountName: '5030 - Electricity, Generator & Utilities Expense', debit: 2800, credit: 0 },
+                  { accountId: 'acc-vault', accountName: '1015 - Main Vault Cash on Hand (Asset)', debit: 0, credit: 2800 }
+                ]);
+                toast({ title: "Template Loaded: Fuel Logistics", description: "₵2,800.00 Diesel Logistics pre-populated." });
+              }}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border border-slate-700 cursor-pointer flex items-center gap-1.5"
+            >
+              ⚡ + Generator Diesel (₵2,800)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setNarration('Locum Specialist Obstetrician Weekend Shift Honorarium (Dr. B. Arthur)');
+                setLines([
+                  { accountId: 'acc-locum', accountName: '5020 - Clinical Locum Specialist Payroll Expense', debit: 3500, credit: 0 },
+                  { accountId: 'acc-vault', accountName: '1015 - Main Vault Cash on Hand (Asset)', debit: 0, credit: 3500 }
+                ]);
+                toast({ title: "Template Loaded: Locum Payment", description: "₵3,500.00 Doctor Locum honorarium pre-populated." });
+              }}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border border-slate-700 cursor-pointer flex items-center gap-1.5"
+            >
+              🩺 + Doctor Locum (₵3,500)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setNarration('Paystack Gateway MoMo Daily Settlement Batch #PSTK-SET-99120 Reclassification');
+                setLines([
+                  { accountId: 'acc-1', accountName: '1030 - Ecobank Corporate Operating Account (Asset)', debit: 49250, credit: 0 },
+                  { accountId: 'acc-6', accountName: '5040 - Bank Charges & Paystack Gateway Fees (Expense)', debit: 750, credit: 0 },
+                  { accountId: 'acc-momo-clear', accountName: '1020 - Paystack MoMo Settlement Clearing (Asset)', debit: 0, credit: 50000 }
+                ]);
+                toast({ title: "Template Loaded: Paystack Settlement", description: "₵50,000.00 3-Way Clearance pre-populated." });
+              }}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow cursor-pointer flex items-center gap-1.5"
+            >
+              📱 + Paystack Clearance (₵50,000)
+            </button>
+          </div>
+        </div>
+
         {/* General Narration & Supporting Documentation Drag-and-Drop */}
         <div className="p-6 bg-slate-50/50 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800 space-y-4">
           <div>
