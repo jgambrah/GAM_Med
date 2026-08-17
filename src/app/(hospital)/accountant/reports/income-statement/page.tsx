@@ -22,6 +22,10 @@ export default function IncomeStatement() {
   const userRole = userProfile?.role || 'ACCOUNTANT';
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'SUPER_ADMIN'].includes(userRole);
 
+  const hospitalRef = useMemoFirebase(() => hospitalId ? doc(firestore, 'hospitals', hospitalId) : null, [firestore, hospitalId]);
+  const { data: hospitalData } = useDoc(hospitalRef);
+  const facilityName = hospitalData?.name || hospitalData?.hospitalName || userProfile?.hospitalName || 'KOMFO ANOKYE TEACHING HOSPITAL';
+
   const accountsQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
     return query(collection(firestore, "hospitals", hospitalId, "chart_of_accounts"));
@@ -97,29 +101,21 @@ export default function IncomeStatement() {
       {/* 1. SIGNATURE DARK HERO COMMAND BANNER      */}
       {/* ========================================== */}
       <div className="bg-slate-950 text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden mb-6 border border-slate-800 no-print">
-        {/* Ambient Radial Accent Glows */}
-        <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-12 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-
-        {/* Top Row: Title, Subtitle, User Context */}
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8 relative z-10">
-          <div>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-400">
-                <TrendingUp className="w-7 h-7" />
+                <TrendingUp className="w-6 h-6" />
               </div>
-              <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-wider text-white">
-                PROFIT & LOSS (P&L) STATEMENT
+              <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-white flex items-center gap-3 font-sans">
+                Income Statement (P&L)
               </h1>
             </div>
-            <p className="mt-2 text-xs md:text-sm text-slate-400 font-medium">
-              CONSOLIDATED REVENUE RECOGNITION, OPERATING EXPENDITURES, AND NET SURPLUS PERFORMANCE.
+            <p className="text-slate-400 text-xs md:text-sm font-medium tracking-wide uppercase">
+              {facilityName} • GAAP & IFRS AUDITED PROFIT & LOSS PERFORMANCE
             </p>
           </div>
 
-          {/* User Context & Action Button */}
-          <div className="flex flex-wrap items-center gap-3 self-start xl:self-auto">
-            <div className="hidden md:flex items-center gap-3 bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2.5">
               <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-white text-xs">
                 {userInitials}
               </div>
