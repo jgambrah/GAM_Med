@@ -61,10 +61,40 @@ export default function BudgetingConsoleHub() {
   }, [firestore, hospitalId]);
   const { data: ledgerEntries, isLoading: isLedgerLoading } = useCollection(ledgerQuery);
 
-  // Filter COA for spendable categories: EXPENSES and ASSETS
+  // Filter COA strictly for Controllable OPEX (Operating Expenses) and Approved CAPEX (Capital Acquisitions)
   const spendableAccounts = useMemo(() => {
     if (!coa) return [];
-    return coa.filter(a => ['EXPENSES', 'ASSETS'].includes(a.category));
+    return coa.filter(a => {
+      const nameLower = (a.name || '').toLowerCase();
+      const code = a.accountCode || a.code || '';
+
+      // 1. Exclude Liquidity & Cash Holdings (Balance Sheet Assets)
+      const isCashOrBank = nameLower.includes('cash') || nameLower.includes('bank') || 
+                           nameLower.includes('vault') || nameLower.includes('imprest') || 
+                           nameLower.includes('clearing') || nameLower.includes('momo') ||
+                           ['1001', '1015', '1020', '1030'].includes(code);
+      if (isCashOrBank) return false;
+
+      // 2. Exclude Receivables & Debtors
+      const isReceivable = nameLower.includes('receivable') || nameLower.includes('debtor') || 
+                           nameLower.includes('claims pool') || ['1200', '1205'].includes(code);
+      if (isReceivable) return false;
+
+      // 3. Exclude Non-Cash Allocations & Contra-Assets
+      const isNonCashOrContra = nameLower.includes('depreciation') || nameLower.includes('amortization') || 
+                                nameLower.includes('accumulated') || ['1099', '5005'].includes(code);
+      if (isNonCashOrContra) return false;
+
+      // 4. Exclude Static Balance Sheet Inventory (Purchases go to OPEX)
+      const isInventoryAsset = nameLower.includes('inventory stock') || nameLower.includes('stock asset') || code === '1300';
+      if (isInventoryAsset) return false;
+
+      // 5. Allow all Controllable OPEX and Approved CAPEX additions
+      const isExpense = a.category === 'EXPENSES' || a.category === 'EXPENSE';
+      const isCapex = a.category === 'CAPEX' || nameLower.includes('capex') || nameLower.includes('acquisition');
+
+      return isExpense || isCapex;
+    });
   }, [coa]);
 
   // Compute spent amount for each account ID dynamically
@@ -79,11 +109,14 @@ export default function BudgetingConsoleHub() {
     return map;
   }, [ledgerEntries]);
 
+  // Demo Controllable OPEX & Approved CAPEX Baseline
   const demoAccounts = useMemo(() => [
-    { accountId: '1', accountCode: '1001', accountName: 'Cash', category: 'ASSETS', limit: 200000.00, spent: 0.00 },
-    { accountId: '2', accountCode: '4001', accountName: 'Purchase - Drugs', category: 'EXPENSES', limit: 200000.00, spent: 4250.00 },
-    { accountId: '3', accountCode: '1099', accountName: 'Accumulated Depreciation Account', category: 'ASSETS', limit: 150000.00, spent: 0.00 },
-    { accountId: '4', accountCode: '5005', accountName: 'Depreciation Expense Account', category: 'EXPENSES', limit: 120000.00, spent: 0.00 },
+    { accountId: '1', accountCode: '5001', accountName: 'Purchase - Drugs & Pharmacy Consumables', category: 'OPEX', limit: 250000.00, spent: 4250.00 },
+    { accountId: '2', accountCode: '5002', accountName: 'Clinical Staff Locum Fees & Doctor Allowances', category: 'OPEX', limit: 120000.00, spent: 0.00 },
+    { accountId: '3', accountCode: '5003', accountName: 'Hospital Utilities, Power & Generator Diesel', category: 'OPEX', limit: 85000.00, spent: 0.00 },
+    { accountId: '4', accountCode: '5004', accountName: 'Biomedical & Diagnostic Equipment Maintenance', category: 'OPEX', limit: 65000.00, spent: 0.00 },
+    { accountId: '5', accountCode: '5006', accountName: 'Surgical Consumables & Laboratory Reagents', category: 'OPEX', limit: 90000.00, spent: 0.00 },
+    { accountId: '6', accountCode: '1501', accountName: 'Approved Diagnostic Imaging CAPEX Acquisitions', category: 'CAPEX', limit: 150000.00, spent: 0.00 },
   ], []);
 
   // Combined budgeting rows
@@ -488,9 +521,10 @@ export default function BudgetingConsoleHub() {
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="bg-transparent focus:outline-none w-full cursor-pointer text-slate-800 dark:text-slate-100 font-bold"
             >
-              <option value="ALL" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">All Categories</option>
-              <option value="EXPENSES" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Operating Expenses</option>
-              <option value="ASSETS" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Capital Assets</option>
+              <option value="ALL" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">All Budget Lines</option>
+              <option value="OPEX" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Operating Expenses (OPEX)</option>
+              <option value="CAPEX" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Capital Expenditures (CAPEX)</option>
+              <option value="EXPENSES" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">General Expenses</option>
             </select>
           </div>
         </div>
