@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, updateDoc, serverTimestamp, orderBy } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, updateDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { 
   Landmark, FileText, CheckCircle2, AlertTriangle, Send, Filter, 
   Loader2, ShieldAlert, Check, X, Stethoscope
@@ -135,18 +135,21 @@ export default function InsuranceClaimsPage() {
   const handleApprove = async (claimId: string) => {
     setProcessingId(claimId);
     try {
+      const claimItem = claimsList.find(c => c.id === claimId);
+      
       if (firestore && hospitalId) {
-        try {
-          const claimRef = doc(firestore, `hospitals/${hospitalId}/payments`, claimId);
-          await updateDoc(claimRef, {
-            claimStatus: 'READY_FOR_BATCHING',
-            vettedBy: user?.uid || 'ACCOUNTANT',
-            vettedByName: userProfile?.fullName || userProfile?.name || user?.displayName || 'Samuel Korsah',
-            vettedAt: serverTimestamp()
-          });
-        } catch (dbErr) {
-          console.warn('Firestore payment claim update bypassed for sandbox/demo item:', dbErr);
-        }
+        const claimRef = doc(firestore, `hospitals/${hospitalId}/payments`, claimId);
+        await setDoc(claimRef, {
+          ...(claimItem || {}),
+          id: claimId,
+          hospitalId,
+          paymentMode: 'NHIS',
+          claimStatus: 'READY_FOR_BATCHING',
+          vettedBy: user?.uid || 'ACCOUNTANT',
+          vettedByName: userProfile?.fullName || userProfile?.name || user?.displayName || 'Samuel Korsah',
+          vettedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
       }
 
       setClaimsList(prev => prev.map(c => c.id === claimId ? { ...c, claimStatus: 'READY_FOR_BATCHING' } : c));
@@ -156,7 +159,7 @@ export default function InsuranceClaimsPage() {
         description: "Claim verified and routed to the NHIS / Corporate Batching Queue."
       });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Approval Note", description: e.message });
+      toast({ variant: "destructive", title: "Approval Failed", description: e.message });
     } finally {
       setProcessingId(null);
     }
@@ -168,19 +171,22 @@ export default function InsuranceClaimsPage() {
 
     setProcessingId(claimId);
     try {
+      const claimItem = claimsList.find(c => c.id === claimId);
+
       if (firestore && hospitalId) {
-        try {
-          const claimRef = doc(firestore, `hospitals/${hospitalId}/payments`, claimId);
-          await updateDoc(claimRef, {
-            claimStatus: 'QUERIED',
-            vettingRemarks: reason,
-            queriedBy: user?.uid || 'ACCOUNTANT',
-            queriedByName: userProfile?.fullName || userProfile?.name || user?.displayName || 'Samuel Korsah',
-            queriedAt: serverTimestamp()
-          });
-        } catch (dbErr) {
-          console.warn('Firestore payment query update bypassed for sandbox/demo item:', dbErr);
-        }
+        const claimRef = doc(firestore, `hospitals/${hospitalId}/payments`, claimId);
+        await setDoc(claimRef, {
+          ...(claimItem || {}),
+          id: claimId,
+          hospitalId,
+          paymentMode: 'NHIS',
+          claimStatus: 'QUERIED',
+          vettingRemarks: reason,
+          queriedBy: user?.uid || 'ACCOUNTANT',
+          queriedByName: userProfile?.fullName || userProfile?.name || user?.displayName || 'Samuel Korsah',
+          queriedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
       }
 
       setClaimsList(prev => prev.map(c => c.id === claimId ? { ...c, claimStatus: 'QUERIED', vettingRemarks: reason } : c));
