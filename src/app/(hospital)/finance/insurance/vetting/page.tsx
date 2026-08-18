@@ -15,14 +15,16 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
 type ClaimLineItem = {
-  id: string;
-  itemType: 'CONSULTATION' | 'PROCEDURE' | 'DRUG' | 'LAB' | 'RADIOLOGY';
+  itemId: string;
+  id?: string;
+  type: 'service' | 'procedure' | 'pharmacy' | 'lab' | 'radiology';
   description: string;
-  code?: string;
-  cptCode?: string;
-  hcpcsCode?: string;
-  primaryIcdLink?: string;
-  amount: number;
+  procedureCode: string;
+  icdPointer: string;
+  unitCost: number;
+  quantity: number;
+  total: number;
+  amount?: number;
   isZeroValue?: boolean;
   tariffPrice?: number;
   status?: 'OK' | 'UNPRICED' | 'MISSING_CODE';
@@ -30,12 +32,16 @@ type ClaimLineItem = {
 
 type VettingClaim = {
   id: string;
+  claimId?: string;
   patientName: string;
   policyNumber?: string;
   encounterDate?: string;
   payerName?: string;
+  payerId?: string;
   providerId?: string;
   icd10Code?: string;
+  primaryIcd10?: string;
+  diagnosisDescription?: string;
   cptCode?: string;
   gdrgCode?: string;
   diagnosis?: string;
@@ -84,19 +90,23 @@ export default function InsuranceVettingQueue() {
   }, [firestore, hospitalId]);
   const { data: rawClaims, isLoading: areClaimsLoading } = useCollection<VettingClaim>(claimsQuery);
 
-  // Demodata Fallback: Patient Encounter Level Dossiers with CPT / HCPCS & ICD-10 Medical Necessity Links
+  // Demodata Fallback: Standardized NoSQL Document Structure with procedureCode & icdPointer
   const demoClaims: VettingClaim[] = useMemo(() => [
     {
       id: 'clm-v-001',
+      claimId: 'clm-v-001',
       patientName: 'Janet Bonah',
+      payerId: 'NHIS-NATIONAL',
       policyNumber: 'NHIS-88291029',
       encounterDate: '2026-08-14',
       payerName: 'NHIS National Claims',
       providerId: 'NHIS',
       icd10Code: 'J45.901',
-      cptCode: 'CPT 99214 + 94640',
-      gdrgCode: 'G-DRG MED02B',
+      primaryIcd10: 'J45.901',
+      cptCode: '99214 + 94640',
+      gdrgCode: 'MED02B',
       diagnosis: 'Acute Severe Asthma Exacerbation & GERD',
+      diagnosisDescription: 'Acute Severe Asthma Exacerbation',
       description: 'Emergency Specialist Review + Pressurized Nebulization + Antacid Therapy',
       totalAmount: 480.00,
       claimStatus: 'PENDING_VETTING',
@@ -105,23 +115,27 @@ export default function InsuranceVettingQueue() {
       doctorNotes: 'Patient presented with acute severe wheezing and epigastric burning sensation. Responded well to pressurized nebulization.',
       createdAt: { toDate: () => new Date('2026-08-14T09:30:00') },
       lineItems: [
-        { id: 'li-01', itemType: 'CONSULTATION', description: 'Emergency Specialist Clinical Consultation (Level 4)', code: 'CON-01', cptCode: 'CPT 99214', primaryIcdLink: 'J45.901', amount: 180.00, status: 'OK' },
-        { id: 'li-02', itemType: 'PROCEDURE', description: 'Acute Pressurized Nebulization Therapy Treatment', code: 'PROC-NEB', cptCode: 'CPT 94640', primaryIcdLink: 'J45.901', amount: 120.00, status: 'OK' },
-        { id: 'li-03', itemType: 'DRUG', description: 'Salbutamol Inhaler 100mcg + IV Hydrocortisone 100mg', code: 'MED-SAL-01', hcpcsCode: 'HCPCS J7613 / J1720', primaryIcdLink: 'J45.901', amount: 180.00, status: 'OK' },
-        { id: 'li-04', itemType: 'DRUG', description: 'Nugel-O Antacid Suspension 200ml', code: 'DRG-NUG-01', hcpcsCode: 'HCPCS A4216', primaryIcdLink: 'K21.9', amount: 0.00, isZeroValue: true, tariffPrice: 45.00, status: 'UNPRICED' }
+        { itemId: 'itm-001', id: 'itm-001', type: 'service', description: 'Specialist Consultation (Level 4)', procedureCode: '99214', icdPointer: 'J45.901', unitCost: 180.00, quantity: 1, total: 180.00, amount: 180.00, status: 'OK' },
+        { itemId: 'itm-002', id: 'itm-002', type: 'procedure', description: 'Nebulization Treatment Therapy', procedureCode: '94640', icdPointer: 'J45.901', unitCost: 120.00, quantity: 1, total: 120.00, amount: 120.00, status: 'OK' },
+        { itemId: 'itm-003', id: 'itm-003', type: 'pharmacy', description: 'Salbutamol Inhaler 100mcg + IV Hydrocortisone', procedureCode: 'J7613', icdPointer: 'J45.901', unitCost: 180.00, quantity: 1, total: 180.00, amount: 180.00, status: 'OK' },
+        { itemId: 'itm-004', id: 'itm-004', type: 'pharmacy', description: 'Nugel-O Antacid Suspension 200ml', procedureCode: 'A4216', icdPointer: 'K21.9', unitCost: 0.00, quantity: 1, total: 0.00, amount: 0.00, isZeroValue: true, tariffPrice: 45.00, status: 'UNPRICED' }
       ]
     },
     {
       id: 'clm-v-002',
+      claimId: 'clm-v-002',
       patientName: 'Kofi Mensah',
+      payerId: 'NHIS-NATIONAL',
       policyNumber: 'NHIS-11029384',
       encounterDate: '2026-08-14',
       payerName: 'NHIS National Claims',
       providerId: 'NHIS',
       icd10Code: 'E54',
-      cptCode: 'CPT 99213',
-      gdrgCode: 'G-DRG PED01A',
+      primaryIcd10: 'E54',
+      cptCode: '99213',
+      gdrgCode: 'PED01A',
       diagnosis: 'Ascorbic Acid Nutritional Deficiency',
+      diagnosisDescription: 'Ascorbic Acid Deficiency (Vitamin C)',
       description: 'Pediatric Clinical Review & Nutritional Supplementation',
       totalAmount: 60.00,
       claimStatus: 'PENDING_VETTING',
@@ -130,21 +144,25 @@ export default function InsuranceVettingQueue() {
       doctorNotes: 'Pediatric general health check and nutritional supplementation.',
       createdAt: { toDate: () => new Date('2026-08-14T11:00:00') },
       lineItems: [
-        { id: 'li-05', itemType: 'CONSULTATION', description: 'General Outpatient Clinical Consultation (Level 3)', code: 'CON-OPD', cptCode: 'CPT 99213', primaryIcdLink: 'E54', amount: 60.00, status: 'OK' },
-        { id: 'li-06', itemType: 'DRUG', description: 'Vita C Syrup 100ml Bottle', code: 'DRG-VIT-01', hcpcsCode: 'HCPCS A9153', primaryIcdLink: 'E54', amount: 0.00, isZeroValue: true, tariffPrice: 25.00, status: 'UNPRICED' }
+        { itemId: 'itm-005', id: 'itm-005', type: 'service', description: 'General Outpatient Consultation', procedureCode: '99213', icdPointer: 'E54', unitCost: 60.00, quantity: 1, total: 60.00, amount: 60.00, status: 'OK' },
+        { itemId: 'itm-006', id: 'itm-006', type: 'pharmacy', description: 'Vita C Syrup 100ml Bottle', procedureCode: 'A9153', icdPointer: 'E54', unitCost: 0.00, quantity: 1, total: 0.00, amount: 0.00, isZeroValue: true, tariffPrice: 25.00, status: 'UNPRICED' }
       ]
     },
     {
       id: 'clm-v-003',
+      claimId: 'clm-v-003',
       patientName: 'Abena Mensah',
+      payerId: 'GLICO-HLTH',
       policyNumber: 'GLC-991204',
       encounterDate: '2026-08-14',
       payerName: 'GLICO Healthcare Ltd',
       providerId: 'GLICO',
       icd10Code: undefined, // Missing ICD-10 Code
-      cptCode: 'CPT 76700 + 85025',
-      gdrgCode: 'G-DRG RAD04',
+      primaryIcd10: undefined,
+      cptCode: '76700 + 85025',
+      gdrgCode: 'RAD04',
       diagnosis: 'Unspecified Acute Abdominal Pain',
+      diagnosisDescription: 'Unspecified Acute Abdominal Pain',
       description: 'Abdominal Ultrasound Scan & Full Blood Count Panel',
       totalAmount: 820.00,
       claimStatus: 'PENDING_VETTING',
@@ -153,22 +171,26 @@ export default function InsuranceVettingQueue() {
       doctorNotes: 'Severe epigastric tenderness. Ultrasound ordered to rule out acute cholecystitis.',
       createdAt: { toDate: () => new Date('2026-08-14T11:15:00') },
       lineItems: [
-        { id: 'li-07', itemType: 'RADIOLOGY', description: 'Abdominal & Pelvic Real-Time Ultrasound Scan', code: 'RAD-US-01', cptCode: 'CPT 76700', primaryIcdLink: 'R10.9', amount: 520.00, status: 'OK' },
-        { id: 'li-08', itemType: 'LAB', description: 'Complete Automated Blood Count (FBC) Panel', code: 'LAB-FBC-01', cptCode: 'CPT 85025', primaryIcdLink: 'R10.9', amount: 180.00, status: 'OK' },
-        { id: 'li-09', itemType: 'DRUG', description: 'Buscopan 10mg + Omeprazole 20mg Caps', code: 'MED-BUS-01', hcpcsCode: 'HCPCS J3490', primaryIcdLink: 'R10.9', amount: 120.00, status: 'OK' }
+        { itemId: 'itm-007', id: 'itm-007', type: 'radiology', description: 'Abdominal & Pelvic Ultrasound Scan', procedureCode: '76700', icdPointer: 'R10.9', unitCost: 520.00, quantity: 1, total: 520.00, amount: 520.00, status: 'OK' },
+        { itemId: 'itm-008', id: 'itm-008', type: 'lab', description: 'Complete Blood Count (FBC) Panel', procedureCode: '85025', icdPointer: 'R10.9', unitCost: 180.00, quantity: 1, total: 180.00, amount: 180.00, status: 'OK' },
+        { itemId: 'itm-009', id: 'itm-009', type: 'pharmacy', description: 'Buscopan 10mg + Omeprazole 20mg Caps', procedureCode: 'J3490', icdPointer: 'R10.9', unitCost: 120.00, quantity: 1, total: 120.00, amount: 120.00, status: 'OK' }
       ]
     },
     {
       id: 'clm-v-004',
+      claimId: 'clm-v-004',
       patientName: 'Emmanuel Appiah',
+      payerId: 'ACACIA-HLTH',
       policyNumber: 'ACA-771029',
       encounterDate: '2026-08-13',
       payerName: 'Acacia Health Insurance',
       providerId: 'ACACIA',
       icd10Code: 'E11.9',
-      cptCode: 'CPT 99214 + 83036',
-      gdrgCode: 'G-DRG MED11A',
+      primaryIcd10: 'E11.9',
+      cptCode: '99214 + 83036',
+      gdrgCode: 'MED11A',
       diagnosis: 'Type 2 Diabetes Mellitus without complications',
+      diagnosisDescription: 'Type 2 Diabetes Mellitus',
       description: 'Routine Endocrine Review + HbA1c Lab Panel + Metformin',
       totalAmount: 350.00,
       claimStatus: 'READY_FOR_BATCHING',
@@ -177,22 +199,26 @@ export default function InsuranceVettingQueue() {
       doctorNotes: 'Routine quarterly glycemic monitoring. Fasting blood glucose 6.8 mmol/L.',
       createdAt: { toDate: () => new Date('2026-08-13T14:00:00') },
       lineItems: [
-        { id: 'li-10', itemType: 'CONSULTATION', description: 'Endocrinology Specialist Clinical Review (Level 4)', code: 'CON-SPEC', cptCode: 'CPT 99214', primaryIcdLink: 'E11.9', amount: 150.00, status: 'OK' },
-        { id: 'li-11', itemType: 'LAB', description: 'Glycated Hemoglobin (HbA1c) Immunoassay Panel', code: 'LAB-HBA1C', cptCode: 'CPT 83036', primaryIcdLink: 'E11.9', amount: 120.00, status: 'OK' },
-        { id: 'li-12', itemType: 'DRUG', description: 'Metformin 500mg + Glibenclamide 5mg Oral Tabs', code: 'MED-DIAB', hcpcsCode: 'HCPCS J8499', primaryIcdLink: 'E11.9', amount: 80.00, status: 'OK' }
+        { itemId: 'itm-010', id: 'itm-010', type: 'service', description: 'Endocrinology Specialist Review', procedureCode: '99214', icdPointer: 'E11.9', unitCost: 150.00, quantity: 1, total: 150.00, amount: 150.00, status: 'OK' },
+        { itemId: 'itm-011', id: 'itm-011', type: 'lab', description: 'HbA1c Glycated Hemoglobin Panel', procedureCode: '83036', icdPointer: 'E11.9', unitCost: 120.00, quantity: 1, total: 120.00, amount: 120.00, status: 'OK' },
+        { itemId: 'itm-012', id: 'itm-012', type: 'pharmacy', description: 'Metformin 500mg + Glibenclamide 5mg Tabs', procedureCode: 'J8499', icdPointer: 'E11.9', unitCost: 80.00, quantity: 1, total: 80.00, amount: 80.00, status: 'OK' }
       ]
     },
     {
       id: 'clm-v-005',
+      claimId: 'clm-v-005',
       patientName: 'Grace Addo',
+      payerId: 'NHIS-NATIONAL',
       policyNumber: 'NHIS-33920194',
       encounterDate: '2026-08-12',
       payerName: 'NHIS National Claims',
       providerId: 'NHIS',
       icd10Code: 'B50.9',
-      cptCode: 'CPT 87899 + 96365',
-      gdrgCode: 'G-DRG INF01',
+      primaryIcd10: 'B50.9',
+      cptCode: '87899 + 96365',
+      gdrgCode: 'INF01',
       diagnosis: 'Plasmodium falciparum malaria, unspecified',
+      diagnosisDescription: 'Plasmodium Falciparum Malaria',
       description: 'Malaria RDT Immunoassay + Emergency IV Infusion Administration',
       totalAmount: 290.00,
       claimStatus: 'QUERIED',
@@ -202,9 +228,9 @@ export default function InsuranceVettingQueue() {
       doctorNotes: 'High grade fever (39.2C), severe chills, positive Malaria RDT.',
       createdAt: { toDate: () => new Date('2026-08-12T16:45:00') },
       lineItems: [
-        { id: 'li-13', itemType: 'LAB', description: 'Malaria Rapid Diagnostic Test (RDT) Immunoassay', code: 'LAB-MAL', cptCode: 'CPT 87899', primaryIcdLink: 'B50.9', amount: 50.00, status: 'OK' },
-        { id: 'li-14', itemType: 'PROCEDURE', description: 'Emergency Intravenous Infusion Administration Therapy', code: 'PROC-INF', cptCode: 'CPT 96365', primaryIcdLink: 'B50.9', amount: 90.00, status: 'OK' },
-        { id: 'li-15', itemType: 'DRUG', description: 'IV Artesunate 60mg Injection + Coartem 80/480mg Tabs', code: 'MED-ART', hcpcsCode: 'HCPCS J0129', primaryIcdLink: 'B50.9', amount: 150.00, status: 'OK' }
+        { itemId: 'itm-013', id: 'itm-013', type: 'lab', description: 'Malaria Rapid Diagnostic Test (RDT)', procedureCode: '87899', icdPointer: 'B50.9', unitCost: 50.00, quantity: 1, total: 50.00, amount: 50.00, status: 'OK' },
+        { itemId: 'itm-014', id: 'itm-014', type: 'procedure', description: 'Emergency IV Infusion Administration', procedureCode: '96365', icdPointer: 'B50.9', unitCost: 90.00, quantity: 1, total: 90.00, amount: 90.00, status: 'OK' },
+        { itemId: 'itm-015', id: 'itm-015', type: 'pharmacy', description: 'IV Artesunate 60mg + Coartem Tabs', procedureCode: 'J0129', icdPointer: 'B50.9', unitCost: 150.00, quantity: 1, total: 150.00, amount: 150.00, status: 'OK' }
       ]
     }
   ], []);
@@ -327,14 +353,23 @@ export default function InsuranceVettingQueue() {
     setClaimsList(prev => prev.map(c => {
       if (c.id !== claimId) return c;
       const updatedLines = (c.lineItems || []).map(li => {
-        if (lineItemId ? li.id === lineItemId : li.isZeroValue) {
+        const matches = lineItemId ? (li.itemId === lineItemId || li.id === lineItemId) : (li.isZeroValue || li.total === 0);
+        if (matches) {
           const price = li.tariffPrice || 45.00;
-          return { ...li, amount: price, isZeroValue: false, status: 'OK' as const };
+          return { 
+            ...li, 
+            amount: price, 
+            unitCost: price,
+            total: price,
+            procedureCode: li.procedureCode || 'A4216',
+            isZeroValue: false, 
+            status: 'OK' as const 
+          };
         }
         return li;
       });
       const newTotal = updatedLines.length > 0
-        ? updatedLines.reduce((sum, item) => sum + item.amount, 0)
+        ? updatedLines.reduce((sum, item) => sum + (item.total || item.amount || 0), 0)
         : (c.totalAmount || 0) + 45.00;
 
       return {
@@ -348,14 +383,23 @@ export default function InsuranceVettingQueue() {
       setSelectedClaim(prev => {
         if (!prev) return null;
         const updatedLines = (prev.lineItems || []).map(li => {
-          if (lineItemId ? li.id === lineItemId : li.isZeroValue) {
+          const matches = lineItemId ? (li.itemId === lineItemId || li.id === lineItemId) : (li.isZeroValue || li.total === 0);
+          if (matches) {
             const price = li.tariffPrice || 45.00;
-            return { ...li, amount: price, isZeroValue: false, status: 'OK' as const };
+            return { 
+              ...li, 
+              amount: price, 
+              unitCost: price,
+              total: price,
+              procedureCode: li.procedureCode || 'A4216',
+              isZeroValue: false, 
+              status: 'OK' as const 
+            };
           }
           return li;
         });
         const newTotal = updatedLines.length > 0
-          ? updatedLines.reduce((sum, item) => sum + item.amount, 0)
+          ? updatedLines.reduce((sum, item) => sum + (item.total || item.amount || 0), 0)
           : (prev.totalAmount || 0) + 45.00;
 
         return {
@@ -896,18 +940,14 @@ export default function InsuranceVettingQueue() {
                               </span>
                             </td>
                             <td className="p-3">
-                              <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300">
-                                {item.cptCode || item.hcpcsCode || 'Standard Tariff'}
+                              <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded text-[10px] font-mono font-bold text-blue-700 dark:text-blue-300">
+                                CPT/TARIFF: {item.procedureCode}
                               </span>
                             </td>
                             <td className="p-3">
-                              {item.primaryIcdLink ? (
-                                <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300">
-                                  Linked: {item.primaryIcdLink}
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-slate-400 italic">Global Encounter</span>
-                              )}
+                              <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300">
+                                PTR: {item.icdPointer}
+                              </span>
                             </td>
                             <td className="p-3 text-right font-mono font-bold">
                               {isZero ? (
