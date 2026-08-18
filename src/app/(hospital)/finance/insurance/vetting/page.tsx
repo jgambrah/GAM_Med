@@ -605,6 +605,38 @@ export default function InsuranceVettingQueue() {
                       </div>
                     </div>
 
+                    {/* NESTED ENCOUNTER LINE ITEMS BUNDLE */}
+                    {c.lineItems && c.lineItems.length > 0 && (
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-1 pl-3 border-l-2 border-emerald-500/50">
+                        <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">
+                          ENCOUNTER LINE ITEMS ({c.lineItems.length})
+                        </span>
+                        <div className="space-y-1">
+                          {c.lineItems.map(item => {
+                            const isZero = item.isZeroValue || item.amount === 0;
+                            return (
+                              <div key={item.id} className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-slate-800 dark:text-slate-200">{item.description}</span>
+                                  {isZero && (
+                                    <span className="px-1.5 py-0.5 bg-rose-500 text-white text-[8px] font-black uppercase rounded animate-pulse">
+                                      ZERO VALUE ALERT
+                                    </span>
+                                  )}
+                                  {item.code && (
+                                    <span className="text-[9px] font-mono text-slate-400 font-medium">({item.code})</span>
+                                  )}
+                                </div>
+                                <span className={`font-mono font-bold text-xs ${isZero ? 'text-rose-500 font-extrabold' : 'text-slate-700 dark:text-slate-300'}`}>
+                                  ₵ {item.amount.toFixed(2)}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/80 text-xs">
                       <div className="flex items-center gap-2">
                         {c.icd10Code ? (
@@ -616,10 +648,15 @@ export default function InsuranceVettingQueue() {
                             NO ICD-10
                           </span>
                         )}
+                        {c.lineItems && c.lineItems.some(li => li.isZeroValue) && (
+                          <span className="px-2 py-0.5 bg-amber-500 text-slate-950 text-[9px] font-black uppercase rounded">
+                            UNPRICED SUB-ITEMS
+                          </span>
+                        )}
                       </div>
 
                       <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                        <span>Review Details</span>
+                        <span>Review & Price Details</span>
                         <ArrowUpRight className="w-3.5 h-3.5" />
                       </span>
                     </div>
