@@ -14,6 +14,17 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
+type ClaimLineItem = {
+  id: string;
+  itemType: 'CONSULTATION' | 'PROCEDURE' | 'DRUG' | 'LAB' | 'RADIOLOGY';
+  description: string;
+  code?: string;
+  amount: number;
+  isZeroValue?: boolean;
+  tariffPrice?: number;
+  status?: 'OK' | 'UNPRICED' | 'MISSING_CODE';
+};
+
 type VettingClaim = {
   id: string;
   patientName: string;
@@ -34,6 +45,7 @@ type VettingClaim = {
   prescribedDrugs?: string[];
   doctorNotes?: string;
   createdAt?: { toDate: () => Date } | any;
+  lineItems?: ClaimLineItem[];
 };
 
 export default function InsuranceVettingQueue() {
@@ -67,7 +79,7 @@ export default function InsuranceVettingQueue() {
   }, [firestore, hospitalId]);
   const { data: rawClaims, isLoading: areClaimsLoading } = useCollection<VettingClaim>(claimsQuery);
 
-  // Demodata Fallback featuring Janet Bonah, Nugel-O zero-value claims
+  // Demodata Fallback: Patient Encounter Level Dossiers with Nested Line Items
   const demoClaims: VettingClaim[] = useMemo(() => [
     {
       id: 'clm-v-001',
@@ -77,68 +89,66 @@ export default function InsuranceVettingQueue() {
       payerName: 'NHIS National Claims',
       providerId: 'NHIS',
       icd10Code: 'J45.901',
-      diagnosis: 'Acute Severe Asthma Exacerbation',
-      description: 'Specialist Consultation + Nebulization + Salbutamol',
+      diagnosis: 'Acute Severe Asthma Exacerbation & GERD',
+      description: 'Emergency Specialist Review + Nebulization + Antacid',
       totalAmount: 480.00,
       claimStatus: 'PENDING_VETTING',
       preAuthCode: 'PA-NHIA-99201',
-      prescribedDrugs: ['Salbutamol Inhaler 100mcg', 'IV Hydrocortisone 100mg', 'Nebulizer Solution'],
-      doctorNotes: 'Patient presented with acute dyspnea, wheezing, and chest tightness. Responded well to nebulization.',
-      createdAt: { toDate: () => new Date('2026-08-14T09:30:00') }
+      prescribedDrugs: ['Salbutamol Inhaler 100mcg', 'IV Hydrocortisone 100mg', 'Nugel-O Antacid 200ml'],
+      doctorNotes: 'Patient presented with acute severe wheezing and epigastric burning sensation. Responded well to nebulization.',
+      createdAt: { toDate: () => new Date('2026-08-14T09:30:00') },
+      lineItems: [
+        { id: 'li-01', itemType: 'CONSULTATION', description: 'Emergency Specialist Clinical Consultation', code: 'CON-01', amount: 180.00, status: 'OK' },
+        { id: 'li-02', itemType: 'PROCEDURE', description: 'Acute Emergency Nebulization Therapy', code: 'PROC-NEB', amount: 120.00, status: 'OK' },
+        { id: 'li-03', itemType: 'DRUG', description: 'Salbutamol Inhaler 100mcg + IV Hydrocortisone', code: 'MED-SAL-01', amount: 180.00, status: 'OK' },
+        { id: 'li-04', itemType: 'DRUG', description: 'Nugel-O Antacid Suspension 200ml', code: 'DRG-NUG-01', amount: 0.00, isZeroValue: true, tariffPrice: 45.00, status: 'UNPRICED' }
+      ]
     },
     {
       id: 'clm-v-002',
-      patientName: 'Nugel-O Dispense (Janet Bonah)',
-      policyNumber: 'NHIS-88291029',
-      encounterDate: '2026-08-14',
-      payerName: 'NHIS National Claims',
-      providerId: 'NHIS',
-      icd10Code: 'K21.9',
-      diagnosis: 'Gastro-esophageal reflux disease without esophagitis',
-      description: 'Nugel-O Antacid Suspension 200ml',
-      totalAmount: 0.00, // ZERO VALUE LEAKAGE ALERT
-      claimStatus: 'PENDING_VETTING',
-      preAuthCode: undefined,
-      prescribedDrugs: ['Nugel-O Antacid 200ml'],
-      doctorNotes: 'Epigastric burning sensation after meals. Prescribed antacid suspension.',
-      createdAt: { toDate: () => new Date('2026-08-14T10:15:00') }
-    },
-    {
-      id: 'clm-v-003',
-      patientName: 'Vita C Syrup (Kofi Mensah)',
+      patientName: 'Kofi Mensah',
       policyNumber: 'NHIS-11029384',
       encounterDate: '2026-08-14',
       payerName: 'NHIS National Claims',
       providerId: 'NHIS',
       icd10Code: 'E54',
-      diagnosis: 'Ascorbic acid deficiency',
-      description: 'Vita C Syrup 100ml Bottle',
-      totalAmount: 0.00, // ZERO VALUE LEAKAGE ALERT
+      diagnosis: 'Ascorbic Acid Nutritional Deficiency',
+      description: 'Pediatric Clinical Review & Nutritional Supplementation',
+      totalAmount: 60.00,
       claimStatus: 'PENDING_VETTING',
       preAuthCode: undefined,
-      prescribedDrugs: ['Vita C Syrup 100ml'],
-      doctorNotes: 'Pediatric general health tonic supplement.',
-      createdAt: { toDate: () => new Date('2026-08-14T11:00:00') }
+      prescribedDrugs: ['Vita C Syrup 100ml Bottle'],
+      doctorNotes: 'Pediatric general health check and nutritional supplementation.',
+      createdAt: { toDate: () => new Date('2026-08-14T11:00:00') },
+      lineItems: [
+        { id: 'li-05', itemType: 'CONSULTATION', description: 'General Outpatient Clinical Consultation', code: 'CON-OPD', amount: 60.00, status: 'OK' },
+        { id: 'li-06', itemType: 'DRUG', description: 'Vita C Syrup 100ml Bottle', code: 'DRG-VIT-01', amount: 0.00, isZeroValue: true, tariffPrice: 25.00, status: 'UNPRICED' }
+      ]
     },
     {
-      id: 'clm-v-004',
+      id: 'clm-v-003',
       patientName: 'Abena Mensah',
       policyNumber: 'GLC-991204',
       encounterDate: '2026-08-14',
       payerName: 'GLICO Healthcare Ltd',
       providerId: 'GLICO',
       icd10Code: undefined, // Missing ICD-10 Code
-      diagnosis: 'Unspecified Abdominal Pain',
+      diagnosis: 'Unspecified Acute Abdominal Pain',
       description: 'Abdominal Ultrasound Scan & Full Blood Count',
       totalAmount: 820.00,
       claimStatus: 'PENDING_VETTING',
       preAuthCode: undefined,
       prescribedDrugs: ['Buscopan 10mg Tabs', 'Omeprazole 20mg Caps'],
-      doctorNotes: 'Severe epigastric tenderness. Ultrasound ordered to rule out cholecystitis.',
-      createdAt: { toDate: () => new Date('2026-08-14T11:15:00') }
+      doctorNotes: 'Severe epigastric tenderness. Ultrasound ordered to rule out acute cholecystitis.',
+      createdAt: { toDate: () => new Date('2026-08-14T11:15:00') },
+      lineItems: [
+        { id: 'li-07', itemType: 'RADIOLOGY', description: 'Abdominal & Pelvic Ultrasound Scan', code: 'RAD-US-01', amount: 520.00, status: 'OK' },
+        { id: 'li-08', itemType: 'LAB', description: 'Full Blood Count (FBC) Hematology Panel', code: 'LAB-FBC-01', amount: 180.00, status: 'OK' },
+        { id: 'li-09', itemType: 'DRUG', description: 'Buscopan 10mg + Omeprazole 20mg Caps', code: 'MED-BUS-01', amount: 120.00, status: 'OK' }
+      ]
     },
     {
-      id: 'clm-v-005',
+      id: 'clm-v-004',
       patientName: 'Emmanuel Appiah',
       policyNumber: 'ACA-771029',
       encounterDate: '2026-08-13',
@@ -152,10 +162,15 @@ export default function InsuranceVettingQueue() {
       preAuthCode: 'PA-ACA-44102',
       prescribedDrugs: ['Metformin 500mg Tabs x 60', 'Glibenclamide 5mg Tabs'],
       doctorNotes: 'Routine quarterly glycemic monitoring. Fasting blood glucose 6.8 mmol/L.',
-      createdAt: { toDate: () => new Date('2026-08-13T14:00:00') }
+      createdAt: { toDate: () => new Date('2026-08-13T14:00:00') },
+      lineItems: [
+        { id: 'li-10', itemType: 'CONSULTATION', description: 'Endocrinology Specialist Review', code: 'CON-SPEC', amount: 150.00, status: 'OK' },
+        { id: 'li-11', itemType: 'LAB', description: 'Glycated Hemoglobin (HbA1c) Panel', code: 'LAB-HBA1C', amount: 120.00, status: 'OK' },
+        { id: 'li-12', itemType: 'DRUG', description: 'Metformin 500mg + Glibenclamide 5mg', code: 'MED-DIAB', amount: 80.00, status: 'OK' }
+      ]
     },
     {
-      id: 'clm-v-006',
+      id: 'clm-v-005',
       patientName: 'Grace Addo',
       policyNumber: 'NHIS-33920194',
       encounterDate: '2026-08-12',
@@ -170,7 +185,12 @@ export default function InsuranceVettingQueue() {
       preAuthCode: undefined,
       prescribedDrugs: ['IV Artesunate 60mg', 'Coartem 80/480mg Tabs'],
       doctorNotes: 'High grade fever (39.2C), severe chills, positive Malaria RDT.',
-      createdAt: { toDate: () => new Date('2026-08-12T16:45:00') }
+      createdAt: { toDate: () => new Date('2026-08-12T16:45:00') },
+      lineItems: [
+        { id: 'li-13', itemType: 'LAB', description: 'Malaria Rapid Diagnostic Test (RDT)', code: 'LAB-MAL', amount: 50.00, status: 'OK' },
+        { id: 'li-14', itemType: 'PROCEDURE', description: 'Emergency IV Infusion Administration', code: 'PROC-INF', amount: 90.00, status: 'OK' },
+        { id: 'li-15', itemType: 'DRUG', description: 'IV Artesunate 60mg + Coartem 80/480mg', code: 'MED-ART', amount: 150.00, status: 'OK' }
+      ]
     }
   ], []);
 
@@ -178,7 +198,8 @@ export default function InsuranceVettingQueue() {
     const list = rawClaims && rawClaims.length > 0 ? rawClaims : demoClaims;
     return list.map(c => ({
       ...c,
-      claimStatus: c.claimStatus || (c.status === 'READY_FOR_BATCHING' ? 'READY_FOR_BATCHING' : c.status === 'QUERIED' ? 'QUERIED' : 'PENDING_VETTING')
+      totalAmount: c.totalAmount !== undefined ? c.totalAmount : (c.total || c.amount || 0),
+      claimStatus: c.claimStatus || (c.status === 'SUBMITTED' ? 'READY_FOR_BATCHING' : 'PENDING_VETTING')
     }));
   });
 
@@ -287,24 +308,79 @@ export default function InsuranceVettingQueue() {
     }
   };
 
-  const handleResolveZeroValueTariff = (claimId: string) => {
-    const defaultTariffPrice = 45.00; // NHIA standard antacid tariff price
-    setClaimsList(prev => prev.map(c => c.id === claimId ? { ...c, totalAmount: defaultTariffPrice } : c));
+  const handleResolveZeroValueTariff = (claimId: string, lineItemId?: string) => {
+    setClaimsList(prev => prev.map(c => {
+      if (c.id !== claimId) return c;
+      const updatedLines = (c.lineItems || []).map(li => {
+        if (lineItemId ? li.id === lineItemId : li.isZeroValue) {
+          const price = li.tariffPrice || 45.00;
+          return { ...li, amount: price, isZeroValue: false, status: 'OK' as const };
+        }
+        return li;
+      });
+      const newTotal = updatedLines.length > 0
+        ? updatedLines.reduce((sum, item) => sum + item.amount, 0)
+        : (c.totalAmount || 0) + 45.00;
+
+      return {
+        ...c,
+        totalAmount: newTotal,
+        lineItems: updatedLines
+      };
+    }));
+
     if (selectedClaim?.id === claimId) {
-      setSelectedClaim(prev => prev ? { ...prev, totalAmount: defaultTariffPrice } : null);
+      setSelectedClaim(prev => {
+        if (!prev) return null;
+        const updatedLines = (prev.lineItems || []).map(li => {
+          if (lineItemId ? li.id === lineItemId : li.isZeroValue) {
+            const price = li.tariffPrice || 45.00;
+            return { ...li, amount: price, isZeroValue: false, status: 'OK' as const };
+          }
+          return li;
+        });
+        const newTotal = updatedLines.length > 0
+          ? updatedLines.reduce((sum, item) => sum + item.amount, 0)
+          : (prev.totalAmount || 0) + 45.00;
+
+        return {
+          ...prev,
+          totalAmount: newTotal,
+          lineItems: updatedLines
+        };
+      });
     }
+
     toast({
-      title: "Tariff Price Applied",
-      description: `Pulled NHIA Tariff Master price GHS ${defaultTariffPrice.toFixed(2)}.`
+      title: "Tariff Master Applied",
+      description: "Priced dispensary item and updated claim total."
     });
   };
 
-  const handleRouteToOutofPocketCash = (claimId: string) => {
-    setClaimsList(prev => prev.filter(c => c.id !== claimId));
-    if (selectedClaim?.id === claimId) setSelectedClaim(null);
+  const handleRouteToOutofPocketCash = (claimId: string, lineItemId?: string) => {
+    setClaimsList(prev => prev.map(c => {
+      if (c.id !== claimId) return c;
+      const updatedLines = (c.lineItems || []).filter(li => lineItemId ? li.id !== lineItemId : !li.isZeroValue);
+      return {
+        ...c,
+        lineItems: updatedLines
+      };
+    }));
+
+    if (selectedClaim?.id === claimId) {
+      setSelectedClaim(prev => {
+        if (!prev) return null;
+        const updatedLines = (prev.lineItems || []).filter(li => lineItemId ? li.id !== lineItemId : !li.isZeroValue);
+        return {
+          ...prev,
+          lineItems: updatedLines
+        };
+      });
+    }
+
     toast({
-      title: "Routed to Cash Bill",
-      description: "Non-covered zero-value item transferred to patient out-of-pocket cash bill."
+      title: "Item Routed to Patient Bill",
+      description: "Non-covered medication moved to patient direct out-of-pocket cash receipt."
     });
   };
 
@@ -678,65 +754,156 @@ export default function InsuranceVettingQueue() {
               </p>
             </div>
 
-            {/* Prescribed Drugs & Dispensing Record */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-black uppercase text-slate-400 block flex items-center gap-1">
-                <Pill className="w-3.5 h-3.5 text-emerald-500" /> Pharmacy Dispensing & Medical Orders
-              </span>
-              <ul className="space-y-1.5">
-                {selectedClaim.prescribedDrugs && selectedClaim.prescribedDrugs.length > 0 ? (
-                  selectedClaim.prescribedDrugs.map((drug, i) => (
-                    <li key={i} className="text-xs font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
-                      • {drug}
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-xs italic text-slate-400">Standard Consultation & Diagnostic Order</li>
-                )}
-              </ul>
+            {/* Prescribed Services, Diagnostics & Pharmacy Line Items Table */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-slate-400 block flex items-center gap-1.5">
+                  <Pill className="w-3.5 h-3.5 text-emerald-500" />
+                  Encounter Services, Lab Panels & Pharmacy Breakdown
+                </span>
+                <span className="text-[10px] font-bold text-slate-400">
+                  {selectedClaim.lineItems?.length || 0} Billed Line Items
+                </span>
+              </div>
+
+              <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase font-black tracking-wider text-slate-500">
+                    <tr>
+                      <th className="p-3">Service / Drug Item</th>
+                      <th className="p-3">Type</th>
+                      <th className="p-3 text-right">Amount</th>
+                      <th className="p-3 text-right">Audit Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {selectedClaim.lineItems && selectedClaim.lineItems.length > 0 ? (
+                      selectedClaim.lineItems.map((item) => {
+                        const isZero = item.isZeroValue || item.amount === 0;
+                        return (
+                          <tr key={item.id} className={isZero ? 'bg-amber-500/10' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/30'}>
+                            <td className="p-3">
+                              <div className="font-bold text-slate-900 dark:text-slate-100">{item.description}</div>
+                              {item.code && (
+                                <span className="text-[10px] font-mono text-slate-400 font-medium">Code: {item.code}</span>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                                item.itemType === 'DRUG' ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' :
+                                item.itemType === 'LAB' ? 'bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300' :
+                                item.itemType === 'RADIOLOGY' ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300' :
+                                'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                              }`}>
+                                {item.itemType}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right font-mono font-bold">
+                              {isZero ? (
+                                <span className="text-rose-600 dark:text-rose-400 font-black">₵ 0.00</span>
+                              ) : (
+                                <span className="text-slate-900 dark:text-slate-100">₵ {item.amount.toFixed(2)}</span>
+                              )}
+                            </td>
+                            <td className="p-3 text-right">
+                              {isZero ? (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResolveZeroValueTariff(selectedClaim.id, item.id)}
+                                    className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 text-[9px] font-black uppercase rounded shadow transition-all cursor-pointer flex items-center gap-1"
+                                  >
+                                    <RefreshCw className="w-2.5 h-2.5" />
+                                    <span>PULL TARIFF (₵ {item.tariffPrice || 45.00})</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRouteToOutofPocketCash(selectedClaim.id, item.id)}
+                                    className="p-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-200 text-[9px] font-bold uppercase rounded transition-all cursor-pointer"
+                                    title="Route to Patient Cash"
+                                  >
+                                    <DollarSign className="w-3 h-3 text-emerald-500" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                                  <CheckCircle2 className="w-3 h-3" /> Audited
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="p-4 text-center text-xs text-slate-400 italic">
+                          Standard Consultation & Care Package
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Atomic Action Triggers */}
-            {activeTab === 'PENDING_VETTING' && (
-              <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                {/* Rejection Reason Selector */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-rose-500 block">Rejection Reason for Querying Clinician</label>
-                  <select
-                    value={queryReason}
-                    onChange={(e) => setQueryReason(e.target.value)}
-                    className="w-full p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-900 rounded-xl text-xs font-bold text-rose-900 dark:text-rose-200 outline-none"
-                  >
-                    <option value="Missing ICD-10 Code">Missing ICD-10 Code</option>
-                    <option value="Missing Mandatory Pre-Authorization Code">Missing Mandatory Pre-Authorization Code</option>
-                    <option value="Unjustified High-Cost Drug Prescription">Unjustified High-Cost Drug Prescription</option>
-                    <option value="Service Not Covered by Policy">Service Not Covered by Policy</option>
-                  </select>
-                </div>
+            {activeTab === 'PENDING_VETTING' && (() => {
+              const hasZeroItems = (selectedClaim.lineItems || []).some(li => li.isZeroValue || li.amount === 0);
+              const isClaimZero = Number(selectedClaim.totalAmount || selectedClaim.total || selectedClaim.amount || 0) === 0;
+              const isBlocked = hasZeroItems || isClaimZero;
 
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleQueryClinician(selectedClaim.id)}
-                    disabled={processingId === selectedClaim.id}
-                    className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <XCircle className="w-4 h-4" />
-                    <span>QUERY CLINICIAN</span>
-                  </button>
+              return (
+                <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  {hasZeroItems && (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                      <span>Resolve unpriced medication lines above before submitting this claim dossier.</span>
+                    </div>
+                  )}
 
-                  <button
-                    type="button"
-                    onClick={() => handleApproveAndNext(selectedClaim.id)}
-                    disabled={processingId === selectedClaim.id || Number(selectedClaim.totalAmount || selectedClaim.total || selectedClaim.amount || 0) === 0}
-                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    {processingId === selectedClaim.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    <span>AUTHORIZE & SEND TO BATCHING</span>
-                  </button>
+                  {/* Rejection Reason Selector */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-rose-500 block">Rejection Reason for Querying Clinician</label>
+                    <select
+                      value={queryReason}
+                      onChange={(e) => setQueryReason(e.target.value)}
+                      className="w-full p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-900 rounded-xl text-xs font-bold text-rose-900 dark:text-rose-200 outline-none"
+                    >
+                      <option value="Missing ICD-10 Code">Missing ICD-10 Code</option>
+                      <option value="Missing Mandatory Pre-Authorization Code">Missing Mandatory Pre-Authorization Code</option>
+                      <option value="Unjustified High-Cost Drug Prescription">Unjustified High-Cost Drug Prescription</option>
+                      <option value="Service Not Covered by Policy">Service Not Covered by Policy</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleQueryClinician(selectedClaim.id)}
+                      disabled={processingId === selectedClaim.id}
+                      className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      <span>QUERY CLINICIAN</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleApproveAndNext(selectedClaim.id)}
+                      disabled={processingId === selectedClaim.id || isBlocked}
+                      className={`flex-1 py-3 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow flex items-center justify-center gap-2 ${
+                        isBlocked
+                          ? 'bg-slate-400 dark:bg-slate-800 cursor-not-allowed opacity-60'
+                          : 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer'
+                      }`}
+                    >
+                      {processingId === selectedClaim.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      <span>AUTHORIZE & SEND TO BATCHING</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
           </div>
         )}
