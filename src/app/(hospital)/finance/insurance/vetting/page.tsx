@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { 
   FileSearch, ShieldCheck, AlertTriangle, Loader2, ShieldAlert, 
   CheckCircle2, XCircle, ArrowRight, CornerDownRight, FileText,
@@ -204,15 +204,21 @@ export default function InsuranceVettingQueue() {
   const handleApproveAndNext = async (claimId: string) => {
     setProcessingId(claimId);
     try {
+      const claimItem = claimsList.find(c => c.id === claimId);
+
       if (firestore && hospitalId) {
         try {
           const claimRef = doc(firestore, `hospitals/${hospitalId}/billing_items`, claimId);
-          await updateDoc(claimRef, {
+          await setDoc(claimRef, {
+            ...(claimItem || {}),
+            id: claimId,
+            hospitalId,
             claimStatus: 'READY_FOR_BATCHING',
             vettedBy: user?.uid || 'ACCOUNTANT',
             vettedByName: userProfile?.fullName || userProfile?.name || user?.displayName || 'Samuel Korsah',
-            vettedAt: serverTimestamp()
-          });
+            vettedAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          }, { merge: true });
         } catch (dbErr) {
           console.warn('Firestore update bypassed for demo/custom claim:', dbErr);
         }
@@ -245,16 +251,22 @@ export default function InsuranceVettingQueue() {
     setProcessingId(claimId);
 
     try {
+      const claimItem = claimsList.find(c => c.id === claimId);
+
       if (firestore && hospitalId) {
         try {
           const claimRef = doc(firestore, `hospitals/${hospitalId}/billing_items`, claimId);
-          await updateDoc(claimRef, {
+          await setDoc(claimRef, {
+            ...(claimItem || {}),
+            id: claimId,
+            hospitalId,
             claimStatus: 'QUERIED',
             vettingRemarks: queryReason,
             queriedBy: user?.uid || 'ACCOUNTANT',
             queriedByName: userProfile?.fullName || userProfile?.name || user?.displayName || 'Samuel Korsah',
-            queriedAt: serverTimestamp()
-          });
+            queriedAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          }, { merge: true });
         } catch (dbErr) {
           console.warn('Firestore query update bypassed for demo/custom claim:', dbErr);
         }
