@@ -536,6 +536,11 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      match /payments/{paymentId} {
+        allow read, get, list, create, update: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isStaffOfHospital(hospitalId);
+        allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
+      }
+
       match /remittance_schedules/{scheduleId} {
         allow read, write, get, create, update, list: if isSuperAdmin() || isAuditorRole(hospitalId) || isDirectorOrAdmin(hospitalId);
       }
