@@ -21,14 +21,45 @@ export default function VendorManager() {
 
   const [saving, setSaving] = useState(false);
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>('v-1');
-  const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'AWAITING_APPROVAL' | 'EXPIRING' | 'BLACKLISTED'>('ALL');
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'STATUTORY' | 'VAULT' | 'AUDIT'>('OVERVIEW');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const drawerFileInputRef = useRef<HTMLInputElement>(null);
+  const newVendorNameInputRef = useRef<HTMLInputElement>(null);
 
-  // Vendor Form State
+  // New Vendor Onboarding Form State (Drawer)
+  const initialNewVendorState = {
+    name: '',
+    tradeName: '',
+    tin: '',
+    isVatRegistered: true,
+    phone: '',
+    email: '',
+    contactPerson: '',
+    bankName: '',
+    bankBranch: 'Main Branch, Accra',
+    accountName: '',
+    accountNumber: '',
+    defaultWhtRate: 3.0,
+    defaultWhtCategory: 'GOODS',
+    isWhtExempt: false,
+    whtExemptionCertNumber: '',
+    whtExemptionExpiryDate: '',
+    defaultApAccountCode: '2000',
+    defaultApAccountName: '2000 - Trade Accounts Payable (General)',
+    defaultExpenseAccountCode: '5000',
+    defaultExpenseAccountName: '5000 - Medical & Pharmaceutical Supplies',
+    taxClearanceExpiry: '2026-12-31',
+    status: 'AWAITING_APPROVAL' as 'DRAFT' | 'AWAITING_APPROVAL' | 'ACTIVE' | 'SUSPENDED' | 'BLACKLISTED',
+    attachments: [] as string[],
+  };
+
+  const [newVendorForm, setNewVendorForm] = useState(initialNewVendorState);
+
+  // Selected Vendor Dossier State (Inspection & Edit)
   const [form, setForm] = useState({
     name: '',
     tradeName: '',
@@ -236,7 +267,6 @@ export default function VendorManager() {
   }, [vendors, statusFilter, searchQuery]);
 
   const handleSelectVendor = (vendor: any) => {
-    setIsCreatingNew(false);
     setSelectedVendorId(vendor.id);
     setForm({
       name: vendor.name || '',
@@ -266,33 +296,65 @@ export default function VendorManager() {
   };
 
   const handleStartNewVendor = () => {
-    setIsCreatingNew(true);
-    setSelectedVendorId(null);
-    setForm({
-      name: '',
-      tradeName: '',
-      tin: '',
-      isVatRegistered: true,
-      phone: '',
-      email: '',
-      contactPerson: '',
-      bankName: '',
-      bankBranch: 'High Street Branch, Accra',
-      accountName: '',
-      accountNumber: '',
-      defaultWhtRate: 3.0,
-      defaultWhtCategory: 'GOODS',
-      isWhtExempt: false,
-      whtExemptionCertNumber: '',
-      whtExemptionExpiryDate: '',
-      defaultApAccountCode: '2000',
-      defaultApAccountName: '2000 - Trade Accounts Payable (General)',
-      defaultExpenseAccountCode: '5000',
-      defaultExpenseAccountName: '5000 - Medical & Pharmaceutical Supplies',
-      taxClearanceExpiry: '2026-12-31',
-      status: 'AWAITING_APPROVAL',
-      attachments: [],
-    });
+    setNewVendorForm(initialNewVendorState);
+    setIsDrawerOpen(true);
+    setTimeout(() => {
+      newVendorNameInputRef.current?.focus();
+    }, 150);
+  };
+
+  const handleCloseDrawer = () => {
+    setIsDrawerOpen(false);
+  };
+
+  const handleSubmitNewVendor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVendorForm.name.trim() || !newVendorForm.tin.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Company Legal Name and Official GRA TIN are required."
+      });
+      return;
+    }
+
+    setSaving(true);
+
+    if (!firestore || !hospitalId) {
+      setTimeout(() => {
+        toast({
+          title: "Supplier Onboarding Submitted (Maker)",
+          description: `${newVendorForm.name} placed in AWAITING_APPROVAL state for Checker authorization.`
+        });
+        setIsDrawerOpen(false);
+        setSaving(false);
+      }, 700);
+      return;
+    }
+
+    try {
+      const vendorsRef = collection(firestore, `hospitals/${hospitalId}/vendors`);
+      const docRef = await addDoc(vendorsRef, {
+        ...newVendorForm,
+        accountName: newVendorForm.accountName || newVendorForm.name,
+        createdBy: user?.uid || 'usr-current',
+        createdByName: user?.displayName || userProfile?.name || 'Samuel Korsah (Accountant / Maker)',
+        bankAuditLogs: [],
+        createdAt: serverTimestamp(),
+      });
+
+      toast({
+        title: "Vendor Onboarding Submitted",
+        description: `${newVendorForm.name} successfully submitted for Finance Director authorization.`
+      });
+
+      setSelectedVendorId(docRef.id);
+      setIsDrawerOpen(false);
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Submission Failed", description: err.message });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveVendor = async (e: React.FormEvent) => {
@@ -320,32 +382,16 @@ export default function VendorManager() {
     if (!firestore || !hospitalId) {
       setTimeout(() => {
         toast({
-          title: isCreatingNew ? "Vendor Submitted for Approval" : "Vendor Profile Updated",
-          description: isCreatingNew 
-            ? `${form.name} created under AWAITING_APPROVAL status. Routed to Finance Director.` 
-            : `${form.name} dossier updated successfully.`
+          title: "Vendor Profile Updated",
+          description: `${form.name} dossier updated successfully.`
         });
         setSaving(false);
-        setIsCreatingNew(false);
       }, 800);
       return;
     }
 
     try {
-      if (isCreatingNew) {
-        const vendorsRef = collection(firestore, `hospitals/${hospitalId}/vendors`);
-        const docRef = await addDoc(vendorsRef, {
-          ...form,
-          accountName: form.accountName || form.name,
-          createdBy: user?.uid || 'usr-current',
-          createdByName: user?.displayName || userProfile?.name || 'Samuel Korsah (Accountant / Maker)',
-          bankAuditLogs: auditLogEntry ? [auditLogEntry] : [],
-          createdAt: serverTimestamp(),
-        });
-        toast({ title: "Vendor Submitted", description: `${form.name} placed in AWAITING_APPROVAL state for Finance Director sign-off.` });
-        setSelectedVendorId(docRef.id);
-        setIsCreatingNew(false);
-      } else if (selectedVendorId) {
+      if (selectedVendorId) {
         const vendorRef = doc(firestore, `hospitals/${hospitalId}/vendors`, selectedVendorId);
         await updateDoc(vendorRef, {
           ...form,
@@ -452,6 +498,14 @@ export default function VendorManager() {
     toast({ title: "Compliance Document Uploaded", description: `Added ${fileNames.length} certificate(s) to vault.` });
   };
 
+  const handleDrawerFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const fileNames = Array.from(files).map(f => f.name);
+    setNewVendorForm(prev => ({ ...prev, attachments: [...prev.attachments, ...fileNames] }));
+    toast({ title: "Compliance Document Attached", description: `Added ${fileNames.length} certificate(s) to onboarding profile.` });
+  };
+
   const pageIsLoading = isUserLoading || isProfileLoading;
   const userName = user?.displayName || userProfile?.name || 'MARCUS AMOSAH HENAKU';
   const userInitials = userName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || 'MH';
@@ -479,7 +533,6 @@ export default function VendorManager() {
     );
   }
 
-  // Counter metrics
   const activeCount = vendors.filter(v => v.status === 'ACTIVE').length;
   const pendingCount = vendors.filter(v => v.status === 'AWAITING_APPROVAL').length;
   const expiringCount = vendors.filter(v => getTaxHealth(v.taxClearanceExpiry).label !== 'GRA CERT VALID').length;
@@ -528,7 +581,7 @@ export default function VendorManager() {
             <button
               type="button"
               onClick={handleStartNewVendor}
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-lg"
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-lg active:scale-95"
             >
               <Plus className="w-4 h-4" /> NEW SUPPLIER ONBOARDING
             </button>
@@ -660,7 +713,7 @@ export default function VendorManager() {
             ) : (
               filteredVendors.map(v => {
                 const taxHealth = getTaxHealth(v.taxClearanceExpiry);
-                const isSelected = selectedVendorId === v.id && !isCreatingNew;
+                const isSelected = selectedVendorId === v.id;
 
                 return (
                   <div 
@@ -694,13 +747,22 @@ export default function VendorManager() {
                         <p className="flex items-center gap-1 truncate"><Phone className="w-3 h-3 text-slate-400 shrink-0" /> {v.phone}</p>
                       </div>
 
-                      {/* Tax Health Pill */}
-                      <div className="flex items-center gap-2 pt-1">
+                      {/* Tax Health Pill & WHT Exemption Info */}
+                      <div className="flex items-center gap-2 pt-1 flex-wrap">
                         <span className={`text-[8px] font-black px-2 py-0.5 rounded border flex items-center gap-1 ${taxHealth.color}`}>
                           <taxHealth.icon className="w-2.5 h-2.5" /> {taxHealth.label}
                         </span>
-                        <span className="text-[9px] font-black text-slate-400 uppercase">
-                          WHT: {v.defaultWhtRate || 3}% ({v.defaultWhtCategory || 'GOODS'})
+                        {v.isWhtExempt ? (
+                          <span className="text-[8px] font-black px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 font-mono">
+                            GRA WHT EXEMPT (0%)
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-black text-slate-400 uppercase">
+                            WHT: {v.defaultWhtRate || 3}% ({v.defaultWhtCategory || 'GOODS'})
+                          </span>
+                        )}
+                        <span className="text-[8px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                          GL: {v.defaultApAccountCode || '2000'}
                         </span>
                       </div>
                     </div>
@@ -717,196 +779,777 @@ export default function VendorManager() {
           </div>
         </div>
 
-        {/* Right Detail Pane: Vendor Dossier & Setup Form (5 Cols) */}
+        {/* Right Detail Pane: Vendor Dossier Inspection (5 Cols) */}
         <div className="lg:col-span-5 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
           
-          {/* Dossier Header */}
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-            <h2 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <FileCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              {isCreatingNew ? 'NEW SUPPLIER ONBOARDING (MAKER)' : 'VENDOR COMPLIANCE DOSSIER'}
-            </h2>
-            
-            {/* Status Badge & Maker-Checker Controls */}
-            {!isCreatingNew && selectedVendor && (
-              <span className={`px-2.5 py-1 rounded text-[9px] font-black uppercase ${
-                selectedVendor.status === 'ACTIVE' ? 'bg-emerald-600 text-white' :
-                selectedVendor.status === 'AWAITING_APPROVAL' ? 'bg-amber-500 text-white animate-pulse' :
-                'bg-rose-600 text-white'
-              }`}>
-                {selectedVendor.status.replace('_', ' ')}
-              </span>
-            )}
-          </div>
-
-          {/* Maker-Checker Workflow Control Box & Hard-Stop Notice */}
-          {!isCreatingNew && selectedVendor?.status === 'AWAITING_APPROVAL' && (
-            <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl space-y-3">
-              <div className="flex items-center justify-between text-xs font-black text-amber-800 dark:text-amber-300 uppercase">
-                <span className="flex items-center gap-1.5"><ShieldAlert className="w-4 h-4" /> AWAITING DIRECTOR APPROVAL</span>
-                <span className="text-[9px] text-amber-600 dark:text-amber-400 font-mono">MAKER-CHECKER GATE</span>
+          {selectedVendor ? (
+            <>
+              {/* Dossier Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <h2 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <FileCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  VENDOR COMPLIANCE DOSSIER
+                </h2>
+                
+                <span className={`px-2.5 py-1 rounded text-[9px] font-black uppercase ${
+                  selectedVendor.status === 'ACTIVE' ? 'bg-emerald-600 text-white' :
+                  selectedVendor.status === 'AWAITING_APPROVAL' ? 'bg-amber-500 text-white animate-pulse' :
+                  'bg-rose-600 text-white'
+                }`}>
+                  {selectedVendor.status.replace('_', ' ')}
+                </span>
               </div>
-              <p className="text-[10px] text-slate-600 dark:text-slate-300 font-medium">
-                Submitted by <strong>{selectedVendor.createdByName || 'Procurement Officer (Maker)'}</strong>. Independent Finance Director review required before supplier can be activated.
-              </p>
 
-              {/* Hard Stop Notice */}
-              <div className="p-2.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 rounded-lg text-[10px] text-rose-700 dark:text-rose-300 font-bold flex items-start gap-2">
-                <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-rose-500" />
-                <span>HARD STOP ENFORCED: Purchase Orders (PO) and Payment Vouchers (PV) cannot be raised for {selectedVendor.name} until authorized.</span>
-              </div>
-              
-              {/* Checker Action Controls with SoD Lock */}
-              {isChecker && (
-                <div className="flex gap-2 pt-1">
-                  {selectedVendor.createdBy === user?.uid || selectedVendor.createdByName?.toLowerCase().includes('samuel korsah') ? (
-                    <button
-                      type="button"
-                      disabled
-                      className="flex-1 py-2 bg-slate-200 dark:bg-slate-800 text-slate-400 font-black text-xs uppercase rounded-lg border border-slate-300 dark:border-slate-700 cursor-not-allowed flex items-center justify-center gap-1"
-                      title="Maker-Checker Segregation of Duties: Creator cannot authorize own submission"
-                    >
-                      <Lock className="w-3.5 h-3.5" /> 🔒 SELF-AUTHORIZATION BLOCKED (MAKER)
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateStatus('ACTIVE')}
-                      disabled={saving}
-                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer shadow"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" /> AUTHORIZE VENDOR (CHECKER)
-                    </button>
+              {/* Maker-Checker Workflow Control Box & Hard-Stop Notice */}
+              {selectedVendor?.status === 'AWAITING_APPROVAL' && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between text-xs font-black text-amber-800 dark:text-amber-300 uppercase">
+                    <span className="flex items-center gap-1.5"><ShieldAlert className="w-4 h-4" /> AWAITING DIRECTOR APPROVAL</span>
+                    <span className="text-[9px] text-amber-600 dark:text-amber-400 font-mono">MAKER-CHECKER GATE</span>
+                  </div>
+                  <p className="text-[10px] text-slate-600 dark:text-slate-300 font-medium">
+                    Submitted by <strong>{selectedVendor.createdByName || 'Procurement Officer (Maker)'}</strong>. Independent Finance Director review required before supplier can be activated.
+                  </p>
+
+                  {/* Hard Stop Notice */}
+                  <div className="p-2.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 rounded-lg text-[10px] text-rose-700 dark:text-rose-300 font-bold flex items-start gap-2">
+                    <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-rose-500" />
+                    <span>HARD STOP ENFORCED: Purchase Orders (PO) and Payment Vouchers (PV) cannot be raised for {selectedVendor.name} until authorized.</span>
+                  </div>
+                  
+                  {/* Checker Action Controls with SoD Lock */}
+                  {isChecker && (
+                    <div className="flex gap-2 pt-1">
+                      {selectedVendor.createdBy === user?.uid || selectedVendor.createdByName?.toLowerCase().includes('samuel korsah') ? (
+                        <button
+                          type="button"
+                          disabled
+                          className="flex-1 py-2 bg-slate-200 dark:bg-slate-800 text-slate-400 font-black text-xs uppercase rounded-lg border border-slate-300 dark:border-slate-700 cursor-not-allowed flex items-center justify-center gap-1"
+                          title="Maker-Checker Segregation of Duties: Creator cannot authorize own submission"
+                        >
+                          <Lock className="w-3.5 h-3.5" /> 🔒 SELF-AUTHORIZATION BLOCKED (MAKER)
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus('ACTIVE')}
+                          disabled={saving}
+                          className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer shadow"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" /> AUTHORIZE VENDOR (CHECKER)
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus('BLACKLISTED')}
+                        disabled={saving}
+                        className="py-2 px-3 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black uppercase rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <XCircle className="w-3.5 h-3.5" /> REJECT
+                      </button>
+                    </div>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => handleUpdateStatus('BLACKLISTED')}
-                    disabled={saving}
-                    className="py-2 px-3 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black uppercase rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <XCircle className="w-3.5 h-3.5" /> REJECT
-                  </button>
                 </div>
               )}
+
+              {/* Tab Navigation Switcher */}
+              <div className="flex border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('OVERVIEW')}
+                  className={`py-2 px-3 border-b-2 transition-colors cursor-pointer ${activeTab === 'OVERVIEW' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                  Overview & GL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('STATUTORY')}
+                  className={`py-2 px-3 border-b-2 transition-colors cursor-pointer ${activeTab === 'STATUTORY' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                  GRA Tax Setup
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('VAULT')}
+                  className={`py-2 px-3 border-b-2 transition-colors cursor-pointer ${activeTab === 'VAULT' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                  Vault ({form.attachments.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('AUDIT')}
+                  className={`py-2 px-3 border-b-2 transition-colors cursor-pointer ${activeTab === 'AUDIT' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                  Audit Log ({selectedVendor?.bankAuditLogs?.length || 0})
+                </button>
+              </div>
+
+              {/* Form Content */}
+              <form onSubmit={handleSaveVendor} className="space-y-4 text-xs">
+                
+                {/* TAB 1: OVERVIEW, BANKING & GENERAL LEDGER MAPPING */}
+                {activeTab === 'OVERVIEW' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                        Legal Business Name
+                      </label>
+                      <input
+                        required
+                        type="text"
+                        placeholder="e.g. Acorn Pharma Distributors Ltd"
+                        className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={form.name}
+                        onChange={e => setForm({ ...form, name: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                          Trade Name (DBA)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Acorn Healthcare"
+                          className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                          value={form.tradeName}
+                          onChange={e => setForm({ ...form, tradeName: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                          Contact Person
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Mr. Eric Boateng"
+                          className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                          value={form.contactPerson}
+                          onChange={e => setForm({ ...form, contactPerson: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                          Phone Number
+                        </label>
+                        <input
+                          required
+                          type="tel"
+                          placeholder="e.g. +233 24 492 0182"
+                          className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                          value={form.phone}
+                          onChange={e => setForm({ ...form, phone: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                          Email Address
+                        </label>
+                        <input
+                          required
+                          type="email"
+                          placeholder="e.g. orders@vendor.com"
+                          className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                          value={form.email}
+                          onChange={e => setForm({ ...form, email: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    {/* General Ledger (GL) Mapping Section */}
+                    <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block">
+                        DEFAULT GENERAL LEDGER (GL) ROUTING
+                      </span>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                            Default AP Sub-Ledger (Credit Leg)
+                          </label>
+                          <select
+                            className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
+                            value={form.defaultApAccountCode}
+                            onChange={e => {
+                              const code = e.target.value;
+                              const nameMap: any = {
+                                '2000': '2000 - Trade Accounts Payable (General)',
+                                '2010': '2010 - Pharmaceutical & Drug Payables',
+                                '2020': '2020 - Medical Equipment & Capex Payables',
+                                '2030': '2030 - Facility, Engineering & Utility Payables',
+                                '2040': '2040 - Laboratory & Consumables Payables',
+                              };
+                              setForm({ ...form, defaultApAccountCode: code, defaultApAccountName: nameMap[code] || '2000 - Trade Payables' });
+                            }}
+                          >
+                            <option value="2000">2000 - Trade Payables (General)</option>
+                            <option value="2010">2010 - Pharmaceutical & Drug Payables</option>
+                            <option value="2020">2020 - Medical Equipment & Capex</option>
+                            <option value="2030">2030 - Facility & Maintenance</option>
+                            <option value="2040">2040 - Laboratory & Consumables</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                            Default Expense / Inventory (Debit Leg)
+                          </label>
+                          <select
+                            className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
+                            value={form.defaultExpenseAccountCode}
+                            onChange={e => {
+                              const code = e.target.value;
+                              const nameMap: any = {
+                                '5000': '5000 - Medical & Pharmaceutical Supplies',
+                                '5050': '5050 - Laboratory Reagents & Supplies',
+                                '5100': '5100 - Biomedical Equipment & Maintenance',
+                                '6000': '6000 - Administrative Operating Expenses',
+                              };
+                              setForm({ ...form, defaultExpenseAccountCode: code, defaultExpenseAccountName: nameMap[code] || '5000 - Supplies' });
+                            }}
+                          >
+                            <option value="5000">5000 - Medical & Pharma Supplies</option>
+                            <option value="5050">5050 - Laboratory Reagents</option>
+                            <option value="5100">5100 - Equipment Maintenance</option>
+                            <option value="6000">6000 - Administrative Operating</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Settlement Bank Details */}
+                    <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
+                        SETTLEMENT BANK ACCOUNT DETAILS
+                      </span>
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                          Bank Name & Branch
+                        </label>
+                        <input
+                          required
+                          type="text"
+                          placeholder="e.g. GCB Bank - High Street Branch"
+                          className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                          value={form.bankName}
+                          onChange={e => setForm({ ...form, bankName: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                            Account Name
+                          </label>
+                          <input
+                            required
+                            type="text"
+                            placeholder="Official Account Name"
+                            className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                            value={form.accountName}
+                            onChange={e => setForm({ ...form, accountName: e.target.value })}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                            Account Number
+                          </label>
+                          <input
+                            required
+                            type="text"
+                            placeholder="e.g. 1099248102"
+                            className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                            value={form.accountNumber}
+                            onChange={e => setForm({ ...form, accountNumber: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: GRA STATUTORY & WHT EXEMPTION SETUP */}
+                {activeTab === 'STATUTORY' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                        Taxpayer Identification Number (GRA TIN)
+                      </label>
+                      <input
+                        required
+                        type="text"
+                        placeholder="e.g. C001294819X"
+                        className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500 uppercase"
+                        value={form.tin}
+                        onChange={e => setForm({ ...form, tin: e.target.value })}
+                      />
+                    </div>
+
+                    <div 
+                      onClick={() => setForm({...form, isVatRegistered: !form.isVatRegistered})}
+                      className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" checked={form.isVatRegistered} readOnly className="w-4 h-4 accent-emerald-500 cursor-pointer" />
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                          Registered for GRA VAT & Statutory Levies (21.9%)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* WHT Exemption Toggle Card */}
+                    <div className={`p-4 rounded-xl border transition-all ${
+                      form.isWhtExempt 
+                        ? 'bg-amber-500/10 border-amber-500/40 ring-1 ring-amber-500/30' 
+                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'
+                    }`}>
+                      <div 
+                        onClick={() => setForm({ 
+                          ...form, 
+                          isWhtExempt: !form.isWhtExempt,
+                          defaultWhtRate: !form.isWhtExempt ? 0.0 : (form.defaultWhtCategory === 'WORKS' ? 5.0 : form.defaultWhtCategory === 'SERVICES' ? 7.5 : 3.0)
+                        })}
+                        className="flex items-center justify-between cursor-pointer"
+                      >
+                        <div>
+                          <span className="text-xs font-black uppercase text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4 text-amber-500" />
+                            GRA WITHHOLDING TAX (WHT) EXEMPTION
+                          </span>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Enable if this distributor holds a valid GRA WHT Exemption Certificate.
+                          </p>
+                        </div>
+                        <input 
+                          type="checkbox" 
+                          checked={form.isWhtExempt} 
+                          readOnly 
+                          className="w-5 h-5 accent-amber-500 cursor-pointer" 
+                        />
+                      </div>
+
+                      {form.isWhtExempt && (
+                        <div className="mt-3 pt-3 border-t border-amber-500/20 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-300 tracking-wider block mb-1">
+                              GRA Exemption Cert Number
+                            </label>
+                            <input
+                              required
+                              type="text"
+                              placeholder="e.g. GRA/LTO/EXEMP/2026/042"
+                              className="w-full p-2.5 border border-amber-300 dark:border-amber-800 rounded-lg bg-white dark:bg-slate-900 font-mono font-bold text-xs outline-none focus:ring-2 focus:ring-amber-500 uppercase"
+                              value={form.whtExemptionCertNumber}
+                              onChange={e => setForm({ ...form, whtExemptionCertNumber: e.target.value })}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-300 tracking-wider block mb-1">
+                              Exemption Certificate Expiry Date
+                            </label>
+                            <input
+                              required
+                              type="date"
+                              className="w-full p-2.5 border border-amber-300 dark:border-amber-800 rounded-lg bg-white dark:bg-slate-900 font-mono font-bold text-xs outline-none focus:ring-2 focus:ring-amber-500"
+                              value={form.whtExemptionExpiryDate}
+                              onChange={e => setForm({ ...form, whtExemptionExpiryDate: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                          Standard WHT Category
+                        </label>
+                        <select
+                          disabled={form.isWhtExempt}
+                          className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none cursor-pointer disabled:opacity-50"
+                          value={form.defaultWhtCategory}
+                          onChange={e => {
+                            const cat = e.target.value;
+                            const rateMap: any = { GOODS: 3.0, WORKS: 5.0, SERVICES: 7.5, RENT: 8.0 };
+                            setForm({ ...form, defaultWhtCategory: cat, defaultWhtRate: form.isWhtExempt ? 0.0 : (rateMap[cat] || 3.0) });
+                          }}
+                        >
+                          <option value="GOODS">Supply of Goods (3%)</option>
+                          <option value="WORKS">Supply of Works (5%)</option>
+                          <option value="SERVICES">Services / Consult (7.5%)</option>
+                          <option value="RENT">Rent / Leasing (8%)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                          Effective WHT Rate (%)
+                        </label>
+                        <input
+                          disabled={form.isWhtExempt}
+                          required
+                          type="number"
+                          step="0.1"
+                          placeholder="3.0"
+                          className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+                          value={form.defaultWhtRate}
+                          onChange={e => setForm({ ...form, defaultWhtRate: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                        GRA Tax Clearance Certificate Expiry Date
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={form.taxClearanceExpiry}
+                        onChange={e => setForm({ ...form, taxClearanceExpiry: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 3: COMPLIANCE VAULT WITH MANDATORY GOVERNANCE CHECKLIST */}
+                {activeTab === 'VAULT' && (
+                  <div className="space-y-4">
+                    {/* Mandatory Document Governance Checklist */}
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2.5">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
+                        MANDATORY GOVERNANCE CHECKLIST (REQUIRED FOR ACTIVATION)
+                      </span>
+
+                      <div className="space-y-1.5">
+                        {/* Business Registration */}
+                        {(() => {
+                          const hasReg = form.attachments.some(a => a.toLowerCase().includes('incorporation') || a.toLowerCase().includes('form') || a.toLowerCase().includes('business') || a.toLowerCase().includes('reg'));
+                          return (
+                            <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                              <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                <FileCheck className="w-3.5 h-3.5 text-indigo-500" /> Business Registration (Form 3/4)
+                              </span>
+                              <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${
+                                hasReg ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                              }`}>
+                                {hasReg ? '✓ UPLOADED' : '✕ MISSING MANDATORY'}
+                              </span>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Tax Clearance Certificate */}
+                        {(() => {
+                          const hasTax = form.attachments.some(a => a.toLowerCase().includes('tax') || a.toLowerCase().includes('clearance') || a.toLowerCase().includes('tcc') || a.toLowerCase().includes('gra'));
+                          return (
+                            <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                              <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> GRA Tax Clearance Certificate
+                              </span>
+                              <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${
+                                hasTax ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                              }`}>
+                                {hasTax ? '✓ UPLOADED' : '✕ MISSING MANDATORY'}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-800/40 flex flex-col items-center justify-center text-center gap-2">
+                      <Upload className="w-6 h-6 text-emerald-500" />
+                      <span className="text-xs font-black uppercase text-slate-800 dark:text-slate-200">
+                        UPLOAD COMPLIANCE ARTIFACTS
+                      </span>
+                      <p className="text-[10px] text-slate-400">
+                        PDF or scanned images stored in encrypted Firebase Cloud Storage vault.
+                      </p>
+
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        multiple 
+                        onChange={handleFileUpload} 
+                        className="hidden" 
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="mt-1 px-3 py-1.5 bg-emerald-600 text-white text-xs font-black uppercase rounded-lg flex items-center gap-2 cursor-pointer hover:bg-emerald-700"
+                      >
+                        <Paperclip className="w-3.5 h-3.5" /> UPLOAD TO VAULT
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-black uppercase text-slate-400 block">Attached Compliance Files ({form.attachments.length})</span>
+                      {form.attachments.length === 0 ? (
+                        <p className="text-[10px] text-slate-400 italic">No compliance documents uploaded yet.</p>
+                      ) : (
+                        form.attachments.map((file, idx) => (
+                          <div key={idx} className="p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg flex items-center justify-between text-xs font-medium text-slate-800 dark:text-slate-200">
+                            <span className="flex items-center gap-2 truncate font-mono text-[10px]">
+                              <FileText className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> {file}
+                            </span>
+                            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">VERIFIED</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 4: AUDIT LOG */}
+                {activeTab === 'AUDIT' && (
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
+                      IMMUTABLE BANK DETAILS CHANGE LOG
+                    </span>
+                    {(!selectedVendor?.bankAuditLogs || selectedVendor.bankAuditLogs.length === 0) ? (
+                      <div className="p-6 text-center text-[10px] font-bold text-slate-400 italic border border-dashed rounded-xl">
+                        No bank account modifications recorded. Original details intact.
+                      </div>
+                    ) : (
+                      selectedVendor.bankAuditLogs.map((log: any, idx: number) => (
+                        <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1 text-xs">
+                          <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
+                            <span>{log.timestamp}</span>
+                            <span className="font-bold text-emerald-500">{log.modifiedBy}</span>
+                          </div>
+                          <p className="font-black text-slate-800 dark:text-slate-200 text-[10px] uppercase">{log.field} Updated</p>
+                          <div className="text-[10px] font-mono grid grid-cols-2 gap-2 text-slate-500">
+                            <p className="truncate">Old: <span className="text-rose-400">{log.oldVal}</span></p>
+                            <p className="truncate">New: <span className="text-emerald-400">{log.newVal}</span></p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-xs tracking-wider rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    <span>SAVE DOSSIER UPDATES</span>
+                  </button>
+                </div>
+              </form>
+            </>
+          ) : (
+            <div className="p-16 flex flex-col items-center justify-center text-center bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 space-y-3">
+              <Building2 className="w-12 h-12 text-slate-300 dark:text-slate-600" />
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                NO VENDOR SELECTED
+              </h3>
+              <p className="text-[11px] text-slate-400 max-w-xs">
+                Select a supplier from the registry table to inspect their statutory compliance dossier, or onboard a new supplier.
+              </p>
+              <button
+                type="button"
+                onClick={handleStartNewVendor}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase rounded-xl transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> ONBOARD NEW SUPPLIER
+              </button>
             </div>
           )}
 
-          {/* Tab Navigation Switcher */}
-          {!isCreatingNew && (
-            <div className="flex border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider">
-              <button
-                type="button"
-                onClick={() => setActiveTab('OVERVIEW')}
-                className={`py-2 px-3 border-b-2 transition-colors cursor-pointer ${activeTab === 'OVERVIEW' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-              >
-                Overview & GL
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('STATUTORY')}
-                className={`py-2 px-3 border-b-2 transition-colors cursor-pointer ${activeTab === 'STATUTORY' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-              >
-                GRA Tax Setup
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('VAULT')}
-                className={`py-2 px-3 border-b-2 transition-colors cursor-pointer ${activeTab === 'VAULT' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-              >
-                Vault ({form.attachments.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('AUDIT')}
-                className={`py-2 px-3 border-b-2 transition-colors cursor-pointer ${activeTab === 'AUDIT' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-              >
-                Audit Log ({selectedVendor?.bankAuditLogs?.length || 0})
-              </button>
-            </div>
-          )}
+        </div>
 
-          {/* Form Content */}
-          <form onSubmit={handleSaveVendor} className="space-y-4 text-xs">
+      </div>
+
+      {/* ============================================================== */}
+      {/* 3. SLIDE-OUT ONBOARDING DRAWER (MAKER ONBOARDING WIZARD)       */}
+      {/* ============================================================== */}
+      {isDrawerOpen && (
+        <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
+          {/* Backdrop Blur Overlay */}
+          <div 
+            className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+            onClick={handleCloseDrawer}
+          />
+
+          {/* Slide-in Panel */}
+          <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 h-full shadow-2xl z-10 flex flex-col border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-300">
             
-            {/* TAB 1: OVERVIEW, BANKING & GENERAL LEDGER MAPPING */}
-            {(isCreatingNew || activeTab === 'OVERVIEW') && (
-              <div className="space-y-3">
+            {/* Drawer Header */}
+            <div className="p-6 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-400">
+                  <Plus className="w-5 h-5" />
+                </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
-                    Legal Business Name
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. Acorn Pharma Distributors Ltd"
-                    className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
-                    value={form.name}
-                    onChange={e => setForm({ ...form, name: e.target.value })}
-                  />
+                  <h2 className="text-base font-black italic uppercase tracking-wider text-white">
+                    NEW SUPPLIER ONBOARDING (MAKER)
+                  </h2>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    ENTERPRISE VENDOR MASTER DATA & STATUTORY COMPLIANCE INITIALIZATION
+                  </p>
                 </div>
+              </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
-                      Trade Name (DBA)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Acorn Healthcare"
-                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
-                      value={form.tradeName}
-                      onChange={e => setForm({ ...form, tradeName: e.target.value })}
-                    />
-                  </div>
+              <button
+                type="button"
+                onClick={handleCloseDrawer}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
 
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
-                      Contact Person
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Mr. Eric Boateng"
-                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
-                      value={form.contactPerson}
-                      onChange={e => setForm({ ...form, contactPerson: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
-                      Phone Number
-                    </label>
-                    <input
-                      required
-                      type="tel"
-                      placeholder="e.g. +233 24 492 0182"
-                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
-                      value={form.phone}
-                      onChange={e => setForm({ ...form, phone: e.target.value })}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
-                      Email Address
-                    </label>
-                    <input
-                      required
-                      type="email"
-                      placeholder="e.g. orders@vendor.com"
-                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
-                      value={form.email}
-                      onChange={e => setForm({ ...form, email: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                {/* General Ledger (GL) Mapping Section */}
-                <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
+            {/* Drawer Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
+              <form id="drawer-vendor-form" onSubmit={handleSubmitNewVendor} className="space-y-6">
+                
+                {/* 1. Entity Identity */}
+                <div className="space-y-3 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/60">
                   <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block">
-                    DEFAULT GENERAL LEDGER (GL) ROUTING
+                    1. ENTITY IDENTITY & CONTACTS
+                  </span>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                      Legal Business Name *
+                    </label>
+                    <input
+                      ref={newVendorNameInputRef}
+                      required
+                      type="text"
+                      placeholder="e.g. Mindray Medical West Africa Ltd"
+                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                      value={newVendorForm.name}
+                      onChange={e => setNewVendorForm({ ...newVendorForm, name: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                        Trade Name (DBA)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Mindray WA"
+                        className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-medium text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={newVendorForm.tradeName}
+                        onChange={e => setNewVendorForm({ ...newVendorForm, tradeName: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                        Contact Person
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Madame Joyce Ansah"
+                        className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-medium text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={newVendorForm.contactPerson}
+                        onChange={e => setNewVendorForm({ ...newVendorForm, contactPerson: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                        Phone Number *
+                      </label>
+                      <input
+                        required
+                        type="tel"
+                        placeholder="e.g. +233 20 819 2840"
+                        className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-medium text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={newVendorForm.phone}
+                        onChange={e => setNewVendorForm({ ...newVendorForm, phone: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                        Email Address *
+                      </label>
+                      <input
+                        required
+                        type="email"
+                        placeholder="e.g. finance@mindray-wa.com"
+                        className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-medium text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={newVendorForm.email}
+                        onChange={e => setNewVendorForm({ ...newVendorForm, email: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Settlement Banking */}
+                <div className="space-y-3 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block">
+                    2. SETTLEMENT BANK ACCOUNT
+                  </span>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                      Bank Name & Branch *
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      placeholder="e.g. Ecobank Ghana - Ring Road Central"
+                      className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                      value={newVendorForm.bankName}
+                      onChange={e => setNewVendorForm({ ...newVendorForm, bankName: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                        Account Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Official Account Name"
+                        className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={newVendorForm.accountName}
+                        onChange={e => setNewVendorForm({ ...newVendorForm, accountName: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                        Account Number *
+                      </label>
+                      <input
+                        required
+                        type="text"
+                        placeholder="e.g. 14410029384"
+                        className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={newVendorForm.accountNumber}
+                        onChange={e => setNewVendorForm({ ...newVendorForm, accountNumber: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. General Ledger (GL) Routing */}
+                <div className="space-y-3 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block">
+                    3. GENERAL LEDGER (GL) ACCOUNT ROUTING
                   </span>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -915,8 +1558,8 @@ export default function VendorManager() {
                         Default AP Sub-Ledger (Credit Leg)
                       </label>
                       <select
-                        className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
-                        value={form.defaultApAccountCode}
+                        className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
+                        value={newVendorForm.defaultApAccountCode}
                         onChange={e => {
                           const code = e.target.value;
                           const nameMap: any = {
@@ -926,7 +1569,7 @@ export default function VendorManager() {
                             '2030': '2030 - Facility, Engineering & Utility Payables',
                             '2040': '2040 - Laboratory & Consumables Payables',
                           };
-                          setForm({ ...form, defaultApAccountCode: code, defaultApAccountName: nameMap[code] || '2000 - Trade Payables' });
+                          setNewVendorForm({ ...newVendorForm, defaultApAccountCode: code, defaultApAccountName: nameMap[code] || '2000 - Trade Payables' });
                         }}
                       >
                         <option value="2000">2000 - Trade Payables (General)</option>
@@ -942,8 +1585,8 @@ export default function VendorManager() {
                         Default Expense / Inventory (Debit Leg)
                       </label>
                       <select
-                        className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
-                        value={form.defaultExpenseAccountCode}
+                        className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
+                        value={newVendorForm.defaultExpenseAccountCode}
                         onChange={e => {
                           const code = e.target.value;
                           const nameMap: any = {
@@ -952,7 +1595,7 @@ export default function VendorManager() {
                             '5100': '5100 - Biomedical Equipment & Maintenance',
                             '6000': '6000 - Administrative Operating Expenses',
                           };
-                          setForm({ ...form, defaultExpenseAccountCode: code, defaultExpenseAccountName: nameMap[code] || '5000 - Supplies' });
+                          setNewVendorForm({ ...newVendorForm, defaultExpenseAccountCode: code, defaultExpenseAccountName: nameMap[code] || '5000 - Supplies' });
                         }}
                       >
                         <option value="5000">5000 - Medical & Pharma Supplies</option>
@@ -964,336 +1607,150 @@ export default function VendorManager() {
                   </div>
                 </div>
 
-                {/* Settlement Bank Details */}
-                <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
-                    SETTLEMENT BANK ACCOUNT DETAILS
+                {/* 4. GRA Statutory & WHT Setup */}
+                <div className="space-y-3 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block">
+                    4. GRA STATUTORY TAX & WHT EXEMPTION
                   </span>
+
                   <div>
                     <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
-                      Bank Name & Branch
+                      GRA Taxpayer Identification Number (TIN) *
                     </label>
                     <input
                       required
                       type="text"
-                      placeholder="e.g. GCB Bank - High Street Branch"
-                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
-                      value={form.bankName}
-                      onChange={e => setForm({ ...form, bankName: e.target.value })}
+                      placeholder="e.g. C008819241Z"
+                      className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500 uppercase"
+                      value={newVendorForm.tin}
+                      onChange={e => setNewVendorForm({ ...newVendorForm, tin: e.target.value })}
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
-                        Account Name
+                        Default WHT Category
                       </label>
-                      <input
-                        required
-                        type="text"
-                        placeholder="Official Account Name"
-                        className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
-                        value={form.accountName}
-                        onChange={e => setForm({ ...form, accountName: e.target.value })}
-                      />
+                      <select
+                        disabled={newVendorForm.isWhtExempt}
+                        className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-slate-100 outline-none cursor-pointer disabled:opacity-50"
+                        value={newVendorForm.defaultWhtCategory}
+                        onChange={e => {
+                          const cat = e.target.value;
+                          const rateMap: any = { GOODS: 3.0, WORKS: 5.0, SERVICES: 7.5, RENT: 8.0 };
+                          setNewVendorForm({ ...newVendorForm, defaultWhtCategory: cat, defaultWhtRate: newVendorForm.isWhtExempt ? 0.0 : (rateMap[cat] || 3.0) });
+                        }}
+                      >
+                        <option value="GOODS">Supply of Goods (3%)</option>
+                        <option value="WORKS">Supply of Works (5%)</option>
+                        <option value="SERVICES">Services / Consult (7.5%)</option>
+                        <option value="RENT">Rent / Leasing (8%)</option>
+                      </select>
                     </div>
 
                     <div>
                       <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
-                        Account Number
+                        Effective WHT Rate (%)
                       </label>
                       <input
+                        disabled={newVendorForm.isWhtExempt}
                         required
-                        type="text"
-                        placeholder="e.g. 1099248102"
-                        className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
-                        value={form.accountNumber}
-                        onChange={e => setForm({ ...form, accountNumber: e.target.value })}
+                        type="number"
+                        step="0.1"
+                        placeholder="3.0"
+                        className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+                        value={newVendorForm.defaultWhtRate}
+                        onChange={e => setNewVendorForm({ ...newVendorForm, defaultWhtRate: parseFloat(e.target.value) || 0 })}
                       />
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB 2: GRA STATUTORY & WHT EXEMPTION SETUP */}
-            {!isCreatingNew && activeTab === 'STATUTORY' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
-                    Taxpayer Identification Number (GRA TIN)
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. C001294819X"
-                    className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500 uppercase"
-                    value={form.tin}
-                    onChange={e => setForm({ ...form, tin: e.target.value })}
-                  />
-                </div>
-
-                <div 
-                  onClick={() => setForm({...form, isVatRegistered: !form.isVatRegistered})}
-                  className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" checked={form.isVatRegistered} readOnly className="w-4 h-4 accent-emerald-500 cursor-pointer" />
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                      Registered for GRA VAT & Statutory Levies (21.9%)
-                    </span>
-                  </div>
-                </div>
-
-                {/* WHT Exemption Toggle Card */}
-                <div className={`p-4 rounded-xl border transition-all ${
-                  form.isWhtExempt 
-                    ? 'bg-amber-500/10 border-amber-500/40 ring-1 ring-amber-500/30' 
-                    : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'
-                }`}>
-                  <div 
-                    onClick={() => setForm({ 
-                      ...form, 
-                      isWhtExempt: !form.isWhtExempt,
-                      defaultWhtRate: !form.isWhtExempt ? 0.0 : (form.defaultWhtCategory === 'WORKS' ? 5.0 : form.defaultWhtCategory === 'SERVICES' ? 7.5 : 3.0)
-                    })}
-                    className="flex items-center justify-between cursor-pointer"
-                  >
-                    <div>
-                      <span className="text-xs font-black uppercase text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-amber-500" />
-                        GRA WITHHOLDING TAX (WHT) EXEMPTION
-                      </span>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Enable if this distributor holds a valid GRA WHT Exemption Certificate.
-                      </p>
-                    </div>
-                    <input 
-                      type="checkbox" 
-                      checked={form.isWhtExempt} 
-                      readOnly 
-                      className="w-5 h-5 accent-amber-500 cursor-pointer" 
-                    />
-                  </div>
-
-                  {form.isWhtExempt && (
-                    <div className="mt-3 pt-3 border-t border-amber-500/20 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-300 tracking-wider block mb-1">
-                          GRA Exemption Cert Number
-                        </label>
-                        <input
-                          required
-                          type="text"
-                          placeholder="e.g. GRA/LTO/EXEMP/2026/042"
-                          className="w-full p-2.5 border border-amber-300 dark:border-amber-800 rounded-lg bg-white dark:bg-slate-900 font-mono font-bold text-xs outline-none focus:ring-2 focus:ring-amber-500 uppercase"
-                          value={form.whtExemptionCertNumber}
-                          onChange={e => setForm({ ...form, whtExemptionCertNumber: e.target.value })}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-300 tracking-wider block mb-1">
-                          Exemption Certificate Expiry Date
-                        </label>
-                        <input
-                          required
-                          type="date"
-                          className="w-full p-2.5 border border-amber-300 dark:border-amber-800 rounded-lg bg-white dark:bg-slate-900 font-mono font-bold text-xs outline-none focus:ring-2 focus:ring-amber-500"
-                          value={form.whtExemptionExpiryDate}
-                          onChange={e => setForm({ ...form, whtExemptionExpiryDate: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
-                      Standard WHT Category
-                    </label>
-                    <select
-                      disabled={form.isWhtExempt}
-                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none cursor-pointer disabled:opacity-50"
-                      value={form.defaultWhtCategory}
-                      onChange={e => {
-                        const cat = e.target.value;
-                        const rateMap: any = { GOODS: 3.0, WORKS: 5.0, SERVICES: 7.5, RENT: 8.0 };
-                        setForm({ ...form, defaultWhtCategory: cat, defaultWhtRate: form.isWhtExempt ? 0.0 : (rateMap[cat] || 3.0) });
-                      }}
-                    >
-                      <option value="GOODS">Supply of Goods (3%)</option>
-                      <option value="WORKS">Supply of Works (5%)</option>
-                      <option value="SERVICES">Services / Consult (7.5%)</option>
-                      <option value="RENT">Rent / Leasing (8%)</option>
-                    </select>
-                  </div>
 
                   <div>
                     <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
-                      Effective WHT Rate (%)
+                      GRA Tax Clearance Certificate Expiry Date
                     </label>
                     <input
-                      disabled={form.isWhtExempt}
-                      required
-                      type="number"
-                      step="0.1"
-                      placeholder="3.0"
-                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
-                      value={form.defaultWhtRate}
-                      onChange={e => setForm({ ...form, defaultWhtRate: parseFloat(e.target.value) || 0 })}
+                      type="date"
+                      className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                      value={newVendorForm.taxClearanceExpiry}
+                      onChange={e => setNewVendorForm({ ...newVendorForm, taxClearanceExpiry: e.target.value })}
                     />
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
-                    GRA Tax Clearance Certificate Expiry Date
-                  </label>
-                  <input
-                    type="date"
-                    className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
-                    value={form.taxClearanceExpiry}
-                    onChange={e => setForm({ ...form, taxClearanceExpiry: e.target.value })}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* TAB 3: COMPLIANCE VAULT WITH MANDATORY GOVERNANCE CHECKLIST */}
-            {!isCreatingNew && activeTab === 'VAULT' && (
-              <div className="space-y-4">
-                {/* Mandatory Document Governance Checklist */}
-                <div className="p-4 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2.5">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
-                    MANDATORY GOVERNANCE CHECKLIST (REQUIRED FOR ACTIVATION)
+                {/* 5. Compliance Document Vault Uploads */}
+                <div className="space-y-3 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block">
+                    5. MANDATORY VAULT DOCUMENTS
                   </span>
 
-                  <div className="space-y-1.5">
-                    {/* Business Registration */}
-                    {(() => {
-                      const hasReg = form.attachments.some(a => a.toLowerCase().includes('incorporation') || a.toLowerCase().includes('form') || a.toLowerCase().includes('business') || a.toLowerCase().includes('reg'));
-                      return (
-                        <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                          <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                            <FileCheck className="w-3.5 h-3.5 text-indigo-500" /> Business Registration (Form 3/4)
-                          </span>
-                          <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${
-                            hasReg ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                          }`}>
-                            {hasReg ? '✓ UPLOADED' : '✕ MISSING MANDATORY'}
-                          </span>
-                        </div>
-                      );
-                    })()}
+                  <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-4 bg-white dark:bg-slate-900 flex flex-col items-center justify-center text-center gap-2">
+                    <Upload className="w-6 h-6 text-emerald-500" />
+                    <span className="text-xs font-black uppercase text-slate-800 dark:text-slate-200">
+                      ATTACH CERTIFICATE OF INCORPORATION & TAX CLEARANCE
+                    </span>
+                    <p className="text-[10px] text-slate-400">
+                      Required for Checker activation: Business Registration Form 3/4 and GRA Tax Clearance.
+                    </p>
 
-                    {/* Tax Clearance Certificate */}
-                    {(() => {
-                      const hasTax = form.attachments.some(a => a.toLowerCase().includes('tax') || a.toLowerCase().includes('clearance') || a.toLowerCase().includes('tcc') || a.toLowerCase().includes('gra'));
-                      return (
-                        <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                          <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> GRA Tax Clearance Certificate
-                          </span>
-                          <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${
-                            hasTax ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                          }`}>
-                            {hasTax ? '✓ UPLOADED' : '✕ MISSING MANDATORY'}
-                          </span>
-                        </div>
-                      );
-                    })()}
+                    <input 
+                      type="file" 
+                      ref={drawerFileInputRef} 
+                      multiple 
+                      onChange={handleDrawerFileUpload} 
+                      className="hidden" 
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => drawerFileInputRef.current?.click()}
+                      className="mt-1 px-3 py-1.5 bg-emerald-600 text-white text-xs font-black uppercase rounded-lg flex items-center gap-2 cursor-pointer hover:bg-emerald-700"
+                    >
+                      <Paperclip className="w-3.5 h-3.5" /> ATTACH FILES TO VAULT
+                    </button>
                   </div>
-                </div>
 
-                <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-800/40 flex flex-col items-center justify-center text-center gap-2">
-                  <Upload className="w-6 h-6 text-emerald-500" />
-                  <span className="text-xs font-black uppercase text-slate-800 dark:text-slate-200">
-                    UPLOAD COMPLIANCE ARTIFACTS
-                  </span>
-                  <p className="text-[10px] text-slate-400">
-                    PDF or scanned images stored in encrypted Firebase Cloud Storage vault.
-                  </p>
-
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    multiple 
-                    onChange={handleFileUpload} 
-                    className="hidden" 
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="mt-1 px-3 py-1.5 bg-emerald-600 text-white text-xs font-black uppercase rounded-lg flex items-center gap-2 cursor-pointer hover:bg-emerald-700"
-                  >
-                    <Paperclip className="w-3.5 h-3.5" /> UPLOAD TO VAULT
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  <span className="text-[10px] font-black uppercase text-slate-400 block">Attached Compliance Files ({form.attachments.length})</span>
-                  {form.attachments.length === 0 ? (
-                    <p className="text-[10px] text-slate-400 italic">No compliance documents uploaded yet.</p>
-                  ) : (
-                    form.attachments.map((file, idx) => (
-                      <div key={idx} className="p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg flex items-center justify-between text-xs font-medium text-slate-800 dark:text-slate-200">
-                        <span className="flex items-center gap-2 truncate font-mono text-[10px]">
-                          <FileText className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> {file}
-                        </span>
-                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">VERIFIED</span>
-                      </div>
-                    ))
+                  {newVendorForm.attachments.length > 0 && (
+                    <div className="space-y-1.5 pt-2">
+                      {newVendorForm.attachments.map((file, idx) => (
+                        <div key={idx} className="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg flex items-center justify-between text-xs font-medium">
+                          <span className="flex items-center gap-2 truncate font-mono text-[10px]">
+                            <FileText className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> {file}
+                          </span>
+                          <span className="text-[9px] font-bold text-emerald-500 uppercase">READY</span>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
-              </div>
-            )}
 
-            {/* TAB 4: AUDIT LOG */}
-            {!isCreatingNew && activeTab === 'AUDIT' && (
-              <div className="space-y-3">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
-                  IMMUTABLE BANK DETAILS CHANGE LOG
-                </span>
-                {(!selectedVendor?.bankAuditLogs || selectedVendor.bankAuditLogs.length === 0) ? (
-                  <div className="p-6 text-center text-[10px] font-bold text-slate-400 italic border border-dashed rounded-xl">
-                    No bank account modifications recorded. Original details intact.
-                  </div>
-                ) : (
-                  selectedVendor.bankAuditLogs.map((log: any, idx: number) => (
-                    <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1 text-xs">
-                      <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
-                        <span>{log.timestamp}</span>
-                        <span className="font-bold text-emerald-500">{log.modifiedBy}</span>
-                      </div>
-                      <p className="font-black text-slate-800 dark:text-slate-200 text-[10px] uppercase">{log.field} Updated</p>
-                      <div className="text-[10px] font-mono grid grid-cols-2 gap-2 text-slate-500">
-                        <p className="truncate">Old: <span className="text-rose-400">{log.oldVal}</span></p>
-                        <p className="truncate">New: <span className="text-emerald-400">{log.newVal}</span></p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+              </form>
+            </div>
 
-            {/* Action Buttons */}
-            <div className="pt-2">
+            {/* Drawer Footer Controls */}
+            <div className="p-6 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleCloseDrawer}
+                className="px-5 py-3 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-black text-xs uppercase tracking-wider rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                CANCEL
+              </button>
+
               <button
                 type="submit"
+                form="drawer-vendor-form"
                 disabled={saving}
-                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-xs tracking-wider rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                <span>{isCreatingNew ? 'SUBMIT VENDOR FOR APPROVAL (MAKER)' : 'SAVE DOSSIER UPDATES'}</span>
+                <span>SUBMIT VENDOR FOR APPROVAL (MAKER)</span>
               </button>
             </div>
-          </form>
 
+          </div>
         </div>
-
-      </div>
+      )}
 
     </div>
   );
