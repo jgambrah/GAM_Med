@@ -550,10 +550,30 @@ export default function PaymentVoucherManager() {
         transaction.update(hospitalDocRef, { pvCounter: (hData?.pvCounter || 0) + 1 });
       });
 
+      // Dispatch Checker notification (Email / SMS webhook)
+      try {
+        fetch('/api/notifications/voucher-approval', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            hospitalId,
+            pvNumber: finalPvNumber,
+            disbursementMode,
+            grossAmount: effectiveGross,
+            netAmount: effectiveNet,
+            payeeCount: cleanBatchPayees.length,
+            narration: form.narration,
+            makerName: user.displayName || userProfile?.name || 'Accountant (Maker)',
+          })
+        }).catch(err => console.warn('Checker notification webhook error:', err));
+      } catch (err) {
+        // Non-blocking notification dispatch
+      }
+
       setForm(prev => ({ ...prev, pvNumber: finalPvNumber }));
       toast({ 
         title: isOverBudget ? `PV ${finalPvNumber} Escalated for Budget Override` : `PV ${finalPvNumber} Sent for Approval`, 
-        description: isOverBudget ? "Escalated to Medical Director for emergency budget sign-off." : "Awaiting review from the internal auditor / checker." 
+        description: isOverBudget ? "Escalated to Medical Director for emergency budget sign-off." : "Checker notified via email & SMS. Awaiting auditor review." 
       });
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Error', description: e.message });
