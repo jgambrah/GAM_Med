@@ -228,7 +228,112 @@ export default function FixedAssetRegisterConsole() {
     }
   };
 
+  const [isDisposalModalOpen, setIsDisposalModalOpen] = useState(false);
+  const [disposalAsset, setDisposalAsset] = useState<FixedAsset | null>(null);
+  const [disposalProceeds, setDisposalProceeds] = useState('0');
+  const [disposalDate, setDisposalDate] = useState(new Date().toISOString().split('T')[0]);
+  const [disposalBankId, setDisposalBankId] = useState('1010');
+
+  const handleExportAssetRegister = () => {
+    if (!assets || assets.length === 0) {
+      toast({ variant: 'destructive', title: 'Export Error', description: 'No fixed assets found in register.' });
+      return;
+    }
+
+    const headers = "Asset_Tag,Asset_Name,Category,Purchase_Date,Purchase_Cost_GHS,Useful_Life_Years,Salvage_Value_GHS,Accumulated_Depreciation_GHS,Net_Book_Value_GHS,Status\n";
+    const rows = assets.map(a => 
+      `"${a.tag}","${a.name}","${a.category}","${a.purchaseDate}",${a.cost.toFixed(2)},${a.usefulLifeYears},${a.salvageValue.toFixed(2)},${a.accumDepr.toFixed(2)},${a.nbv.toFixed(2)},"${a.status}"`
+    ).join('\n');
+
+    const totalCost = assets.reduce((s, a) => s + (a.status !== 'DISPOSED' ? a.cost : 0), 0);
+    const totalDepr = assets.reduce((s, a) => s + (a.status !== 'DISPOSED' ? a.accumDepr : 0), 0);
+    const totalNbv = assets.reduce((s, a) => s + (a.status !== 'DISPOSED' ? a.nbv : 0), 0);
+
+    const footer = `\n"TOTAL","ACTIVE BALANCE SHEET CARRYING VALUES","","",${totalCost.toFixed(2)},"","",${totalDepr.toFixed(2)},${totalNbv.toFixed(2)},"ACTIVE_REGISTER"`;
+
+    const csvData = "data:text/csv;charset=utf-8," + headers + rows + footer;
+    const encodedUri = encodeURI(csvData);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `GAM_MED_Fixed_Asset_Register_August_2026.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: "Asset Register Exported", description: `Exported ${assets.length} assets. Total NBV: GHS ${totalNbv.toFixed(2)}.` });
+  };
+
+  const handleExecuteDisposal = async () => {
+    if (!disposalAsset) return;
+    const proceeds = parseFloat(disposalProceeds) || 0;
+    const nbv = disposalAsset.nbv;
+    const gainOrLoss = proceeds - nbv;
+    const isGain = gainOrLoss >= 0;
+
+    setIsProcessing(true);
+
+    try {
+      if (firestore && hospitalId && user) {
+        // 1. Update Asset Status
+        if (disposalAsset.id.length > 15) {
+          const assetRef = doc(firestore, `hospitals/${hospitalId}/assets`, disposalAsset.id);
+          await updateDoc(assetRef, {
+            status: 'DISPOSED',
+            disposalProceeds: proceeds,
+            disposalDate,
+            gainOrLossOnDisposal: gainOrLoss,
+            updatedAt: serverTimestamp()
+          });
+        }
+
+        // 2. Post Multi-Leg Disposal Journal Voucher
+        const jvLines = [
+          // Debit Bank if proceeds > 0
+          ...(proceeds > 0 ? [{ accountId: disposalBankId, accountName: `${disposalBankId} - Bank / Cash Liquidation Account`, debit: proceeds, credit: 0 }] : []),
+          // Debit Accumulated Depreciation (Write-off contra-asset)
+          { accountId: '1550', accountName: `1550 - Accumulated Depreciation: ${disposalAsset.category}`, debit: disposalAsset.accumDepr, credit: 0 },
+          // Loss on Disposal (Debit) if negative
+          ...(!isGain ? [{ accountId: '5080', accountName: '5080 - Loss on Fixed Asset Disposal (Expense)', debit: Math.abs(gainOrLoss), credit: 0 }] : []),
+          // Gain on Disposal (Credit) if positive
+          ...(isGain && gainOrLoss > 0 ? [{ accountId: '4080', accountName: '4080 - Gain on Fixed Asset Disposal (Other Revenue)', debit: 0, credit: gainOrLoss }] : []),
+          // Credit Gross Asset Cost (De-recognize original asset)
+          { accountId: '1500', accountName: `1500 - Property, Plant & Equipment: ${disposalAsset.name}`, debit: 0, credit: disposalAsset.cost }
+        ];
+
+        await addDoc(collection(firestore, `hospitals/${hospitalId}/journal_entries`), {
+          jvNumber: `JV-DISP-${Date.now().toString().slice(-6)}`,
+          narration: `De-recognition & Disposal of ${disposalAsset.tag}: ${disposalAsset.name}. Proceeds: GHS ${proceeds.toFixed(2)}, NBV: GHS ${nbv.toFixed(2)}, ${isGain ? 'Gain' : 'Loss'}: GHS ${Math.abs(gainOrLoss).toFixed(2)}.`,
+          totalAmount: Math.max(proceeds + disposalAsset.accumDepr, disposalAsset.cost),
+          status: 'AUTHORIZED',
+          createdByName: userProfile?.fullName || 'Chief Accountant',
+          createdBy: user.uid,
+          createdAt: serverTimestamp(),
+          lines: jvLines
+        });
+      }
+
+      disposalAsset.status = 'DISPOSED';
+      toast({
+        title: "Asset Disposed & De-Recognized",
+        description: `Disposal JV posted. ${isGain ? `Gain of GHS ${gainOrLoss.toFixed(2)} booked.` : `Loss on disposal of GHS ${Math.abs(gainOrLoss).toFixed(2)} booked.`}`
+      });
+
+      setIsDisposalModalOpen(false);
+      setDisposalAsset(null);
+      setSelectedAssetForDossier(null);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: "Disposal Failed", description: e.message });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleUpdateAssetStatus = async (assetId: string, newStatus: 'ACTIVE' | 'MAINTENANCE' | 'DISPOSED') => {
+    if (newStatus === 'DISPOSED' && selectedAssetForDossier) {
+      setDisposalAsset(selectedAssetForDossier);
+      setIsDisposalModalOpen(true);
+      return;
+    }
+
     setIsProcessing(true);
     try {
       if (firestore && hospitalId && assetId.length > 15) {
@@ -245,7 +350,7 @@ export default function FixedAssetRegisterConsole() {
 
       toast({
         title: "Asset Status Updated",
-        description: `Asset status changed to ${newStatus}.${newStatus === 'DISPOSED' ? ' Asset removed from active Balance Sheet Carrying Value.' : ''}`
+        description: `Asset status changed to ${newStatus}.`
       });
     } catch (e: any) {
       toast({ variant: 'destructive', title: "Update Failed", description: e.message });
