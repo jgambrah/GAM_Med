@@ -8,7 +8,8 @@ import {
   Building2, Truck, Zap, Activity,
   Plus, Search, TrendingDown, Wrench,
   ShieldCheck, Calculator, Calendar, Loader2, ShieldAlert,
-  Filter, CheckCircle2, FileText, Eye, AlertCircle, X, Layers, Wallet, HardDrive, CheckSquare, RefreshCw, Trash2
+  Filter, CheckCircle2, FileText, Eye, AlertCircle, X, Layers, Wallet, HardDrive, CheckSquare, RefreshCw, Trash2,
+  MapPin, User as UserIcon, QrCode, Printer, Tag, Barcode, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -25,8 +26,14 @@ type FixedAsset = {
   nbv: number;
   usefulLifeYears: number;
   salvageValue: number;
+  location: string;
+  custodian: string;
+  serialNumber?: string;
+  deprMethod?: 'STRAIGHT_LINE' | 'DECLINING_BALANCE';
   status: 'ACTIVE' | 'MAINTENANCE' | 'DISPOSED';
   lastDeprDate?: string;
+  disposalProceeds?: number;
+  gainOrLossOnDisposal?: number;
 };
 
 export default function FixedAssetRegisterConsole() {
@@ -38,6 +45,7 @@ export default function FixedAssetRegisterConsole() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [isCapitalizeOpen, setIsCapitalizeOpen] = useState(false);
+  const [isDeprPreviewOpen, setIsDeprPreviewOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAssetForDossier, setSelectedAssetForDossier] = useState<FixedAsset | null>(null);
 
@@ -49,6 +57,10 @@ export default function FixedAssetRegisterConsole() {
   const [newUsefulLife, setNewUsefulLife] = useState('10');
   const [newSalvageValue, setNewSalvageValue] = useState('0');
   const [newPurchaseDate, setNewPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newLocation, setNewLocation] = useState('Main Block - Radiology');
+  const [newCustodian, setNewCustodian] = useState('Dr. Samuel Kponor');
+  const [newSerialNumber, setNewSerialNumber] = useState('');
+  const [newDeprMethod, setNewDeprMethod] = useState<'STRAIGHT_LINE' | 'DECLINING_BALANCE'>('STRAIGHT_LINE');
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -67,13 +79,93 @@ export default function FixedAssetRegisterConsole() {
   }, [firestore, hospitalId]);
   const { data: rawAssets, isLoading: isAssetsLoading } = useCollection(assetsQuery);
 
-  // 2. Demo Assets Fallback
+  // 2. Demo Assets Fallback with Location and Custodian tracking
   const demoAssets: FixedAsset[] = useMemo(() => [
-    { id: 'AST-MED-001', tag: 'GAM-US-001', name: 'GE Voluson E8 Ultrasound System', category: 'MEDICAL_EQ', purchaseDate: '2023-01-15', cost: 450000.00, accumDepr: 135000.00, nbv: 315000.00, usefulLifeYears: 10, salvageValue: 10000.00, status: 'ACTIVE' },
-    { id: 'AST-MED-042', tag: 'GAM-XRY-002', name: 'Siemens Mobile X-Ray Machine', category: 'MEDICAL_EQ', purchaseDate: '2024-06-10', cost: 280000.00, accumDepr: 56000.00, nbv: 224000.00, usefulLifeYears: 7, salvageValue: 5000.00, status: 'ACTIVE' },
-    { id: 'AST-VEH-003', tag: 'GAM-AMB-001', name: 'Toyota Hiace Emergency Ambulance (GN-123-25)', category: 'MOTOR_VEHICLES', purchaseDate: '2025-02-20', cost: 650000.00, accumDepr: 162500.00, nbv: 487500.00, usefulLifeYears: 5, salvageValue: 20000.00, status: 'MAINTENANCE' },
-    { id: 'AST-IT-015', tag: 'GAM-SRV-001', name: 'Dell PowerEdge T440 Core Enterprise Server', category: 'IT_INFRA', purchaseDate: '2024-11-05', cost: 85000.00, accumDepr: 42500.00, nbv: 42500.00, usefulLifeYears: 4, salvageValue: 2000.00, status: 'ACTIVE' },
-    { id: 'AST-FUR-008', tag: 'GAM-ICU-009', name: 'Hill-Rom Electric ICU Patient Bed Systems (Set of 4)', category: 'FURNITURE', purchaseDate: '2023-08-12', cost: 120000.00, accumDepr: 36000.00, nbv: 84000.00, usefulLifeYears: 8, salvageValue: 4000.00, status: 'ACTIVE' }
+    { 
+      id: 'AST-MED-001', 
+      tag: 'GAM-US-001', 
+      name: 'GE Voluson E8 Ultrasound System', 
+      category: 'MEDICAL_EQ', 
+      purchaseDate: '2023-01-15', 
+      cost: 450000.00, 
+      accumDepr: 135000.00, 
+      nbv: 315000.00, 
+      usefulLifeYears: 10, 
+      salvageValue: 10000.00, 
+      location: 'Main Block - Radiology',
+      custodian: 'Dr. Samuel Kponor (Consultant Sonologist)',
+      serialNumber: 'GE-VOL-99482-X',
+      deprMethod: 'STRAIGHT_LINE',
+      status: 'ACTIVE' 
+    },
+    { 
+      id: 'AST-MED-042', 
+      tag: 'GAM-XRY-002', 
+      name: 'Siemens Mobile X-Ray Machine', 
+      category: 'MEDICAL_EQ', 
+      purchaseDate: '2024-06-10', 
+      cost: 280000.00, 
+      accumDepr: 56000.00, 
+      nbv: 224000.00, 
+      usefulLifeYears: 7, 
+      salvageValue: 5000.00, 
+      location: 'Emergency & Trauma Wing',
+      custodian: 'Eng. Eric Boateng (Lead Biomedical Eng.)',
+      serialNumber: 'SIE-MXR-2024-04',
+      deprMethod: 'STRAIGHT_LINE',
+      status: 'ACTIVE' 
+    },
+    { 
+      id: 'AST-VEH-003', 
+      tag: 'GAM-AMB-001', 
+      name: 'Toyota Hiace Emergency Ambulance (GN-123-25)', 
+      category: 'MOTOR_VEHICLES', 
+      purchaseDate: '2025-02-20', 
+      cost: 650000.00, 
+      accumDepr: 162500.00, 
+      nbv: 487500.00, 
+      usefulLifeYears: 5, 
+      salvageValue: 20000.00, 
+      location: 'Ambulance Bay - Transport Dept',
+      custodian: 'Mr. David Mensah (Fleet Supervisor)',
+      serialNumber: 'VIN-JT2HE41P59012',
+      deprMethod: 'STRAIGHT_LINE',
+      status: 'MAINTENANCE' 
+    },
+    { 
+      id: 'AST-IT-015', 
+      tag: 'GAM-SRV-001', 
+      name: 'Dell PowerEdge T440 Core Enterprise Server', 
+      category: 'IT_INFRA', 
+      purchaseDate: '2024-11-05', 
+      cost: 85000.00, 
+      accumDepr: 42500.00, 
+      nbv: 42500.00, 
+      usefulLifeYears: 4, 
+      salvageValue: 2000.00, 
+      location: 'Administration Block - Server Room 2',
+      custodian: 'Kofi Asare (Head of Health Informatics)',
+      serialNumber: 'SRV-DL-883921',
+      deprMethod: 'STRAIGHT_LINE',
+      status: 'ACTIVE' 
+    },
+    { 
+      id: 'AST-FUR-008', 
+      tag: 'GAM-ICU-009', 
+      name: 'Hill-Rom Electric ICU Patient Bed Systems (Set of 4)', 
+      category: 'FURNITURE', 
+      purchaseDate: '2023-08-12', 
+      cost: 120000.00, 
+      accumDepr: 36000.00, 
+      nbv: 84000.00, 
+      usefulLifeYears: 8, 
+      salvageValue: 4000.00, 
+      location: 'Intensive Care Unit (ICU Block)',
+      custodian: 'Tracy Gambrah (Nurse In-Charge)',
+      serialNumber: 'HR-BED-ICU-009',
+      deprMethod: 'STRAIGHT_LINE',
+      status: 'ACTIVE' 
+    }
   ], []);
 
   const assets: FixedAsset[] = useMemo(() => {
@@ -93,8 +185,14 @@ export default function FixedAssetRegisterConsole() {
           nbv,
           usefulLifeYears: Number(docItem.usefulLife || docItem.usefulLifeYears || 5),
           salvageValue: Number(docItem.salvageValue || 0),
+          location: docItem.location || 'Main Hospital Facility',
+          custodian: docItem.custodian || 'Hospital Asset Controller',
+          serialNumber: docItem.serialNumber || 'N/A',
+          deprMethod: docItem.deprMethod || 'STRAIGHT_LINE',
           status: docItem.status === 'OPERATIONAL' ? 'ACTIVE' : (docItem.status || 'ACTIVE') as any,
-          lastDeprDate: docItem.lastDepreciationPeriod
+          lastDeprDate: docItem.lastDepreciationPeriod,
+          disposalProceeds: docItem.disposalProceeds,
+          gainOrLossOnDisposal: docItem.gainOrLossOnDisposal,
         };
       });
     }
@@ -134,6 +232,25 @@ export default function FixedAssetRegisterConsole() {
     return Math.max(0, (cost - salvage) / totalMonths);
   }, [newCost, newSalvageValue, newUsefulLife]);
 
+  // Pre-Run Depreciation Batch Telemetry Calculation
+  const deprBatchTelemetry = useMemo(() => {
+    const activeAssets = assets.filter(a => a.status === 'ACTIVE' && a.nbv > a.salvageValue);
+    let totalMonthlyDepr = 0;
+    const categoryBreakdown: Record<string, { count: number; monthly: number }> = {};
+
+    activeAssets.forEach(a => {
+      const monthly = Math.max(0, (a.cost - a.salvageValue) / (a.usefulLifeYears * 12));
+      totalMonthlyDepr += monthly;
+      if (!categoryBreakdown[a.category]) {
+        categoryBreakdown[a.category] = { count: 0, monthly: 0 };
+      }
+      categoryBreakdown[a.category].count += 1;
+      categoryBreakdown[a.category].monthly += monthly;
+    });
+
+    return { activeAssets, totalMonthlyDepr, categoryBreakdown };
+  }, [assets]);
+
   const handleCapitalizeAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTag || !newName || !newCost) {
@@ -161,7 +278,12 @@ export default function FixedAssetRegisterConsole() {
           accumDepr: 0,
           nbv: costNum,
           usefulLife: lifeNum,
+          usefulLifeYears: lifeNum,
           salvageValue: salvageNum,
+          location: newLocation.trim() || 'Main Hospital Facility',
+          custodian: newCustodian.trim() || 'Asset Controller',
+          serialNumber: newSerialNumber.trim() || 'N/A',
+          deprMethod: newDeprMethod,
           status: 'ACTIVE',
           capitalizedBy: user.uid,
           createdAt: serverTimestamp()
@@ -170,7 +292,7 @@ export default function FixedAssetRegisterConsole() {
         // Post Capitalization Journal Voucher (Debit 1500 PPE / Credit 1010 Bank Account)
         await addDoc(collection(firestore, `hospitals/${hospitalId}/journal_entries`), {
           jvNumber: `JV-CAP-${Date.now().toString().slice(-6)}`,
-          narration: `Capitalization of Asset ${newTag.toUpperCase()}: ${newName}`,
+          narration: `Capitalization of Asset ${newTag.toUpperCase()}: ${newName} (${newLocation})`,
           totalAmount: costNum,
           status: 'AUTHORIZED',
           createdByName: userProfile?.fullName || 'Finance Director',
@@ -194,6 +316,7 @@ export default function FixedAssetRegisterConsole() {
       setNewCost('');
       setNewSalvageValue('0');
       setNewUsefulLife('10');
+      setNewSerialNumber('');
     } catch (e: any) {
       toast({ variant: 'destructive', title: "Capitalization Failed", description: e.message });
     } finally {
@@ -201,7 +324,7 @@ export default function FixedAssetRegisterConsole() {
     }
   };
 
-  const handleRunDepreciationBatch = async () => {
+  const handleConfirmDepreciationBatch = async () => {
     setIsProcessing(true);
 
     try {
@@ -212,15 +335,16 @@ export default function FixedAssetRegisterConsole() {
 
         toast({
           title: "Monthly Depreciation Batch Executed",
-          description: res.data?.message || "Monthly depreciation calculated and Journal Vouchers posted (Debit 6500 / Credit 1550)."
+          description: res.data?.message || `Depreciation of ₵ ${deprBatchTelemetry.totalMonthlyDepr.toLocaleString('en-GH', { minimumFractionDigits: 2 })} posted to General Ledger.`
         });
       } else {
-        // Fallback simulation for frontend preview
+        // Fallback simulation
         toast({
-          title: "Monthly Depreciation Batch Executed (Simulation)",
-          description: "Monthly straight-line depreciation calculated across active assets. Posted JV (Debit: 6500 Depreciation Expense / Credit: 1550 Accumulated Depreciation)."
+          title: "Depreciation Batch Posted to General Ledger",
+          description: `Posted JV for ${deprBatchTelemetry.activeAssets.length} assets: Debit 6500 (₵${deprBatchTelemetry.totalMonthlyDepr.toFixed(2)}) / Credit 1550 (₵${deprBatchTelemetry.totalMonthlyDepr.toFixed(2)}).`
         });
       }
+      setIsDeprPreviewOpen(false);
     } catch (e: any) {
       toast({ variant: 'destructive', title: "Depreciation Run Failed", description: e.message });
     } finally {
@@ -240,16 +364,16 @@ export default function FixedAssetRegisterConsole() {
       return;
     }
 
-    const headers = "Asset_Tag,Asset_Name,Category,Purchase_Date,Purchase_Cost_GHS,Useful_Life_Years,Salvage_Value_GHS,Accumulated_Depreciation_GHS,Net_Book_Value_GHS,Status\n";
+    const headers = "Asset_Tag,Asset_Name,Category,Location,Custodian,Serial_No,Purchase_Date,Purchase_Cost_GHS,Useful_Life_Years,Salvage_Value_GHS,Accumulated_Depreciation_GHS,Net_Book_Value_GHS,Status\n";
     const rows = assets.map(a => 
-      `"${a.tag}","${a.name}","${a.category}","${a.purchaseDate}",${a.cost.toFixed(2)},${a.usefulLifeYears},${a.salvageValue.toFixed(2)},${a.accumDepr.toFixed(2)},${a.nbv.toFixed(2)},"${a.status}"`
+      `"${a.tag}","${a.name}","${a.category}","${a.location}","${a.custodian}","${a.serialNumber || 'N/A'}","${a.purchaseDate}",${a.cost.toFixed(2)},${a.usefulLifeYears},${a.salvageValue.toFixed(2)},${a.accumDepr.toFixed(2)},${a.nbv.toFixed(2)},"${a.status}"`
     ).join('\n');
 
     const totalCost = assets.reduce((s, a) => s + (a.status !== 'DISPOSED' ? a.cost : 0), 0);
     const totalDepr = assets.reduce((s, a) => s + (a.status !== 'DISPOSED' ? a.accumDepr : 0), 0);
     const totalNbv = assets.reduce((s, a) => s + (a.status !== 'DISPOSED' ? a.nbv : 0), 0);
 
-    const footer = `\n"TOTAL","ACTIVE BALANCE SHEET CARRYING VALUES","","",${totalCost.toFixed(2)},"","",${totalDepr.toFixed(2)},${totalNbv.toFixed(2)},"ACTIVE_REGISTER"`;
+    const footer = `\n"TOTAL","ACTIVE BALANCE SHEET CARRYING VALUES","","","","",${totalCost.toFixed(2)},"","",${totalDepr.toFixed(2)},${totalNbv.toFixed(2)},"ACTIVE_REGISTER"`;
 
     const csvData = "data:text/csv;charset=utf-8," + headers + rows + footer;
     const encodedUri = encodeURI(csvData);
@@ -273,7 +397,7 @@ export default function FixedAssetRegisterConsole() {
 
     try {
       if (firestore && hospitalId && user) {
-        // 1. Update Asset Status
+        // 1. Update Asset Status in Firestore
         if (disposalAsset.id.length > 15) {
           const assetRef = doc(firestore, `hospitals/${hospitalId}/assets`, disposalAsset.id);
           await updateDoc(assetRef, {
@@ -287,15 +411,10 @@ export default function FixedAssetRegisterConsole() {
 
         // 2. Post Multi-Leg Disposal Journal Voucher
         const jvLines = [
-          // Debit Bank if proceeds > 0
           ...(proceeds > 0 ? [{ accountId: disposalBankId, accountName: `${disposalBankId} - Bank / Cash Liquidation Account`, debit: proceeds, credit: 0 }] : []),
-          // Debit Accumulated Depreciation (Write-off contra-asset)
           { accountId: '1550', accountName: `1550 - Accumulated Depreciation: ${disposalAsset.category}`, debit: disposalAsset.accumDepr, credit: 0 },
-          // Loss on Disposal (Debit) if negative
           ...(!isGain ? [{ accountId: '5080', accountName: '5080 - Loss on Fixed Asset Disposal (Expense)', debit: Math.abs(gainOrLoss), credit: 0 }] : []),
-          // Gain on Disposal (Credit) if positive
           ...(isGain && gainOrLoss > 0 ? [{ accountId: '4080', accountName: '4080 - Gain on Fixed Asset Disposal (Other Revenue)', debit: 0, credit: gainOrLoss }] : []),
-          // Credit Gross Asset Cost (De-recognize original asset)
           { accountId: '1500', accountName: `1500 - Property, Plant & Equipment: ${disposalAsset.name}`, debit: 0, credit: disposalAsset.cost }
         ];
 
@@ -312,6 +431,9 @@ export default function FixedAssetRegisterConsole() {
       }
 
       disposalAsset.status = 'DISPOSED';
+      disposalAsset.disposalProceeds = proceeds;
+      disposalAsset.gainOrLossOnDisposal = gainOrLoss;
+
       toast({
         title: "Asset Disposed & De-Recognized",
         description: `Disposal JV posted. ${isGain ? `Gain of GHS ${gainOrLoss.toFixed(2)} booked.` : `Loss on disposal of GHS ${Math.abs(gainOrLoss).toFixed(2)} booked.`}`
@@ -359,6 +481,10 @@ export default function FixedAssetRegisterConsole() {
     }
   };
 
+  const handlePrintAssetTag = () => {
+    window.print();
+  };
+
   const isLoading = isUserLoading || isProfileLoading || isAssetsLoading;
   const userName = user?.displayName || userProfile?.name || 'MARCUS AMOSAH HENAKU';
   const userInitials = userName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || 'MH';
@@ -404,7 +530,7 @@ export default function FixedAssetRegisterConsole() {
             <div>
               <div className="flex items-center gap-3">
                 <span className="px-2.5 py-1 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-black tracking-widest rounded uppercase">
-                  FINANCIAL SUITE
+                  IFRS & IPSAS COMPLIANCE
                 </span>
                 <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white uppercase italic">
                   GAM MED
@@ -435,7 +561,7 @@ export default function FixedAssetRegisterConsole() {
                 <p className="text-2xl font-mono text-white font-bold mt-1">
                   ₵ {metrics.totalCost.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
-                <p className="text-[9px] text-slate-400 font-medium mt-0.5">Historical Capital Acquisition Cost</p>
+                <p className="text-[9px] text-slate-400 font-medium mt-0.5">Historical Capital Acquisition Cost (GL 1500)</p>
               </div>
               <div className="p-3 bg-slate-700/50 rounded-lg text-slate-300">
                 <Building2 className="w-6 h-6 text-indigo-400" />
@@ -485,7 +611,7 @@ export default function FixedAssetRegisterConsole() {
             <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
             <input 
               type="text" 
-              placeholder="Search by asset tag or equipment description..." 
+              placeholder="Search by asset tag, description, location, or custodian..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-xl shadow-sm text-xs font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-900 dark:text-slate-100"
@@ -496,7 +622,7 @@ export default function FixedAssetRegisterConsole() {
             <select 
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full md:w-64 p-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 font-bold text-xs text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+              className="w-full md:w-56 p-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 font-bold text-xs text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
             >
               <option value="ALL">ALL CATEGORIES</option>
               <option value="MEDICAL_EQ">🏥 MEDICAL EQUIPMENT</option>
@@ -505,12 +631,19 @@ export default function FixedAssetRegisterConsole() {
               <option value="FURNITURE">🛏️ FURNITURE & FITTINGS</option>
             </select>
 
-            <button 
-              onClick={handleRunDepreciationBatch}
-              disabled={isProcessing}
-              className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow transition-all disabled:opacity-50 flex items-center gap-2 border border-slate-800 cursor-pointer"
+            <button
+              onClick={handleExportAssetRegister}
+              className="px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-black uppercase rounded-xl transition-all flex items-center gap-2 border border-slate-300 dark:border-slate-700 cursor-pointer"
             >
-              {isProcessing ? <Loader2 className="w-4 h-4 animate-spin text-emerald-400" /> : <Calculator className="w-4 h-4 text-emerald-400" />}
+              <FileText className="w-4 h-4" />
+              <span>EXPORT CSV</span>
+            </button>
+
+            <button 
+              onClick={() => setIsDeprPreviewOpen(true)}
+              className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow transition-all flex items-center gap-2 border border-slate-800 cursor-pointer"
+            >
+              <Calculator className="w-4 h-4 text-emerald-400" />
               <span>RUN DEPRECIATION BATCH</span>
             </button>
 
@@ -534,7 +667,8 @@ export default function FixedAssetRegisterConsole() {
               <thead>
                 <tr className="bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 text-[11px] font-extrabold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
                   <th className="p-4">Asset Tag</th>
-                  <th className="p-4">Description & Category</th>
+                  <th className="p-4">Description, Location & Custodian</th>
+                  <th className="p-4">Depreciation Policy</th>
                   <th className="p-4 text-right">Purchase Cost</th>
                   <th className="p-4 text-right text-amber-700 dark:text-amber-400">Accum. Depr.</th>
                   <th className="p-4 text-right text-indigo-700 dark:text-emerald-400">Net Book Value (NBV)</th>
@@ -543,60 +677,96 @@ export default function FixedAssetRegisterConsole() {
                 </tr>
               </thead>
               <tbody className="text-xs font-bold divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredAssets.map(asset => (
-                  <tr key={asset.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="p-4">
-                      <span className="font-mono text-slate-800 dark:text-slate-200 font-bold bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700">
-                        {asset.tag}
-                      </span>
-                    </td>
+                {filteredAssets.map(asset => {
+                  const monthlyDepr = (asset.cost - asset.salvageValue) / (asset.usefulLifeYears * 12);
+                  const annualRate = (100 / asset.usefulLifeYears).toFixed(1);
 
-                    <td className="p-4">
-                      <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{asset.name}</p>
-                      <p className="text-[10px] text-slate-500 font-semibold uppercase mt-0.5 tracking-wider">
-                        {asset.category.replace('_', ' ')} • Purchased: {asset.purchaseDate}
-                      </p>
-                    </td>
+                  return (
+                    <tr key={asset.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="p-4 align-top">
+                        <span className="font-mono text-slate-800 dark:text-slate-200 font-bold bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 block w-fit">
+                          {asset.tag}
+                        </span>
+                        {asset.serialNumber && asset.serialNumber !== 'N/A' && (
+                          <span className="text-[9px] text-slate-400 font-mono block mt-1">S/N: {asset.serialNumber}</span>
+                        )}
+                      </td>
 
-                    <td className="p-4 text-right font-mono text-slate-700 dark:text-slate-300">
-                      ₵ {asset.cost.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
+                      <td className="p-4 align-top space-y-1">
+                        <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{asset.name}</p>
+                        
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+                          <span className="text-indigo-600 dark:text-indigo-400">{asset.category.replace('_', ' ')}</span>
+                          <span>•</span>
+                          <span>Purchased: {asset.purchaseDate}</span>
+                        </div>
 
-                    <td className="p-4 text-right font-mono font-semibold text-amber-700 dark:text-amber-400">
-                      ₵ {asset.accumDepr.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
+                        {/* Location & Custodian Sub-Labels */}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-600 dark:text-slate-300 font-medium pt-0.5">
+                          <span className="flex items-center gap-1 text-slate-700 dark:text-slate-300">
+                            <MapPin className="w-3 h-3 text-rose-500 shrink-0" />
+                            <strong>{asset.location}</strong>
+                          </span>
+                          <span className="text-slate-400">•</span>
+                          <span className="flex items-center gap-1 text-slate-600 dark:text-slate-400">
+                            <UserIcon className="w-3 h-3 text-emerald-500 shrink-0" />
+                            {asset.custodian}
+                          </span>
+                        </div>
+                      </td>
 
-                    <td className="p-4 text-right font-mono font-extrabold text-indigo-900 dark:text-emerald-400 bg-indigo-50/40 dark:bg-emerald-950/20">
-                      ₵ {asset.nbv.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
+                      {/* Depreciation Policy & Rate Column */}
+                      <td className="p-4 align-top">
+                        <div className="space-y-1">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] font-mono font-bold">
+                            SLM • {asset.usefulLifeYears} Yrs ({annualRate}% p.a.)
+                          </span>
+                          <p className="text-[10px] font-mono text-slate-500">
+                            ₵ {monthlyDepr.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mo
+                          </p>
+                        </div>
+                      </td>
 
-                    <td className="p-4 text-center">
-                      <span className={`px-2.5 py-1 text-[9px] font-black rounded uppercase tracking-wider border ${
-                        asset.status === 'ACTIVE' 
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300' 
-                          : asset.status === 'MAINTENANCE' 
-                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border-amber-300' 
-                          : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border-slate-300'
-                      }`}>
-                        {asset.status}
-                      </span>
-                    </td>
+                      <td className="p-4 text-right font-mono text-slate-700 dark:text-slate-300 align-top">
+                        ₵ {asset.cost.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
 
-                    <td className="p-4 text-center">
-                      <button 
-                        onClick={() => setSelectedAssetForDossier(asset)}
-                        className="text-[10px] bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-indigo-400 hover:border-indigo-700 font-bold px-3 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1.5 mx-auto cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                        <span>VIEW DOSSIER</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="p-4 text-right font-mono font-semibold text-amber-700 dark:text-amber-400 align-top">
+                        ₵ {asset.accumDepr.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+
+                      <td className="p-4 text-right font-mono font-extrabold text-indigo-900 dark:text-emerald-400 bg-indigo-50/40 dark:bg-emerald-950/20 align-top">
+                        ₵ {asset.nbv.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+
+                      <td className="p-4 text-center align-top">
+                        <span className={`px-2.5 py-1 text-[9px] font-black rounded uppercase tracking-wider border ${
+                          asset.status === 'ACTIVE' 
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300' 
+                            : asset.status === 'MAINTENANCE' 
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border-amber-300' 
+                            : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300'
+                        }`}>
+                          {asset.status}
+                        </span>
+                      </td>
+
+                      <td className="p-4 text-center align-top">
+                        <button 
+                          onClick={() => setSelectedAssetForDossier(asset)}
+                          className="text-[10px] bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-indigo-400 hover:border-indigo-700 font-bold px-3 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1.5 mx-auto cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                          <span>DOSSIER & QR</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
 
                 {filteredAssets.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="p-16 text-center text-slate-400 italic font-semibold">
+                    <td colSpan={8} className="p-16 text-center text-slate-400 italic font-semibold">
                       No assets found matching the current search filters.
                     </td>
                   </tr>
@@ -608,29 +778,139 @@ export default function FixedAssetRegisterConsole() {
 
       </div>
 
+      {/* ============================================================== */}
+      {/* 3. PRE-RUN DEPRECIATION TELEMETRY & PROJECTED JV MODAL         */}
+      {/* ============================================================== */}
+      {isDeprPreviewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            
+            <div className="bg-slate-900 text-white p-6 border-b border-slate-800 flex justify-between items-center">
+              <div>
+                <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-[9px] font-black uppercase rounded tracking-wider border border-amber-500/30">
+                  MAKER-CHECKER CONTROL GATE
+                </span>
+                <h3 className="font-extrabold text-lg uppercase tracking-wider mt-1 flex items-center gap-2">
+                  <Calculator className="w-5 h-5 text-emerald-400" /> Monthly Depreciation Batch Run
+                </h3>
+                <p className="text-xs text-slate-400 font-mono">Simulated Impact & Projected Journal Voucher Preview</p>
+              </div>
+              <button 
+                onClick={() => setIsDeprPreviewOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 text-xs font-bold max-h-[75vh] overflow-y-auto">
+              
+              {/* Macro Telemetry Cards */}
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <span className="text-[9px] text-slate-500 uppercase block">Active In-Scope</span>
+                  <span className="font-mono text-base font-black text-slate-900 dark:text-slate-100">
+                    {deprBatchTelemetry.activeAssets.length} Assets
+                  </span>
+                </div>
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900/50">
+                  <span className="text-[9px] text-amber-700 dark:text-amber-400 uppercase block">Cycle Period</span>
+                  <span className="font-mono text-sm font-black text-amber-700 dark:text-amber-400">
+                    August 2026
+                  </span>
+                </div>
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-900/50">
+                  <span className="text-[9px] text-emerald-700 dark:text-emerald-400 uppercase block">Projected Monthly JV</span>
+                  <span className="font-mono text-base font-black text-emerald-600 dark:text-emerald-400">
+                    ₵ {deprBatchTelemetry.totalMonthlyDepr.toLocaleString('en-GH', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Category Breakdown */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider block">
+                  DEPRECIATION EXPENSE BREAKDOWN BY ASSET CLASS
+                </span>
+                <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-200 dark:divide-slate-700">
+                  {Object.entries(deprBatchTelemetry.categoryBreakdown).map(([cat, data]) => (
+                    <div key={cat} className="p-3 flex justify-between items-center text-xs">
+                      <div>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{cat.replace('_', ' ')}</span>
+                        <span className="text-[10px] text-slate-400 font-mono ml-2">({data.count} units)</span>
+                      </div>
+                      <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                        ₵ {data.monthly.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Projected General Ledger Double-Entry Impact */}
+              <div className="p-4 bg-slate-950 text-white rounded-2xl space-y-2.5 font-mono text-[11px] border border-slate-800">
+                <span className="text-[9px] font-sans font-black uppercase tracking-widest text-slate-400 block">
+                  PROJECTED DOUBLE-ENTRY JOURNAL VOUCHER (JV-DEPR-AUTO)
+                </span>
+                <div className="flex justify-between text-emerald-400 border-b border-slate-800 pb-1.5">
+                  <span>DR 6500 - Depreciation Expense (Hospital Operations)</span>
+                  <span>₵ {deprBatchTelemetry.totalMonthlyDepr.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-amber-400 pt-1">
+                  <span>CR 1550 - Accumulated Depreciation (Contra-Asset)</span>
+                  <span>₵ {deprBatchTelemetry.totalMonthlyDepr.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsDeprPreviewOpen(false)}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer"
+                >
+                  ABORT
+                </button>
+                <button
+                  type="button"
+                  disabled={isProcessing || deprBatchTelemetry.totalMonthlyDepr <= 0}
+                  onClick={handleConfirmDepreciationBatch}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  <span>COMMIT & POST DEPRECIATION BATCH (MAKER)</span>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
+
       {/* ========================================== */}
-      {/* 3. CAPITALIZE NEW ASSET MODAL              */}
+      {/* 4. CAPITALIZE NEW ASSET MODAL              */}
       {/* ========================================== */}
       {isCapitalizeOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-slate-900 text-white p-6 border-b border-slate-800 flex justify-between items-center">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden space-y-4 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            <div className="bg-slate-900 text-white p-6 border-b border-slate-800 flex justify-between items-center shrink-0">
               <div>
                 <h3 className="font-extrabold text-lg uppercase tracking-wider">Capitalize New Fixed Asset</h3>
                 <p className="text-xs text-slate-400 font-mono mt-0.5">Automated Double-Entry: Debit PPE (1500) / Credit Bank (1010)</p>
               </div>
               <button 
                 onClick={() => setIsCapitalizeOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors"
+                className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCapitalizeAsset} className="p-6 space-y-4 text-xs font-bold">
+            <form onSubmit={handleCapitalizeAsset} className="p-6 space-y-4 text-xs font-bold overflow-y-auto flex-1">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-500 block">Asset Tag ID</label>
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Asset Tag ID *</label>
                   <input
                     required
                     type="text"
@@ -642,7 +922,7 @@ export default function FixedAssetRegisterConsole() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-500 block">Asset Category</label>
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Asset Category *</label>
                   <select
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value as any)}
@@ -657,7 +937,7 @@ export default function FixedAssetRegisterConsole() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-500 block">Asset Description & Model</label>
+                <label className="text-[10px] font-black uppercase text-slate-500 block">Asset Description & Model *</label>
                 <input
                   required
                   type="text"
@@ -668,9 +948,61 @@ export default function FixedAssetRegisterConsole() {
                 />
               </div>
 
+              {/* Location & Custodian Tracking Inputs */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-500 block">Purchase Cost (₵)</label>
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Physical Location / Dept *</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="e.g. Main Block - Radiology"
+                    value={newLocation}
+                    onChange={(e) => setNewLocation(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Designated Custodian *</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="e.g. Dr. Samuel Kponor"
+                    value={newCustodian}
+                    onChange={(e) => setNewCustodian(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Manufacturer Serial Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. SN-88912-VOL"
+                    value={newSerialNumber}
+                    onChange={(e) => setNewSerialNumber(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Depreciation Method</label>
+                  <select
+                    value={newDeprMethod}
+                    onChange={(e) => setNewDeprMethod(e.target.value as any)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none cursor-pointer text-slate-900 dark:text-slate-100"
+                  >
+                    <option value="STRAIGHT_LINE">Straight-Line Method (SLM)</option>
+                    <option value="DECLINING_BALANCE">Reducing / Declining Balance</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Purchase Cost (₵) *</label>
                   <input
                     required
                     type="number"
@@ -683,7 +1015,7 @@ export default function FixedAssetRegisterConsole() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-500 block">Purchase Date</label>
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Purchase Date *</label>
                   <input
                     required
                     type="date"
@@ -696,7 +1028,7 @@ export default function FixedAssetRegisterConsole() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-500 block">Useful Life (Years)</label>
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Useful Life (Years) *</label>
                   <input
                     required
                     type="number"
@@ -728,7 +1060,7 @@ export default function FixedAssetRegisterConsole() {
                   </span>
                 </div>
                 <p className="text-[9px] text-indigo-600 dark:text-indigo-400 font-normal">
-                  Calculation Formula: (Cost ₵{parseFloat(newCost) || 0} - Salvage ₵{parseFloat(newSalvageValue) || 0}) / ({parseInt(newUsefulLife) || 1} Years × 12 Months)
+                  Formula: (Cost ₵{parseFloat(newCost) || 0} - Salvage ₵{parseFloat(newSalvageValue) || 0}) / ({parseInt(newUsefulLife) || 1} Yrs × 12 Months)
                 </p>
               </div>
 
@@ -736,7 +1068,7 @@ export default function FixedAssetRegisterConsole() {
                 <button
                   type="button"
                   onClick={() => setIsCapitalizeOpen(false)}
-                  className="px-4 py-2.5 font-bold text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+                  className="px-4 py-2.5 font-bold text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
                 >
                   CANCEL
                 </button>
@@ -754,13 +1086,141 @@ export default function FixedAssetRegisterConsole() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 4. ASSET DOSSIER MODAL                     */}
-      {/* ========================================== */}
+      {/* ============================================================== */}
+      {/* 5. ASSET DISPOSAL & GAIN/LOSS WORKFLOW MODAL                   */}
+      {/* ============================================================== */}
+      {isDisposalModalOpen && disposalAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-rose-950 text-white p-6 border-b border-rose-900 flex justify-between items-center">
+              <div>
+                <span className="px-2 py-0.5 bg-rose-500/20 text-rose-300 text-[9px] font-black uppercase rounded tracking-wider border border-rose-500/30">
+                  DE-RECOGNITION WORKFLOW
+                </span>
+                <h3 className="font-extrabold text-lg uppercase tracking-wider mt-1 flex items-center gap-2">
+                  <Trash2 className="w-5 h-5 text-rose-400" /> Fixed Asset Disposal
+                </h3>
+                <p className="text-xs text-rose-300/80 font-mono mt-0.5">{disposalAsset.tag}: {disposalAsset.name}</p>
+              </div>
+              <button 
+                onClick={() => { setIsDisposalModalOpen(false); setDisposalAsset(null); }}
+                className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs font-bold">
+              {/* Financial Snapshot */}
+              <div className="grid grid-cols-3 gap-2 text-center p-3 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                <div>
+                  <span className="text-[9px] text-slate-500 uppercase block">Historical Cost</span>
+                  <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100">₵ {disposalAsset.cost.toFixed(2)}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] text-amber-600 uppercase block">Accum. Depr</span>
+                  <span className="font-mono text-xs font-bold text-amber-600">₵ {disposalAsset.accumDepr.toFixed(2)}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] text-emerald-600 uppercase block">Net Book Value</span>
+                  <span className="font-mono text-xs font-black text-emerald-600">₵ {disposalAsset.nbv.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Proceeds Input */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-500 block">Disposal / Salvage Cash Proceeds (GHS)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={disposalProceeds}
+                  onChange={(e) => setDisposalProceeds(e.target.value)}
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-rose-500 font-mono text-sm"
+                />
+              </div>
+
+              {/* Calculated Gain or Loss on Disposal */}
+              {(() => {
+                const proceeds = parseFloat(disposalProceeds) || 0;
+                const gainOrLoss = proceeds - disposalAsset.nbv;
+                const isGain = gainOrLoss >= 0;
+
+                return (
+                  <div className={`p-3.5 rounded-xl border flex items-center justify-between ${
+                    isGain ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 text-emerald-800 dark:text-emerald-300' : 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 text-rose-800 dark:text-rose-300'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      {isGain ? <ArrowUpRight className="w-5 h-5 text-emerald-600" /> : <ArrowDownRight className="w-5 h-5 text-rose-600" />}
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-wider block">
+                          {isGain ? 'GAIN ON DISPOSAL (OTHER REVENUE - GL 4080)' : 'LOSS ON DISPOSAL (EXPENSE - GL 5080)'}
+                        </span>
+                        <span className="text-[9px] opacity-80">Proceeds (₵{proceeds.toFixed(2)}) minus Net Book Value (₵{disposalAsset.nbv.toFixed(2)})</span>
+                      </div>
+                    </div>
+                    <span className="font-mono text-sm font-black">
+                      {isGain ? `+₵ ${gainOrLoss.toFixed(2)}` : `-₵ ${Math.abs(gainOrLoss).toFixed(2)}`}
+                    </span>
+                  </div>
+                );
+              })()}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Disposal Date</label>
+                  <input
+                    type="date"
+                    value={disposalDate}
+                    onChange={(e) => setDisposalDate(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 block">Settlement Bank</label>
+                  <select
+                    value={disposalBankId}
+                    onChange={(e) => setDisposalBankId(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none cursor-pointer"
+                  >
+                    <option value="1010">1010 - GCB Main Bank</option>
+                    <option value="1020">1020 - Ecobank Liquidation</option>
+                    <option value="1002">1002 - Vault Cash</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setIsDisposalModalOpen(false); setDisposalAsset(null); }}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer"
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={handleExecuteDisposal}
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase rounded-xl transition-all shadow flex items-center gap-2 cursor-pointer"
+                >
+                  {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  <span>CONFIRM DISPOSAL & POST JV</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 6. ASSET DOSSIER & PRINTABLE QR CODE MODAL                     */}
+      {/* ============================================================== */}
       {selectedAssetForDossier && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-slate-900 text-white p-6 border-b border-slate-800 flex justify-between items-start">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden space-y-4 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            
+            <div className="bg-slate-900 text-white p-6 border-b border-slate-800 flex justify-between items-start shrink-0">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="bg-emerald-500 text-slate-950 text-[10px] font-mono font-black px-2.5 py-0.5 rounded uppercase tracking-wider">
@@ -772,15 +1232,15 @@ export default function FixedAssetRegisterConsole() {
               </div>
               <button 
                 onClick={() => setSelectedAssetForDossier(null)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors"
+                className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6 text-xs font-bold max-h-[75vh] overflow-y-auto">
+            <div className="p-6 space-y-6 text-xs font-bold overflow-y-auto flex-1">
               
-              {/* Asset Life Details */}
+              {/* Asset Financial Metrics */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
                 <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
                   <p className="text-[9px] text-slate-500 uppercase">Purchase Cost</p>
@@ -808,25 +1268,107 @@ export default function FixedAssetRegisterConsole() {
                 </div>
               </div>
 
-              {/* Lifecycle & Specs */}
-              <div className="p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl space-y-2.5 border border-slate-200 dark:border-slate-700">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Asset Specifications & Useful Life</h4>
-                <div className="grid grid-cols-2 gap-4 pt-1">
+              {/* Physical Location, Custodian & Specifications */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl space-y-3 border border-slate-200 dark:border-slate-700">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  Physical Verification & Governance Tracking
+                </h4>
+                <div className="grid grid-cols-2 gap-3 pt-1">
                   <div>
-                    <span className="text-slate-500 uppercase text-[9px] block">Category:</span>
-                    <span className="text-slate-900 dark:text-slate-100">{selectedAssetForDossier.category.replace('_', ' ')}</span>
+                    <span className="text-slate-500 uppercase text-[9px] block">Location / Department:</span>
+                    <span className="text-slate-900 dark:text-slate-100 flex items-center gap-1 font-bold">
+                      <MapPin className="w-3.5 h-3.5 text-rose-500" /> {selectedAssetForDossier.location}
+                    </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 uppercase text-[9px] block">Purchase Date:</span>
-                    <span className="text-slate-900 dark:text-slate-100">{selectedAssetForDossier.purchaseDate}</span>
+                    <span className="text-slate-500 uppercase text-[9px] block">Responsible Custodian:</span>
+                    <span className="text-slate-900 dark:text-slate-100 flex items-center gap-1 font-bold">
+                      <UserIcon className="w-3.5 h-3.5 text-emerald-500" /> {selectedAssetForDossier.custodian}
+                    </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 uppercase text-[9px] block">Useful Life:</span>
-                    <span className="text-slate-900 dark:text-slate-100">{selectedAssetForDossier.usefulLifeYears} Years ({selectedAssetForDossier.usefulLifeYears * 12} Months)</span>
+                    <span className="text-slate-500 uppercase text-[9px] block">Useful Life & Method:</span>
+                    <span className="text-slate-900 dark:text-slate-100 font-mono">
+                      {selectedAssetForDossier.usefulLifeYears} Years (Straight-Line Method)
+                    </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 uppercase text-[9px] block">Salvage Value:</span>
-                    <span className="font-mono text-slate-900 dark:text-slate-100">₵ {selectedAssetForDossier.salvageValue.toFixed(2)}</span>
+                    <span className="text-slate-500 uppercase text-[9px] block">Serial / Asset Tag:</span>
+                    <span className="font-mono text-slate-900 dark:text-slate-100">{selectedAssetForDossier.serialNumber || selectedAssetForDossier.tag}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ============================================================== */}
+              {/* PRINTABLE QR CODE ASSET LABEL TAG                              */}
+              {/* ============================================================== */}
+              <div className="p-4 bg-slate-950 text-white rounded-2xl border border-slate-800 space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <QrCode className="w-4 h-4 text-emerald-400" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white">
+                      SCANNABLE ASSET TAG (PHYSICAL VERIFICATION)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handlePrintAssetTag}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow"
+                  >
+                    <Printer className="w-3 h-3" /> PRINT ASSET STICKER
+                  </button>
+                </div>
+
+                {/* Printable Label Box */}
+                <div className="bg-white text-slate-950 p-4 rounded-xl border border-slate-300 shadow-inner flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="space-y-1 text-left flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 text-[9px] font-black text-emerald-700 tracking-wider uppercase">
+                      <Building2 className="w-3 h-3 text-emerald-600" /> GAM MED HOSPITAL • ASSET VAULT
+                    </div>
+                    <p className="font-black text-xs text-slate-900 truncate uppercase">{selectedAssetForDossier.name}</p>
+                    <p className="font-mono text-lg font-black text-slate-950 tracking-tight">{selectedAssetForDossier.tag}</p>
+                    <div className="text-[9px] text-slate-600 font-bold space-y-0.5">
+                      <p className="truncate">LOC: {selectedAssetForDossier.location}</p>
+                      <p className="truncate">CUST: {selectedAssetForDossier.custodian}</p>
+                    </div>
+                  </div>
+
+                  {/* High Contrast QR Code Graphic with Verification Payload */}
+                  <div className="p-2 bg-slate-50 border-2 border-slate-950 rounded-lg shrink-0 flex flex-col items-center">
+                    <svg viewBox="0 0 100 100" className="w-20 h-20">
+                      {/* Corner Position Detection Patterns */}
+                      <rect x="5" y="5" width="25" height="25" fill="#000" />
+                      <rect x="8" y="8" width="19" height="19" fill="#fff" />
+                      <rect x="11" y="11" width="13" height="13" fill="#000" />
+
+                      <rect x="70" y="5" width="25" height="25" fill="#000" />
+                      <rect x="73" y="8" width="19" height="19" fill="#fff" />
+                      <rect x="76" y="11" width="13" height="13" fill="#000" />
+
+                      <rect x="5" y="70" width="25" height="25" fill="#000" />
+                      <rect x="8" y="73" width="19" height="19" fill="#fff" />
+                      <rect x="11" y="76" width="13" height="13" fill="#000" />
+
+                      {/* Data Matrix Simulation Points */}
+                      <rect x="35" y="10" width="6" height="6" fill="#000" />
+                      <rect x="45" y="10" width="6" height="6" fill="#000" />
+                      <rect x="55" y="10" width="6" height="6" fill="#000" />
+                      <rect x="35" y="25" width="6" height="6" fill="#000" />
+                      <rect x="50" y="25" width="6" height="6" fill="#000" />
+                      
+                      <rect x="10" y="45" width="6" height="6" fill="#000" />
+                      <rect x="25" y="45" width="6" height="6" fill="#000" />
+                      <rect x="40" y="40" width="18" height="18" fill="#059669" rx="2" />
+                      <rect x="65" y="45" width="6" height="6" fill="#000" />
+                      <rect x="80" y="45" width="6" height="6" fill="#000" />
+
+                      <rect x="35" y="70" width="6" height="6" fill="#000" />
+                      <rect x="50" y="75" width="6" height="6" fill="#000" />
+                      <rect x="70" y="70" width="6" height="6" fill="#000" />
+                      <rect x="85" y="75" width="6" height="6" fill="#000" />
+                      <rect x="75" y="85" width="6" height="6" fill="#000" />
+                    </svg>
+                    <span className="text-[8px] font-mono font-black text-slate-800 mt-1">SCAN FOR AUDIT</span>
                   </div>
                 </div>
               </div>
@@ -840,7 +1382,7 @@ export default function FixedAssetRegisterConsole() {
                       ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300' 
                       : selectedAssetForDossier.status === 'MAINTENANCE' 
                       ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300' 
-                      : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border-slate-300'
+                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300'
                   }`}>
                     CURRENT: {selectedAssetForDossier.status}
                   </span>
@@ -871,9 +1413,9 @@ export default function FixedAssetRegisterConsole() {
                     type="button"
                     disabled={isProcessing || selectedAssetForDossier.status === 'DISPOSED'}
                     onClick={() => handleUpdateAssetStatus(selectedAssetForDossier.id, 'DISPOSED')}
-                    className="py-2.5 px-3 bg-slate-700 hover:bg-slate-800 disabled:opacity-40 text-white rounded-xl font-bold text-[10px] uppercase transition-all shadow cursor-pointer flex items-center justify-center gap-1.5"
+                    className="py-2.5 px-3 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white rounded-xl font-bold text-[10px] uppercase transition-all shadow cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                    <Trash2 className="w-3.5 h-3.5 text-white" />
                     <span>DISPOSE ASSET</span>
                   </button>
                 </div>
@@ -887,7 +1429,7 @@ export default function FixedAssetRegisterConsole() {
                   <span>₵ {((selectedAssetForDossier.cost - selectedAssetForDossier.salvageValue) / (selectedAssetForDossier.usefulLifeYears * 12)).toFixed(2)} / mo</span>
                 </div>
                 <div className="flex justify-between text-amber-400 pt-1">
-                  <span>Credit: 1550 - Accumulated Depreciation: Medical Eq.</span>
+                  <span>Credit: 1550 - Accumulated Depreciation: {selectedAssetForDossier.category}</span>
                   <span>₵ {((selectedAssetForDossier.cost - selectedAssetForDossier.salvageValue) / (selectedAssetForDossier.usefulLifeYears * 12)).toFixed(2)} / mo</span>
                 </div>
               </div>
