@@ -918,11 +918,15 @@ function PrintablePV({ voucher, hospitalName, user }: { voucher: PaymentVoucherI
   };
 
   const isBatch = voucher.disbursementMode === 'BATCH' || (voucher.batchPayees && voucher.batchPayees.length > 0);
-  const gross = voucher.grossAmount || voucher.netAmount || 0;
+  const gross = voucher.grossAmount || 0;
   const vat = voucher.vatAmount || 0;
   const wht = voucher.whtAmount || 0;
   const net = voucher.netAmount || (gross + vat - wht);
-  const whtRate = voucher.whtRate ? voucher.whtRate * 100 : 5;
+  const isExecuted = ['AUTHORIZED', 'PAID', 'DISBURSED'].includes(voucher.status || '');
+
+  // Synchronized Dynamic Credit / Funding Account derivation
+  const creditCode = voucher.creditAccountCode || (voucher.paymentMethod && voucher.paymentMethod.includes(' - ') ? voucher.paymentMethod.split(' - ')[0].trim() : '1001');
+  const creditName = voucher.creditAccountName || (voucher.paymentMethod && voucher.paymentMethod.includes(' - ') ? voucher.paymentMethod.split(' - ').slice(1).join(' - ').trim() : (voucher.paymentMethod || 'GCB Main Bank Account'));
 
   const dateStr = voucher.createdAt
     ? format(voucher.createdAt.toDate ? voucher.createdAt.toDate() : new Date(voucher.createdAt), 'PPP')
@@ -937,9 +941,10 @@ function PrintablePV({ voucher, hospitalName, user }: { voucher: PaymentVoucherI
             VOUCHER DOSSIER: {voucher.pvNumber}
           </span>
           <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${
-            voucher.status === 'AUTHORIZED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+            isExecuted ? 'bg-emerald-100 text-emerald-800' :
+            voucher.status === 'REJECTED_WITH_QUERY' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
           }`}>
-            {voucher.status || 'PENDING'}
+            {voucher.status || 'AWAITING AUTHORIZATION'}
           </span>
         </div>
 
@@ -986,7 +991,7 @@ function PrintablePV({ voucher, hospitalName, user }: { voucher: PaymentVoucherI
               <div>
                 <p className="font-semibold text-slate-600">Funding Bank / Vault Account:</p>
                 <p className="font-bold font-mono text-slate-800">
-                  {voucher.creditAccountCode ? `${voucher.creditAccountCode} - ${voucher.creditAccountName}` : (voucher.paymentMethod || '1001 - GCB Main Bank Account')}
+                  {creditCode} - {creditName}
                 </p>
               </div>
             </div>
@@ -1047,17 +1052,27 @@ function PrintablePV({ voucher, hospitalName, user }: { voucher: PaymentVoucherI
             </thead>
             <tbody>
               <tr>
-                <td className="p-3 border border-slate-300 font-medium">Total Gross Expenditure (Debit)</td>
+                <td className="p-3 border border-slate-300 font-medium">Total Gross Expenditure (Debit to Cost Centers)</td>
                 <td className="p-3 border border-slate-300 text-right font-mono font-bold">
                   {gross.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
+              {vat > 0 && (
+                <tr className="bg-emerald-50/60 text-emerald-950 font-medium">
+                  <td className="p-3 border border-slate-300">
+                    Plus: Standard VAT & Statutory Levies (21.9% GETFund / NHIL / COVID / VAT)
+                  </td>
+                  <td className="p-3 border border-slate-300 text-right font-mono font-bold text-emerald-800">
+                    +{vat.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              )}
               {wht > 0 && (
                 <tr className="bg-red-50 text-red-900 font-medium">
                   <td className="p-3 border border-slate-300">
                     Less: Total GRA Withholding Tax Withheld (Credit to 2120)
                   </td>
-                  <td className="p-3 border border-slate-300 text-right font-mono font-bold">
+                  <td className="p-3 border border-slate-300 text-right font-mono font-bold text-rose-700">
                     ({wht.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                   </td>
                 </tr>
@@ -1076,7 +1091,7 @@ function PrintablePV({ voucher, hospitalName, user }: { voucher: PaymentVoucherI
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Double-Entry Accounting Distribution</h3>
             <div className="grid grid-cols-2 gap-4 text-xs font-mono bg-slate-50 p-3 border border-slate-300 rounded">
               <p><span className="font-bold text-slate-600">Debit (DR):</span> {voucher.debitAccountCode || '5100'} - {voucher.debitAccountName || 'Expenditure Cost Centers'}</p>
-              <p><span className="font-bold text-slate-600">Credit (CR):</span> {voucher.creditAccountCode || '1002'} - {voucher.creditAccountName || 'GCB Main Operating Account'}</p>
+              <p><span className="font-bold text-slate-600">Credit (CR):</span> {creditCode} - {creditName}</p>
             </div>
           </div>
 
@@ -1084,9 +1099,9 @@ function PrintablePV({ voucher, hospitalName, user }: { voucher: PaymentVoucherI
           <div className="grid grid-cols-4 gap-4 mt-auto pt-6 border-t border-slate-200">
             <div className="text-center">
               <div className="border-b border-slate-400 h-10 mb-2 flex items-end justify-center font-bold text-xs">
-                {voucher.processedByName || 'Marcus A. Henaku'}
+                {voucher.processedByName || voucher.createdByName || 'Marcus A. Henaku'}
               </div>
-              <p className="text-xs font-bold">{voucher.processedByName || 'Marcus A. Henaku'}</p>
+              <p className="text-xs font-bold">{voucher.processedByName || voucher.createdByName || 'Marcus A. Henaku'}</p>
               <p className="text-xs text-slate-500">Prepared By (Maker)</p>
             </div>
             <div className="text-center">
@@ -1098,9 +1113,23 @@ function PrintablePV({ voucher, hospitalName, user }: { voucher: PaymentVoucherI
             </div>
             <div className="text-center">
               <div className="border-b border-slate-400 h-10 mb-2 flex items-end justify-center font-bold text-xs text-indigo-900">
-                {voucher.approvedByName || (voucher.status === 'AUTHORIZED' ? 'Dr. Evelyn Baidoo' : 'AWAITING')}
+                {isExecuted ? (
+                  <span className="text-emerald-700 font-black text-[10px] uppercase tracking-wider">
+                    ✓ SIGNED & AUTHORIZED
+                  </span>
+                ) : voucher.status === 'REJECTED_WITH_QUERY' ? (
+                  <span className="text-rose-700 font-black text-[10px] uppercase tracking-wider">
+                    ✕ FLAGGED & RETURNED
+                  </span>
+                ) : (
+                  <span className="text-slate-400 font-bold text-[10px] uppercase">
+                    AWAITING SIGN-OFF
+                  </span>
+                )}
               </div>
-              <p className="text-xs font-bold">{voucher.approvedByName || 'Dr. Evelyn Baidoo'}</p>
+              <p className="text-xs font-bold">
+                {voucher.approvedByName || (isExecuted ? 'Dr. Evelyn Baidoo (Director)' : 'Pending Checker')}
+              </p>
               <p className="text-xs text-slate-500">Authorized By (Checker)</p>
             </div>
             <div className="text-center">
