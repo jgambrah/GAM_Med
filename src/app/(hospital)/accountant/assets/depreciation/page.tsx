@@ -6,7 +6,7 @@ import { collection, query, where, getDocs, writeBatch, doc, serverTimestamp, in
 import { 
   Calculator, CheckCircle2, AlertTriangle, Loader2, History, Landmark, ShieldAlert,
   ChevronDown, ChevronUp, RotateCcw, Building2, TrendingDown, Layers, FileText, Lock,
-  ArrowRight, ExternalLink, SlidersHorizontal, ArrowUpRight
+  ArrowRight, ExternalLink, SlidersHorizontal, ArrowUpRight, MapPin, Tag
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,59 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+
+// ============================================================================
+// DYNAMIC IFRS/IPSAS GENERAL LEDGER ROUTING CLASSIFIER
+// ============================================================================
+export function getGlRoutingForAsset(asset: any): { code: string; name: string; classLabel: string } {
+  const cat = (asset.category || '').toUpperCase();
+  const sub = (asset.subDivision || '').toUpperCase();
+  const name = (asset.name || '').toUpperCase();
+  const tag = (asset.tagId || asset.tag || '').toUpperCase();
+
+  // 1. Buildings & Civil Infrastructure (GL 6510)
+  if (
+    cat.includes('BUILD') || cat.includes('INFRA') || cat.includes('ESTATE') || sub.includes('BUILD') ||
+    name.includes('BLOCK') || name.includes('BUILDING') || name.includes('ANNEX') || tag.includes('AMB-23') || tag.includes('BLD')
+  ) {
+    return { code: '6510', name: '6510 - Building & Infrastructure Depreciation', classLabel: 'Buildings & Civil Works' };
+  }
+
+  // 2. IT, Computing & Software Infrastructure (GL 6520)
+  if (
+    cat.includes('IT') || cat.includes('COMP') || cat.includes('SOFT') || sub.includes('IT') ||
+    name.includes('SERVER') || name.includes('COMPUTER') || name.includes('DELL') || name.includes('LAPTOP') || tag.includes('SRV') || tag.includes('CC')
+  ) {
+    return { code: '6520', name: '6520 - IT & Software Depreciation', classLabel: 'IT & Digital Infrastructure' };
+  }
+
+  // 3. Motor Vehicles & Fleet (GL 6515)
+  if (
+    cat.includes('VEHICLE') || cat.includes('MOTOR') || cat.includes('FLEET') || sub.includes('VEHICLE') ||
+    name.includes('AMBULANCE') || name.includes('TOYOTA') || name.includes('HILUX') || name.includes('CRUISER') || tag.includes('AMB-') || tag.includes('VEH')
+  ) {
+    return { code: '6515', name: '6515 - Motor Vehicles & Ambulance Fleet Depreciation', classLabel: 'Motor Vehicles & Ambulance Fleet' };
+  }
+
+  // 4. Plant, Power & Standby Machinery (GL 6530)
+  if (
+    cat.includes('PLANT') || cat.includes('MACH') || cat.includes('POWER') || sub.includes('PLANT') ||
+    name.includes('GENERATOR') || name.includes('PERKINS') || name.includes('SOLAR') || name.includes('UPS') || tag.includes('GEN')
+  ) {
+    return { code: '6530', name: '6530 - Plant, Power & Heavy Machinery Depreciation', classLabel: 'Plant, Power & Heavy Machinery' };
+  }
+
+  // 5. Furniture, Fixtures & Hospital Fittings (GL 6525)
+  if (
+    cat.includes('FURN') || cat.includes('FITT') || sub.includes('FURN') ||
+    name.includes('BED') || name.includes('DESK') || name.includes('CHAIR') || name.includes('CABINET') || tag.includes('FUR')
+  ) {
+    return { code: '6525', name: '6525 - Furniture, Fixtures & Fittings Depreciation', classLabel: 'Furniture & Hospital Fittings' };
+  }
+
+  // 6. Medical, Clinical & Diagnostic Equipment (GL 6505)
+  return { code: '6505', name: '6505 - Medical & Clinical Equipment Depreciation', classLabel: 'Medical & Diagnostic Equipment' };
+}
 
 export default function SmartDepreciationEngine() {
   const { user, isUserLoading } = useUser();
@@ -49,20 +102,30 @@ export default function SmartDepreciationEngine() {
 
   const periodKey = `${period.year}-${String(period.month + 1).padStart(2, '0')}`;
 
-  // 7 Enterprise Demo Assets totaling exactly ₵ 118,969.44/mo
+  // Enterprise Demo Assets with transparent Residual / Salvage values and specific locations
   const demoAssets = useMemo(() => [
     { 
       id: 'ast-bld-01', 
-      name: 'Administration Main Block (Hospital Facility)', 
+      name: 'Administration Main Block (Hospital Headquarters)', 
       tagId: 'AMB-23', 
       category: 'BUILDINGS', 
-      glExpenseCode: '6525',
-      glExpenseName: '6525 - Buildings & Infrastructure Depr',
       purchaseDate: '2020-01-15',
-      purchasePrice: 55800000.00, 
+      purchasePrice: 30000000.00, 
       usefulLife: 50, 
-      salvageValue: 0.00, 
-      location: 'Administration Block',
+      salvageValue: 10000000.00, // ₵10M Land & Structural Residual Base -> ₵20M Depr Base / 600 mos = ₵33,333.33/mo
+      location: 'Administration Block - Central Facilities',
+      status: 'OPERATIONAL' 
+    },
+    { 
+      id: 'ast-bld-02', 
+      name: 'Specialist Clinical Annex & Outpatient Wing', 
+      tagId: 'GAM-ANX-001', 
+      category: 'BUILDINGS', 
+      purchaseDate: '2022-04-10',
+      purchasePrice: 50000000.00, 
+      usefulLife: 50, 
+      salvageValue: 15000000.00, // ₵15M Residual Base -> ₵35M Depr Base / 600 mos = ₵58,333.33/mo
+      location: 'Ring Road Annex - Specialist Wing',
       status: 'OPERATIONAL' 
     },
     { 
@@ -70,12 +133,10 @@ export default function SmartDepreciationEngine() {
       name: 'Toyota Land Cruiser ICU Ambulance 4x4', 
       tagId: 'GAM-AMB-004', 
       category: 'MOTOR_VEHICLES', 
-      glExpenseCode: '6515',
-      glExpenseName: '6515 - Motor Vehicles & Fleet Depr',
       purchaseDate: '2024-03-10',
       purchasePrice: 580000.00, 
       usefulLife: 5, 
-      salvageValue: 40000.00, 
+      salvageValue: 40000.00, // ₵540K Depr Base / 60 mos = ₵9,000.00/mo
       location: 'Ambulance Bay - Transport Dept',
       status: 'OPERATIONAL' 
     },
@@ -84,27 +145,23 @@ export default function SmartDepreciationEngine() {
       name: 'Siemens Mobile C-Arm Fluoroscopy X-Ray', 
       tagId: 'GAM-XRY-003', 
       category: 'MEDICAL_EQUIPMENT', 
-      glExpenseCode: '6505',
-      glExpenseName: '6505 - Medical & Clinical Equipment Depr',
       purchaseDate: '2023-06-01',
       purchasePrice: 620000.00, 
       usefulLife: 8, 
-      salvageValue: 20000.00, 
+      salvageValue: 20000.00, // ₵600K Depr Base / 96 mos = ₵6,250.00/mo
       location: 'Main Block - Radiology Suite 2',
       status: 'OPERATIONAL' 
     },
     { 
       id: 'ast-it-01', 
-      name: 'Dell PowerEdge R750 Enterprise Server Cluster', 
-      tagId: 'GAM-SRV-005', 
+      name: 'Dell Precision Workstation Fleet & Cluster', 
+      tagId: 'MMH CC 123', 
       category: 'IT_INFRA', 
-      glExpenseCode: '6510',
-      glExpenseName: '6510 - IT & Informatics Infrastructure Depr',
       purchaseDate: '2025-01-20',
-      purchasePrice: 185000.00, 
+      purchasePrice: 120000.00, 
       usefulLife: 4, 
-      salvageValue: 5000.00, 
-      location: 'Administration Block - Server Room 2',
+      salvageValue: 0.00, // ₵120K Depr Base / 48 mos = ₵2,500.00/mo
+      location: 'Administration Block - Informatics Dept',
       status: 'OPERATIONAL' 
     },
     { 
@@ -112,12 +169,10 @@ export default function SmartDepreciationEngine() {
       name: 'GE Voluson E8 Ultrasound System', 
       tagId: 'GAM-US-001', 
       category: 'MEDICAL_EQUIPMENT', 
-      glExpenseCode: '6505',
-      glExpenseName: '6505 - Medical & Clinical Equipment Depr',
       purchaseDate: '2022-11-15',
       purchasePrice: 450000.00, 
       usefulLife: 10, 
-      salvageValue: 10000.00, 
+      salvageValue: 10000.00, // ₵440K Depr Base / 120 mos = ₵3,666.67/mo
       location: 'Maternity Wing - Ultrasound Lab',
       status: 'OPERATIONAL' 
     },
@@ -126,12 +181,10 @@ export default function SmartDepreciationEngine() {
       name: '250kVA Perkins Standby Diesel Generator', 
       tagId: 'GAM-GEN-002', 
       category: 'PLANT_MACHINERY', 
-      glExpenseCode: '6520',
-      glExpenseName: '6520 - Plant, Power & Machinery Depr',
       purchaseDate: '2021-08-05',
       purchasePrice: 380000.00, 
       usefulLife: 15, 
-      salvageValue: 20000.00, 
+      salvageValue: 20000.00, // ₵360K Depr Base / 180 mos = ₵2,000.00/mo
       location: 'Power House & Utilities Yard',
       status: 'OPERATIONAL' 
     },
@@ -140,13 +193,23 @@ export default function SmartDepreciationEngine() {
       name: 'Tuttnauer High-Capacity Autoclave Sterilizer', 
       tagId: 'GAM-AUT-006', 
       category: 'MEDICAL_EQUIPMENT', 
-      glExpenseCode: '6505',
-      glExpenseName: '6505 - Medical & Clinical Equipment Depr',
       purchaseDate: '2024-02-18',
       purchasePrice: 145000.00, 
-      usefulLife: 8.956, // calibrated to exact 1,302.77
-      salvageValue: 5000.00, 
+      usefulLife: 10, 
+      salvageValue: 5000.00, // ₵140K Depr Base / 120 mos = ₵1,166.67/mo
       location: 'CSSD - Central Sterile Services',
+      status: 'OPERATIONAL' 
+    },
+    { 
+      id: 'ast-fur-01', 
+      name: 'Hospital Electric ICU Beds & Ward Fittings', 
+      tagId: 'GAM-FUR-007', 
+      category: 'FURNITURE', 
+      purchaseDate: '2023-09-01',
+      purchasePrice: 180000.00, 
+      usefulLife: 5, 
+      salvageValue: 15000.00, // ₵165K Depr Base / 60 mos = ₵2,750.00/mo
+      location: 'Main Block - ICU & Inpatient Wards',
       status: 'OPERATIONAL' 
     }
   ], []);
@@ -174,7 +237,18 @@ export default function SmartDepreciationEngine() {
           ));
 
           const unprocessed = assetSnap.docs
-            .map(d => ({ id: d.id, ...d.data() }))
+            .map(d => {
+              const data = d.data();
+              return { 
+                id: d.id, 
+                ...data,
+                name: (data.name || 'Capital Asset').replace(/Administraion/gi, 'Administration'),
+                location: (data.location || data.department || 'Hospital Main Facility').replace(/Administraion/gi, 'Administration'),
+                purchasePrice: Number(data.purchasePrice || data.cost || 0),
+                salvageValue: Number(data.salvageValue || 0),
+                usefulLife: Number(data.usefulLife || data.usefulLifeYears || 5)
+              };
+            })
             .filter((a: any) => a.status === 'OPERATIONAL' || a.status === 'ACTIVE')
             .filter((a: any) => a.lastDepreciationPeriod !== periodKey);
 
@@ -202,8 +276,10 @@ export default function SmartDepreciationEngine() {
 
   const calculateMonthlyDep = (asset: any) => {
     if (!asset.usefulLife || asset.usefulLife <= 0) return 0;
-    const yearlyDep = (asset.purchasePrice - (asset.salvageValue || 0)) / asset.usefulLife;
-    const standardMonthly = yearlyDep / 12;
+    const cost = Number(asset.purchasePrice || asset.cost || 0);
+    const salvage = Number(asset.salvageValue || 0);
+    const depreciableBase = Math.max(0, cost - salvage);
+    const standardMonthly = depreciableBase / (asset.usefulLife * 12);
 
     if (prorationMethod === 'EXACT_DAY' && asset.purchaseDate) {
       const [pYear, pMonth, pDay] = asset.purchaseDate.split('-').map(Number);
@@ -227,30 +303,19 @@ export default function SmartDepreciationEngine() {
     return totalMonthlyDepreciation.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }, [totalMonthlyDepreciation]);
 
-  // Granular Departmental General Ledger Breakdown
+  // Granular Dynamic Departmental General Ledger Breakdown
   const departmentalGlBreakdown = useMemo(() => {
-    const map: Record<string, { code: string; name: string; amount: number; count: number }> = {};
+    const map: Record<string, { code: string; name: string; classLabel: string; amount: number; count: number }> = {};
 
     eligibleAssets.forEach(a => {
       const amount = calculateMonthlyDep(a);
-      const code = a.glExpenseCode || (
-        a.category === 'BUILDINGS' ? '6525' :
-        a.category === 'MOTOR_VEHICLES' ? '6515' :
-        a.category === 'IT_INFRA' ? '6510' :
-        a.category === 'PLANT_MACHINERY' ? '6520' : '6505'
-      );
-      const name = a.glExpenseName || (
-        code === '6525' ? '6525 - Buildings & Infrastructure Depr' :
-        code === '6515' ? '6515 - Motor Vehicles & Fleet Depr' :
-        code === '6510' ? '6510 - IT & Informatics Infrastructure Depr' :
-        code === '6520' ? '6520 - Plant, Power & Machinery Depr' : '6505 - Medical & Clinical Equipment Depr'
-      );
+      const routing = getGlRoutingForAsset(a);
 
-      if (!map[code]) {
-        map[code] = { code, name, amount: 0, count: 0 };
+      if (!map[routing.code]) {
+        map[routing.code] = { code: routing.code, name: routing.name, classLabel: routing.classLabel, amount: 0, count: 0 };
       }
-      map[code].amount += amount;
-      map[code].count += 1;
+      map[routing.code].amount += amount;
+      map[routing.code].count += 1;
     });
 
     return Object.values(map).sort((a, b) => b.amount - a.amount);
@@ -283,7 +348,7 @@ export default function SmartDepreciationEngine() {
     const batch = writeBatch(firestore);
 
     try {
-      // Create Granular Multi-Leg Journal Voucher
+      // Create Granular Multi-Leg Journal Voucher matching individual asset categories
       const jvRef = doc(collection(firestore, `hospitals/${hospitalId}/journal_entries`));
       
       const jvLines = [
@@ -295,7 +360,7 @@ export default function SmartDepreciationEngine() {
         })),
         {
           accountId: '1550',
-          accountName: '1550 - Accumulated Depreciation (Contra-Asset)',
+          accountName: '1550 - Accumulated Depreciation (Contra-Asset Credit Leg)',
           debit: 0,
           credit: totalMonthlyDepreciation
         }
@@ -304,7 +369,7 @@ export default function SmartDepreciationEngine() {
       batch.set(jvRef, {
         jvNumber,
         batchId,
-        narration: `Automated Multi-Leg Depreciation Run for ${periodKey} (${eligibleAssets.length} assets processed)`,
+        narration: `Automated Multi-Leg Depreciation Run for ${periodKey} (${eligibleAssets.length} assets categorized)`,
         totalAmount: totalMonthlyDepreciation,
         hospitalId,
         createdBy: user.uid,
@@ -317,6 +382,8 @@ export default function SmartDepreciationEngine() {
 
       eligibleAssets.forEach(asset => {
         const monthlyDep = calculateMonthlyDep(asset);
+        const routing = getGlRoutingForAsset(asset);
+
         if (asset.id && asset.id.length > 15) {
           const assetRef = doc(firestore, `hospitals/${hospitalId}/assets`, asset.id);
           batch.update(assetRef, {
@@ -331,10 +398,14 @@ export default function SmartDepreciationEngine() {
           assetId: asset.id,
           assetName: asset.name,
           assetCategory: asset.category,
+          glExpenseCode: routing.code,
+          glExpenseName: routing.name,
           batchId,
           jvNumber,
           hospitalId,
           period: periodKey,
+          cost: asset.purchasePrice || asset.cost || 0,
+          salvageValue: asset.salvageValue || 0,
           amount: monthlyDep,
           createdAt: serverTimestamp()
         });
@@ -358,7 +429,7 @@ export default function SmartDepreciationEngine() {
       await batch.commit();
       toast({ 
         title: `Success: ${periodKey} Depreciation Batch Finalized`, 
-        description: `Multi-Leg Journal Voucher ${jvNumber} posted to General Ledger.` 
+        description: `Multi-Leg Journal Voucher ${jvNumber} posted to General Ledger with proper departmental accounts.` 
       });
       
       setEligibleAssets([]);
@@ -470,7 +541,7 @@ export default function SmartDepreciationEngine() {
               </h1>
             </div>
             <p className="mt-2 text-xs md:text-sm text-slate-400 font-medium">
-              AUTOMATED LEDGER ADJUSTMENTS, MULTI-LEG JV ROUTING, AND IFRS-COMPLIANT AMORTIZATION.
+              DYNAMIC CLASS-BASED GL ROUTING, RESIDUAL VALUE AMORTIZATION, AND IFRS-COMPLIANT JOURNALS.
             </p>
           </div>
 
@@ -527,9 +598,9 @@ export default function SmartDepreciationEngine() {
 
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Unprocessed Assets</span>
-              <div className="text-xl font-black text-white">{eligibleAssets.length} In-Scope</div>
-              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">Awaiting period stamp</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">In-Scope Assets</span>
+              <div className="text-xl font-black text-white">{eligibleAssets.length} Capital Units</div>
+              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">Categorized by GL Class</span>
             </div>
             <div className="p-3 bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded-xl">
               <Layers className="w-5 h-5" />
@@ -538,7 +609,7 @@ export default function SmartDepreciationEngine() {
 
           <div className="bg-slate-900 border border-emerald-500/30 p-4 rounded-xl flex items-center justify-between ring-1 ring-emerald-500/20 shadow-lg">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-1">Pending Expense Charge</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-1">Total Monthly Expense (GL 6500)</span>
               <div className="text-xl font-black text-emerald-400">₵ {formattedPendingExpense}</div>
               <span className="text-[10px] font-bold text-emerald-400/80 mt-0.5 block">Strict 2-Decimal Ledger Value</span>
             </div>
@@ -604,10 +675,10 @@ export default function SmartDepreciationEngine() {
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Eligible Assets In Scope</span>
                 <div className="text-3xl font-black text-white">{eligibleAssets.length} Equipment Units</div>
-                <span className="text-[10px] text-slate-400 font-medium mt-1 block">Full coverage across Clinical, IT, Transport & Infrastructure</span>
+                <span className="text-[10px] text-slate-400 font-medium mt-1 block">Full coverage across Buildings, IT, Vehicles, Plant & Clinical Equipment</span>
               </div>
               <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Total Monthly Expense (GL 6500)</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Total Monthly Depreciation Expense</span>
                 <div className="text-3xl font-black text-emerald-400">
                   <span className="text-base text-emerald-600 mr-1">₵</span>{formattedPendingExpense}
                 </div>
@@ -652,7 +723,7 @@ export default function SmartDepreciationEngine() {
                         <div key={dept.code} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
                           <div>
                             <span className="font-bold text-slate-200 block">{dept.name}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">DR {dept.code} ({dept.count} units)</span>
+                            <span className="text-[10px] text-slate-400 font-mono">DR {dept.code} • {dept.count} asset(s) in {dept.classLabel}</span>
                           </div>
                           <span className="font-mono font-black text-emerald-400">
                             ₵ {dept.amount.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -662,7 +733,7 @@ export default function SmartDepreciationEngine() {
                       <div className="p-3 bg-slate-950 rounded-xl border border-amber-500/30 flex justify-between items-center text-xs md:col-span-2">
                         <div>
                           <span className="font-bold text-amber-300 block">1550 - Accumulated Depreciation (Contra-Asset Credit Leg)</span>
-                          <span className="text-[10px] text-amber-400/80 font-mono">CR 1550 Balance Sheet Contra-Asset</span>
+                          <span className="text-[10px] text-amber-400/80 font-mono">CR 1550 Balance Sheet Contra-Asset Balance</span>
                         </div>
                         <span className="font-mono font-black text-amber-400">
                           ₵ {totalMonthlyDepreciation.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -671,39 +742,71 @@ export default function SmartDepreciationEngine() {
                     </div>
                   </div>
 
-                  {/* Individual Asset Breakdown Table */}
+                  {/* Individual Asset Breakdown Table with Transparent Salvage & Depreciable Base */}
                   <div className="overflow-x-auto space-y-2">
-                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
-                      INDIVIDUAL ASSET CALCULATION SCHEDULE
-                    </span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
+                        INDIVIDUAL ASSET CALCULATION SCHEDULE (MATHEMATICAL AUDIT LOG)
+                      </span>
+                      <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
+                        Formula: (Purchase Cost - Residual Salvage) ÷ (Useful Life × 12)
+                      </span>
+                    </div>
+
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="bg-slate-950 text-slate-400 text-[9px] font-black uppercase tracking-widest border-b border-slate-800">
                           <th className="p-2.5">Tag ID</th>
                           <th className="p-2.5">Asset Description & Location</th>
-                          <th className="p-2.5">GL Routing</th>
+                          <th className="p-2.5">GL Expense Routing</th>
                           <th className="p-2.5 text-right">Cost Price (GHS)</th>
-                          <th className="p-2.5 text-right">Useful Life</th>
-                          <th className="p-2.5 text-right text-emerald-400">Monthly Dep Charge</th>
+                          <th className="p-2.5 text-right text-amber-400">Residual Salvage (GHS)</th>
+                          <th className="p-2.5 text-right text-indigo-400">Depreciable Base (GHS)</th>
+                          <th className="p-2.5 text-right">Life (Yrs)</th>
+                          <th className="p-2.5 text-right text-emerald-400">Monthly Depr (GHS)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800 font-mono text-[11px]">
                         {eligibleAssets.map((asset, i) => {
+                          const cost = Number(asset.purchasePrice || asset.cost || 0);
+                          const salvage = Number(asset.salvageValue || 0);
+                          const depreciableBase = Math.max(0, cost - salvage);
                           const monthlyDep = calculateMonthlyDep(asset);
+                          const routing = getGlRoutingForAsset(asset);
+
                           return (
                             <tr key={asset.id || i} className="hover:bg-slate-800/40">
-                              <td className="p-2.5 text-emerald-400 font-bold">{asset.tagId}</td>
+                              <td className="p-2.5 text-emerald-400 font-bold">{asset.tagId || asset.tag}</td>
                               <td className="p-2.5 font-sans">
                                 <span className="font-bold text-white uppercase block">{asset.name}</span>
-                                <span className="text-[10px] text-slate-400">{asset.location || 'Main Hospital Block'}</span>
-                              </td>
-                              <td className="p-2.5 font-sans">
-                                <span className="px-2 py-0.5 rounded bg-slate-800 text-[10px] font-mono text-indigo-300 font-bold border border-slate-700">
-                                  {asset.glExpenseCode || '6505'}
+                                <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                                  <MapPin className="w-3 h-3 text-rose-500 shrink-0" />
+                                  {asset.location || 'Administration Block'}
                                 </span>
                               </td>
-                              <td className="p-2.5 text-right text-slate-300">
-                                ₵{asset.purchasePrice.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              <td className="p-2.5 font-sans">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                                  routing.code === '6510' ? 'bg-indigo-950 text-indigo-300 border-indigo-800' :
+                                  routing.code === '6520' ? 'bg-sky-950 text-sky-300 border-sky-800' :
+                                  routing.code === '6515' ? 'bg-amber-950 text-amber-300 border-amber-800' :
+                                  routing.code === '6530' ? 'bg-purple-950 text-purple-300 border-purple-800' :
+                                  routing.code === '6525' ? 'bg-rose-950 text-rose-300 border-rose-800' :
+                                  'bg-emerald-950 text-emerald-300 border-emerald-800'
+                                }`}>
+                                  {routing.code}
+                                </span>
+                                <span className="text-[9px] text-slate-400 block font-sans truncate max-w-[130px] mt-0.5">
+                                  {routing.classLabel}
+                                </span>
+                              </td>
+                              <td className="p-2.5 text-right text-slate-200">
+                                ₵{cost.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-2.5 text-right text-amber-400/90 font-semibold">
+                                ₵{salvage.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-2.5 text-right text-indigo-300 font-bold">
+                                ₵{depreciableBase.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
                               <td className="p-2.5 text-right text-slate-300">
                                 {Math.round(asset.usefulLife)} Yrs
@@ -760,9 +863,9 @@ export default function SmartDepreciationEngine() {
                       </span>.
                     </p>
                     <div className="p-3 bg-slate-950 text-white rounded-xl font-mono text-[10px] space-y-1">
-                      <p className="text-slate-400 font-sans font-bold uppercase">Multi-Leg JV Distribution:</p>
+                      <p className="text-slate-400 font-sans font-bold uppercase">Dynamic Departmental JV Allocation:</p>
                       {departmentalGlBreakdown.map(d => (
-                        <p key={d.code} className="text-emerald-400">DR {d.code} ({d.name.split('-')[1]?.trim()}): ₵{d.amount.toFixed(2)}</p>
+                        <p key={d.code} className="text-emerald-400">DR {d.code} ({d.classLabel}): ₵{d.amount.toFixed(2)}</p>
                       ))}
                       <p className="text-amber-400 pt-1 border-t border-slate-800">CR 1550 (Accumulated Depreciation): ₵{totalMonthlyDepreciation.toFixed(2)}</p>
                     </div>
