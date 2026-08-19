@@ -2625,7 +2625,190 @@ exports.generateLocumPaymentVoucher = onCall(async (request) => {
   } catch (error) {
     console.error("Locum PV Generation Failed: ", error);
     if (error instanceof HttpsError) throw error;
-    throw new HttpsError("internal", error.message || "Failed to generate the locum voucher.");
+});
+
+/**
+ * aggregateLocumAccruals
+ * Aggregates raw locum clock-in/out logs into payable locum_accruals records.
+ * Handles overnight shifts, 7.5% GRA WHT deductions, rate lookups, and missing clock-out reviews.
+ */
+exports.aggregateLocumAccruals = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated.');
+  }
+
+  const { hospitalId } = request.data || {};
+  const targetHospitalId = hospitalId || request.auth.token?.hospitalId;
+
+  if (!targetHospitalId) {
+    throw new HttpsError('invalid-argument', 'Hospital ID is required.');
+  }
+
+  const attendanceLogsRef = db.collection(`hospitals/${targetHospitalId}/attendance_logs`);
+  const accrualsRef = db.collection(`hospitals/${targetHospitalId}/locum_accruals`);
+  const salaryProfilesRef = db.collection(`hospitals/${targetHospitalId}/salary_profiles`);
+  const usersRef = db.collection('users');
+
+  try {
+    const salaryProfilesSnap = await salaryProfilesRef.get();
+    const salaryMap = new Map();
+    salaryProfilesSnap.forEach((doc) => {
+      const d = doc.data();
+      if (d.staffId) salaryMap.set(d.staffId, d);
+    });
+
+    const usersSnap = await usersRef.where('hospitalId', '==', targetHospitalId).get();
+    const userMap = new Map();
+    usersSnap.forEach((doc) => {
+      userMap.set(doc.id, doc.data());
+    });
+
+    const logsSnap = await attendanceLogsRef.get();
+    let processedCount = 0;
+    let flaggedReviewCount = 0;
+    let skippedCount = 0;
+    let totalGrossAccrued = 0;
+    let totalNetAccrued = 0;
+    const now = new Date();
+
+    for (const logDoc of logsSnap.docs) {
+      const log = { id: logDoc.id, ...logDoc.data() };
+      const isLocum = log.is_locum === true || log.contractType === 'LOCUM';
+      if (!isLocum || log.accrual_processed === true || log.accrual_id) {
+        skippedCount++;
+        continue;
+      }
+
+      const clinicianId = log.clinician_id || log.staffId || '';
+      if (!clinicianId) {
+        skippedCount++;
+        continue;
+      }
+
+      const accrualDocId = `accrual_${logDoc.id}`;
+      const existingAccrual = await accrualsRef.doc(accrualDocId).get();
+      if (existingAccrual.exists) {
+        await logDoc.ref.update({ accrual_processed: true, accrual_id: accrualDocId });
+        skippedCount++;
+        continue;
+      }
+
+      let clockIn = null;
+      if (log.clock_in?.toDate) clockIn = log.clock_in.toDate();
+      else if (log.clockInTime?.toDate) clockIn = log.clockInTime.toDate();
+      else if (log.clock_in) clockIn = new Date(log.clock_in);
+      else if (log.clockInTime) clockIn = new Date(log.clockInTime);
+
+      let clockOut = null;
+      if (log.clock_out?.toDate) clockOut = log.clock_out.toDate();
+      else if (log.clockOutTime?.toDate) clockOut = log.clockOutTime.toDate();
+      else if (log.clock_out) clockOut = new Date(log.clock_out);
+      else if (log.clockOutTime) clockOut = new Date(log.clockOutTime);
+
+      if (!clockIn) {
+        skippedCount++;
+        continue;
+      }
+
+      const salaryInfo = salaryMap.get(clinicianId);
+      const userInfo = userMap.get(clinicianId);
+      const clinicianName = log.clinician_name || log.staffName || userInfo?.fullName || userInfo?.displayName || 'Locum Clinician';
+      const tinNumber = log.tin || salaryInfo?.tin || userInfo?.tin || userInfo?.tinNumber || null;
+
+      const baseSalary = Number(salaryInfo?.basicSalary || 0);
+      const hourlyRate = Number(salaryInfo?.hourlyRate) || (baseSalary > 0 ? parseFloat((baseSalary / 192).toFixed(2)) : 80.00);
+
+      let durationHours = 0;
+      let status = 'READY_FOR_DISBURSEMENT';
+      let reviewReason = null;
+
+      if (!clockOut) {
+        const elapsedHours = (now.getTime() - clockIn.getTime()) / (1000 * 60 * 60);
+        if (elapsedHours > 24) {
+          status = 'NEEDS_HR_REVIEW';
+          reviewReason = `Missing clock-out timestamp after ${elapsedHours.toFixed(1)} hrs. Requires Medical Director verification.`;
+          durationHours = 0;
+        } else {
+          skippedCount++;
+          continue;
+        }
+      } else {
+        const diffMs = clockOut.getTime() - clockIn.getTime();
+        durationHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
+        if (durationHours <= 0 || durationHours > 24) {
+          status = 'NEEDS_HR_REVIEW';
+          reviewReason = durationHours <= 0 ? 'Invalid duration.' : `Duration of ${durationHours} hrs exceeds 24-hr threshold.`;
+        }
+      }
+
+      if (status === 'READY_FOR_DISBURSEMENT' && (!tinNumber || tinNumber === 'MISSING')) {
+        status = 'FLAGGED_MISSING_TIN';
+        reviewReason = 'Missing statutory GRA TIN. WHT withholding blocked.';
+      }
+
+      const grossAmount = parseFloat((durationHours * hourlyRate).toFixed(2));
+      const whtRate = 0.075;
+      const whtAmount = parseFloat((grossAmount * whtRate).toFixed(2));
+      const netAmount = parseFloat((grossAmount - whtAmount).toFixed(2));
+
+      const hour = clockIn.getHours();
+      const shiftType = durationHours >= 18 ? 'Overnight Cover' : hour >= 6 && hour < 14 ? 'Morning' : hour >= 14 && hour < 20 ? 'Afternoon' : 'Night';
+
+      const batch = db.batch();
+      batch.set(accrualsRef.doc(accrualDocId), {
+        accrual_id: accrualDocId,
+        attendance_log_id: logDoc.id,
+        hospital_id: targetHospitalId,
+        clinician_id: clinicianId,
+        clinician_name: clinicianName,
+        tin_number: tinNumber || null,
+        shift_date: clockIn.toISOString().split('T')[0],
+        shift_type: shiftType,
+        clock_in_iso: clockIn.toISOString(),
+        clock_out_iso: clockOut ? clockOut.toISOString() : null,
+        duration: durationHours,
+        hourly_rate: hourlyRate,
+        gross_amount: grossAmount,
+        wht_rate: whtRate,
+        wht_amount: whtAmount,
+        net_amount: netAmount,
+        department: log.department || userInfo?.department || 'Clinical Services',
+        status,
+        review_reason: reviewReason,
+        payment_status: 'UNPAID',
+        processed_at: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      batch.update(logDoc.ref, {
+        accrual_processed: true,
+        accrual_id: accrualDocId,
+        accrual_status: status,
+        accrual_processed_at: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      await batch.commit();
+
+      if (status === 'READY_FOR_DISBURSEMENT') {
+        totalGrossAccrued += grossAmount;
+        totalNetAccrued += netAmount;
+        processedCount++;
+      } else {
+        flaggedReviewCount++;
+      }
+    }
+
+    return {
+      success: true,
+      processedCount,
+      flaggedReviewCount,
+      skippedCount,
+      totalGrossAccrued: parseFloat(totalGrossAccrued.toFixed(2)),
+      totalNetAccrued: parseFloat(totalNetAccrued.toFixed(2)),
+      message: `Processed ${processedCount} locum accruals for payout. (${flaggedReviewCount} flagged for review).`
+    };
+  } catch (err) {
+    console.error('Locum Accrual Cloud Function Failed: ', err);
+    throw new HttpsError('internal', err.message || 'Failed to aggregate locum accruals.');
   }
 });
 
