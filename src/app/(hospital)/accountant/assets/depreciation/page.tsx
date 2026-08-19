@@ -32,7 +32,17 @@ export function getGlRoutingForAsset(asset: any): { code: string; name: string; 
   const name = (asset.name || '').toUpperCase();
   const tag = (asset.tagId || asset.tag || '').toUpperCase();
 
-  // 1. Buildings & Civil Infrastructure (GL 6510)
+  // 1. Medical, Clinical & Diagnostic Equipment (GL 6505) - Prioritize Diagnostic Imaging & Clinical
+  if (
+    name.includes('MRI') || name.includes('MAGNETIC RESONANCE') || name.includes('X-RAY') || 
+    name.includes('ULTRASOUND') || name.includes('AUTOCLAVE') || name.includes('FLUOROSCOPY') || 
+    name.includes('VENTILATOR') || name.includes('DIALYSIS') || tag.includes('MRI') || 
+    tag.includes('XRY') || tag.includes('RAD') || tag.includes('MED') || cat === 'MEDICAL_EQ' || cat === 'MEDICAL_EQUIPMENT'
+  ) {
+    return { code: '6505', name: '6505 - Medical & Clinical Equipment Depreciation', classLabel: 'Medical & Diagnostic Equipment' };
+  }
+
+  // 2. Buildings & Civil Infrastructure (GL 6510)
   if (
     cat.includes('BUILD') || cat.includes('INFRA') || cat.includes('ESTATE') || sub.includes('BUILD') ||
     name.includes('BLOCK') || name.includes('BUILDING') || name.includes('ANNEX') || tag.includes('AMB-23') || tag.includes('BLD')
@@ -40,15 +50,16 @@ export function getGlRoutingForAsset(asset: any): { code: string; name: string; 
     return { code: '6510', name: '6510 - Building & Infrastructure Depreciation', classLabel: 'Buildings & Civil Works' };
   }
 
-  // 2. IT, Computing & Software Infrastructure (GL 6520)
+  // 3. Furniture, Fixtures & Hospital Fittings (GL 6525)
   if (
-    cat.includes('IT') || cat.includes('COMP') || cat.includes('SOFT') || sub.includes('IT') ||
-    name.includes('SERVER') || name.includes('COMPUTER') || name.includes('DELL') || name.includes('LAPTOP') || tag.includes('SRV') || tag.includes('CC')
+    cat.includes('FURN') || cat.includes('FITT') || sub.includes('FURN') ||
+    name.includes('BED') || name.includes('DESK') || name.includes('CHAIR') || name.includes('CABINET') || 
+    name.includes('FURNITURE') || tag.includes('FUR') || tag.includes('FF') || tag.startsWith('FF-')
   ) {
-    return { code: '6520', name: '6520 - IT & Software Depreciation', classLabel: 'IT & Digital Infrastructure' };
+    return { code: '6525', name: '6525 - Furniture, Fixtures & Fittings Depreciation', classLabel: 'Furniture & Hospital Fittings' };
   }
 
-  // 3. Motor Vehicles & Fleet (GL 6515)
+  // 4. Motor Vehicles & Fleet (GL 6515)
   if (
     cat.includes('VEHICLE') || cat.includes('MOTOR') || cat.includes('FLEET') || sub.includes('VEHICLE') ||
     name.includes('AMBULANCE') || name.includes('TOYOTA') || name.includes('HILUX') || name.includes('CRUISER') || tag.includes('AMB-') || tag.includes('VEH')
@@ -56,7 +67,7 @@ export function getGlRoutingForAsset(asset: any): { code: string; name: string; 
     return { code: '6515', name: '6515 - Motor Vehicles & Ambulance Fleet Depreciation', classLabel: 'Motor Vehicles & Ambulance Fleet' };
   }
 
-  // 4. Plant, Power & Standby Machinery (GL 6530)
+  // 5. Plant, Power & Standby Machinery (GL 6530)
   if (
     cat.includes('PLANT') || cat.includes('MACH') || cat.includes('POWER') || sub.includes('PLANT') ||
     name.includes('GENERATOR') || name.includes('PERKINS') || name.includes('SOLAR') || name.includes('UPS') || tag.includes('GEN')
@@ -64,17 +75,19 @@ export function getGlRoutingForAsset(asset: any): { code: string; name: string; 
     return { code: '6530', name: '6530 - Plant, Power & Heavy Machinery Depreciation', classLabel: 'Plant, Power & Heavy Machinery' };
   }
 
-  // 5. Furniture, Fixtures & Hospital Fittings (GL 6525)
+  // 6. IT, Computing & Software Infrastructure (GL 6520) - Precise Matching avoiding 'ACC' false positives
   if (
-    cat.includes('FURN') || cat.includes('FITT') || sub.includes('FURN') ||
-    name.includes('BED') || name.includes('DESK') || name.includes('CHAIR') || name.includes('CABINET') || tag.includes('FUR')
+    cat.includes('IT') || cat.includes('COMP') || cat.includes('SOFT') || sub.includes('IT') ||
+    name.includes('SERVER') || name.includes('COMPUTER') || name.includes('DELL') || name.includes('LAPTOP') || 
+    name.includes('WORKSTATION') || tag.includes('SRV') || tag.startsWith('IT-') || tag.includes('-CC-') || tag.startsWith('MMH CC')
   ) {
-    return { code: '6525', name: '6525 - Furniture, Fixtures & Fittings Depreciation', classLabel: 'Furniture & Hospital Fittings' };
+    return { code: '6520', name: '6520 - IT & Software Depreciation', classLabel: 'IT & Digital Infrastructure' };
   }
 
-  // 6. Medical, Clinical & Diagnostic Equipment (GL 6505)
+  // Default Fallback
   return { code: '6505', name: '6505 - Medical & Clinical Equipment Depreciation', classLabel: 'Medical & Diagnostic Equipment' };
 }
+
 
 export default function SmartDepreciationEngine() {
   const { user, isUserLoading } = useUser();
