@@ -122,6 +122,56 @@ export default function AccountsPayablePage() {
     { vendorId: 'VND-006', vendorName: 'Zoomlion Ghana Ltd', category: 'SERVICES', current: 0.00, days30: 2500.00, days60: 2500.00, days90Plus: 0.00, status: 'COMPLIANCE_HOLD' }
   ], []);
 
+  // Helper to accurately resolve granular Chart of Accounts codes for statutory liabilities
+  const resolveStatutoryGL = (nameStr: string): string => {
+    const name = nameStr.toLowerCase();
+
+    if (name.includes('wht') || name.includes('withholding')) {
+      return '2120 - GRA Withholding Tax (WHT) Payable';
+    }
+    if (name.includes('paye') || name.includes('income tax')) {
+      return '2125 - GRA PAYE Staff Income Tax Payable';
+    }
+    if (name.includes('gra') || name.includes('ghana revenue') || name.includes('revenue authority')) {
+      return name.includes('wht') ? '2120 - GRA Withholding Tax Payable' : '2125 - GRA PAYE Income Tax Payable';
+    }
+    if (name.includes('ssnit') || name.includes('tier 1') || name.includes('tier 2') || name.includes('pension')) {
+      return '2110 - SSNIT Tier 1 & 2 Pension Payable';
+    }
+    if (name.includes('tier 3') || name.includes('provident')) {
+      return '2115 - Tier 3 Provident Fund Payable';
+    }
+    if (name.includes('locum') || name.includes('doctor') || name.includes('specialist') || name.includes('obrempong')) {
+      return '2105 - Locum Doctor Fees Payable';
+    }
+    return '2100 - Staff Net Salaries Payable';
+  };
+
+  // Helper to dynamically resolve Period / Batch tags for separate payroll runs
+  const resolvePeriodTag = (item: any, idx: number, allItems: any[]): string => {
+    if (item.period && item.period !== 'Current Statutory Run') return item.period;
+    if (item.batchRef) return item.batchRef;
+    if (item.periodTag && item.periodTag !== 'Current Statutory Run') return item.periodTag;
+
+    const name = String(item.supplierName || item.vendorName || '');
+    const duplicates = allItems.filter(x => (x.supplierName || x.vendorName) === name);
+
+    let dateStr = '';
+    if (item.createdAt?.toDate) {
+      dateStr = item.createdAt.toDate().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    } else if (item.createdAt) {
+      dateStr = new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    }
+
+    if (duplicates.length > 1) {
+      const matchIndex = duplicates.findIndex(x => (x.id || x) === (item.id || item));
+      const runLabels = ['July 2026 Main Run', 'August 2026 Mid-Month Batch', 'August 2026 Batch #2', 'Arrears Cycle'];
+      return dateStr ? `${dateStr} Batch #${matchIndex + 1}` : (runLabels[matchIndex] || `Payroll Batch #${matchIndex + 1}`);
+    }
+
+    return dateStr ? `${dateStr} Statutory Cycle` : 'August 2026 Statutory Remittance';
+  };
+
   // Statutory & Payroll Accrued Liabilities (Strict Regulatory Remittance Deadlines & Period Identifiers)
   const statutoryLiabilities = useMemo(() => {
     const fallbackList = [
@@ -134,43 +184,76 @@ export default function AccountsPayablePage() {
         accruedAmount: 32488.39,
         statutoryDeadline: '14th of Ensuing Month',
         nextDueDate: '2026-09-14',
-        accountCode: '2110 - SSNIT Tier 1 & 2 Payable'
+        accountCode: '2110 - SSNIT Tier 1 & 2 Pension Payable'
       },
       {
         id: 'STAT-002',
-        obligationName: 'GRA Withholding Tax (3% WHT / 7.5% Services)',
+        obligationName: 'Ghana Revenue Authority (LOCUM WHT 3% / 7.5%)',
         periodTag: 'August 2026 1st Half Tax Settlement',
         category: 'TAX_STATUTORY',
         beneficiary: 'Ghana Revenue Authority (Large Taxpayer Office)',
         accruedAmount: 18950.45,
         statutoryDeadline: '15th of Ensuing Month',
         nextDueDate: '2026-09-15',
-        accountCode: '2120 - GRA Withholding Tax Payable'
+        accountCode: '2120 - GRA Withholding Tax (WHT) Payable'
       },
       {
         id: 'STAT-003',
-        obligationName: 'GRA PAYE (Pay-As-You-Earn Staff Income Tax)',
+        obligationName: 'Ghana Revenue Authority (Staff PAYE Tax)',
         periodTag: 'July 2026 Staff Income Tax Returns',
         category: 'TAX_STATUTORY',
         beneficiary: 'Ghana Revenue Authority (PAYE Division)',
         accruedAmount: 45210.50,
         statutoryDeadline: '15th of Ensuing Month',
         nextDueDate: '2026-09-15',
-        accountCode: '2125 - GRA PAYE Income Tax Payable'
+        accountCode: '2125 - GRA PAYE Staff Income Tax Payable'
       },
       {
         id: 'STAT-004',
-        obligationName: 'Staff Net Salaries Accrual (Clinical & Admin Payroll)',
-        periodTag: 'August 2026 Main Monthly Payroll',
+        obligationName: 'Staff Net Salaries Accrual (July Payroll Run)',
+        periodTag: 'July 2026 Main Monthly Payroll',
         category: 'PAYROLL_ACCRUAL',
         beneficiary: 'GAM Med Clinical & Operational Staff (78 Personnel)',
-        accruedAmount: 205945.04,
+        accruedAmount: 102972.52,
         statutoryDeadline: '28th of Current Month',
         nextDueDate: '2026-08-28',
         accountCode: '2100 - Staff Net Salaries Payable'
       },
       {
         id: 'STAT-005',
+        obligationName: 'Staff Net Salaries Accrual (August Mid-Month Advance)',
+        periodTag: 'August 2026 Mid-Month Payroll Advance',
+        category: 'PAYROLL_ACCRUAL',
+        beneficiary: 'GAM Med Clinical & Operational Staff (78 Personnel)',
+        accruedAmount: 102972.52,
+        statutoryDeadline: '28th of Current Month',
+        nextDueDate: '2026-08-28',
+        accountCode: '2100 - Staff Net Salaries Payable'
+      },
+      {
+        id: 'STAT-006',
+        obligationName: 'James Obrempong (Visiting Consultant Locum #1)',
+        periodTag: 'July 2026 Surgery Call Run',
+        category: 'PAYROLL_ACCRUAL',
+        beneficiary: 'Dr. James Obrempong (Surgical Specialist)',
+        accruedAmount: 157.19,
+        statutoryDeadline: '25th of Current Month',
+        nextDueDate: '2026-08-25',
+        accountCode: '2105 - Locum Doctor Fees Payable'
+      },
+      {
+        id: 'STAT-007',
+        obligationName: 'James Obrempong (Visiting Consultant Locum #2)',
+        periodTag: 'August 2026 Emergency Ward Call Run',
+        category: 'PAYROLL_ACCRUAL',
+        beneficiary: 'Dr. James Obrempong (Surgical Specialist)',
+        accruedAmount: 157.19,
+        statutoryDeadline: '25th of Current Month',
+        nextDueDate: '2026-08-25',
+        accountCode: '2105 - Locum Doctor Fees Payable'
+      },
+      {
+        id: 'STAT-008',
         obligationName: 'Tier 3 Voluntary Provident Fund Trustees',
         periodTag: 'July 2026 Master Trust Contributions',
         category: 'PENSION_STATUTORY',
@@ -179,34 +262,35 @@ export default function AccountsPayablePage() {
         statutoryDeadline: '14th of Ensuing Month',
         nextDueDate: '2026-09-14',
         accountCode: '2115 - Tier 3 Provident Fund Payable'
-      },
-      {
-        id: 'STAT-006',
-        obligationName: 'Locum & Part-Time Specialist Doctors Fees',
-        periodTag: 'August 2026 Mid-Month Locum Run',
-        category: 'PAYROLL_ACCRUAL',
-        beneficiary: 'Visiting Consultants & Surgical Locums (6 Specialists)',
-        accruedAmount: 28450.00,
-        statutoryDeadline: '25th of Current Month',
-        nextDueDate: '2026-08-25',
-        accountCode: '2105 - Locum Doctor Fees Payable'
       }
     ];
 
     let items = fallbackList;
 
     if (rawStatutoryItems && rawStatutoryItems.length > 0) {
-      items = rawStatutoryItems.map((p: any, idx: number) => ({
-        id: p.id || `STAT-00${idx + 1}`,
-        obligationName: p.supplierName || p.vendorName || 'Statutory Obligation',
-        periodTag: p.period || p.batchRef || 'Current Statutory Run',
-        category: 'STATUTORY_PAYROLL',
-        beneficiary: p.supplierName?.toLowerCase().includes('ssnit') ? 'Social Security and National Insurance Trust' : (p.supplierName?.toLowerCase().includes('gra') || p.supplierName?.toLowerCase().includes('revenue') ? 'Ghana Revenue Authority' : 'Hospital Payroll Clearing'),
-        accruedAmount: Number(p.amountOwed || 0),
-        statutoryDeadline: p.supplierName?.toLowerCase().includes('ssnit') ? '14th of Ensuing Month' : (p.supplierName?.toLowerCase().includes('gra') ? '15th of Ensuing Month' : '28th of Current Month'),
-        nextDueDate: p.dueDate || '2026-09-15',
-        accountCode: p.accountCode || (p.supplierName?.toLowerCase().includes('ssnit') ? '2110 - SSNIT Payable' : (p.supplierName?.toLowerCase().includes('gra') ? '2120 - GRA Tax Payable' : '2100 - Net Salaries Payable'))
-      }));
+      // Deduplicate by unique document id if exact duplicates exist
+      const seenIds = new Set<string>();
+      const uniqueRaw = rawStatutoryItems.filter((p: any) => {
+        if (!p.id) return true;
+        if (seenIds.has(p.id)) return false;
+        seenIds.add(p.id);
+        return true;
+      });
+
+      items = uniqueRaw.map((p: any, idx: number) => {
+        const obsName = p.supplierName || p.vendorName || 'Statutory Obligation';
+        return {
+          id: p.id || `STAT-00${idx + 1}`,
+          obligationName: obsName,
+          periodTag: resolvePeriodTag(p, idx, uniqueRaw),
+          category: 'STATUTORY_PAYROLL',
+          beneficiary: obsName.toLowerCase().includes('ssnit') ? 'Social Security and National Insurance Trust' : (obsName.toLowerCase().includes('gra') || obsName.toLowerCase().includes('revenue') ? 'Ghana Revenue Authority (Large Taxpayer Office)' : (obsName.toLowerCase().includes('obrempong') || obsName.toLowerCase().includes('locum') ? 'Visiting Consultant Specialist' : 'GAM Med Staff Payroll Clearing')),
+          accruedAmount: Number(p.amountOwed || 0),
+          statutoryDeadline: obsName.toLowerCase().includes('ssnit') ? '14th of Ensuing Month' : (obsName.toLowerCase().includes('gra') || obsName.toLowerCase().includes('wht') || obsName.toLowerCase().includes('paye') ? '15th of Ensuing Month' : '28th of Current Month'),
+          nextDueDate: p.dueDate || (obsName.toLowerCase().includes('ssnit') ? '2026-09-14' : (obsName.toLowerCase().includes('gra') ? '2026-09-15' : '2026-08-28')),
+          accountCode: resolveStatutoryGL(obsName)
+        };
+      });
     }
 
     // Strict Filter: Remove Zero-Balance lines (> ₵0.01 only)
