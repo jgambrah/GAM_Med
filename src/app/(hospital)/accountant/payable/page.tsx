@@ -46,7 +46,7 @@ export default function AccountsPayablePage() {
   const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'aging_matrix' | 'outstanding_ledger'>('aging_matrix');
+  const [activeTab, setActiveTab] = useState<'trade_payables' | 'statutory_payroll' | 'outstanding_ledger'>('trade_payables');
   const [matchingInvoice, setMatchingInvoice] = useState<{
     vendorName: string;
     grnNumber: string;
@@ -74,24 +74,94 @@ export default function AccountsPayablePage() {
   }, [firestore, hospitalId]);
   const { data: rawPayables, isLoading: arePayablesLoading } = useCollection<PayableItem>(payablesQuery);
 
-  // Demodata Fallback for Immediate AP Aging Demonstration
-  const mockApData: VendorAgingRow[] = useMemo(() => [
+  // Commercial Trade Payables Mock Data
+  const mockTradePayables: VendorAgingRow[] = useMemo(() => [
     { vendorId: 'VND-001', vendorName: 'Ernest Chemists Ltd', category: 'PHARMACEUTICAL', current: 25000.00, days30: 15000.00, days60: 5000.00, days90Plus: 0.00, status: 'ACTIVE' },
-    { vendorId: 'VND-002', vendorName: 'Tobinco Pharmaceuticals', category: 'PHARMACEUTICAL', current: 12500.00, days30: 0.00, days60: 0.00, days90Plus: 0.00, status: 'ACTIVE' },
-    { vendorId: 'VND-003', vendorName: 'Zoomlion Ghana Ltd', category: 'SERVICES', current: 0.00, days30: 2500.00, days60: 2500.00, days90Plus: 0.00, status: 'COMPLIANCE_HOLD' },
+    { vendorId: 'VND-002', vendorName: 'Tobinco Pharmaceuticals Ltd', category: 'PHARMACEUTICAL', current: 12500.00, days30: 0.00, days60: 0.00, days90Plus: 0.00, status: 'ACTIVE' },
+    { vendorId: 'VND-003', vendorName: 'Multinec Enterprise (Medical Consumables)', category: 'CONSUMABLES', current: 18450.00, days30: 22100.00, days60: 8900.00, days90Plus: 4500.00, status: 'ACTIVE' },
     { vendorId: 'VND-004', vendorName: 'MedTech Supplies Inc.', category: 'EQUIPMENT', current: 0.00, days30: 0.00, days60: 0.00, days90Plus: 4500.00, status: 'ACTIVE' },
-    { vendorId: 'VND-005', vendorName: 'Perkins Power Solutions Ghana', category: 'WORKS', current: 8400.00, days30: 14000.00, days60: 0.00, days90Plus: 0.00, status: 'ACTIVE' }
+    { vendorId: 'VND-005', vendorName: 'Perkins Power Solutions Ghana', category: 'WORKS', current: 8400.00, days30: 14000.00, days60: 0.00, days90Plus: 0.00, status: 'ACTIVE' },
+    { vendorId: 'VND-006', vendorName: 'Zoomlion Ghana Ltd', category: 'SERVICES', current: 0.00, days30: 2500.00, days60: 2500.00, days90Plus: 0.00, status: 'COMPLIANCE_HOLD' }
   ], []);
 
-  // Aggregate Raw Payables into Vendor Aging Rows
+  // Statutory & Payroll Accrued Liabilities (Strict Regulatory Remittance Deadlines)
+  const statutoryLiabilities = useMemo(() => [
+    {
+      id: 'STAT-001',
+      obligationName: 'SSNIT Pension Fund (13.5% Tier 1 + 5% Tier 2)',
+      category: 'PENSION_STATUTORY',
+      beneficiary: 'Social Security and National Insurance Trust',
+      accruedAmount: 32488.39,
+      statutoryDeadline: '14th of Ensuing Month',
+      nextDueDate: '2026-09-14',
+      status: 'DUE_SOON',
+      penaltyRisk: 'HIGH_STATUTORY_FINE',
+      accountCode: '2110'
+    },
+    {
+      id: 'STAT-002',
+      obligationName: 'GRA Withholding Tax (3% WHT / 7.5% Services)',
+      category: 'TAX_STATUTORY',
+      beneficiary: 'Ghana Revenue Authority (Large Taxpayer Office)',
+      accruedAmount: 18950.45,
+      statutoryDeadline: '15th of Ensuing Month',
+      nextDueDate: '2026-09-15',
+      status: 'COMPLIANT',
+      penaltyRisk: 'MONTHLY_COMPOUND_INTEREST',
+      accountCode: '2120'
+    },
+    {
+      id: 'STAT-003',
+      obligationName: 'GRA PAYE (Pay-As-You-Earn Staff Income Tax)',
+      category: 'TAX_STATUTORY',
+      beneficiary: 'Ghana Revenue Authority (PAYE Division)',
+      accruedAmount: 45210.50,
+      statutoryDeadline: '15th of Ensuing Month',
+      nextDueDate: '2026-09-15',
+      status: 'DUE_SOON',
+      penaltyRisk: 'AUTOMATED_GRA_LEVY',
+      accountCode: '2125'
+    },
+    {
+      id: 'STAT-004',
+      obligationName: 'Staff Net Salaries Accrual (Clinical & Admin Payroll)',
+      category: 'PAYROLL_ACCRUAL',
+      beneficiary: 'GAM Med Clinical & Operational Staff (78 Personnel)',
+      accruedAmount: 205945.04,
+      statutoryDeadline: '28th of Current Month',
+      nextDueDate: '2026-08-28',
+      status: 'SCHEDULED_PAYROLL',
+      penaltyRisk: 'LABOR_DISPUTE_RISK',
+      accountCode: '2100'
+    },
+    {
+      id: 'STAT-005',
+      obligationName: 'Tier 3 Voluntary Provident Fund Trustees',
+      category: 'PENSION_STATUTORY',
+      beneficiary: 'Enterprise Trustees / Petra Trust (Tier 3 Master Trust)',
+      accruedAmount: 14500.00,
+      statutoryDeadline: '14th of Ensuing Month',
+      nextDueDate: '2026-09-14',
+      status: 'COMPLIANT',
+      penaltyRisk: 'TRUSTEE_SURCHARGE',
+      accountCode: '2115'
+    }
+  ], []);
+
+  // Aggregate Raw Payables into Vendor Aging Rows (Commercial Vendors only)
   const apData: VendorAgingRow[] = useMemo(() => {
-    if (!rawPayables || rawPayables.length === 0) return mockApData;
+    if (!rawPayables || rawPayables.length === 0) return mockTradePayables;
 
     const map = new Map<string, VendorAgingRow>();
     const now = new Date('2026-08-14');
 
     rawPayables.forEach((p: any) => {
       const vName = p.supplierName || 'Unknown Supplier';
+      // Filter out statutory lines from trade payables matrix
+      if (vName.toLowerCase().includes('ssnit') || vName.toLowerCase().includes('gra') || vName.toLowerCase().includes('salary')) {
+        return;
+      }
+
       const vId = p.supplierId || `VND-${vName.replace(/\s+/g, '-').toUpperCase()}`;
 
       if (!map.has(vId)) {
@@ -123,7 +193,7 @@ export default function AccountsPayablePage() {
     });
 
     return Array.from(map.values());
-  }, [rawPayables, mockApData]);
+  }, [rawPayables, mockTradePayables]);
 
   const filteredApData = useMemo(() => {
     if (!searchQuery.trim()) return apData;
@@ -131,7 +201,7 @@ export default function AccountsPayablePage() {
     return apData.filter(r => r.vendorName.toLowerCase().includes(q) || r.vendorId.toLowerCase().includes(q));
   }, [apData, searchQuery]);
 
-  // Header & Footer Totals
+  // Header & Footer Totals for Trade Payables
   const totals = useMemo(() => {
     return apData.reduce((acc, row) => {
       const rowSum = row.current + row.days30 + row.days60 + row.days90Plus;
@@ -144,6 +214,11 @@ export default function AccountsPayablePage() {
       };
     }, { current: 0, days30: 0, days60: 0, days90Plus: 0, total: 0 });
   }, [apData]);
+
+  // Total Statutory & Payroll Liabilities
+  const totalStatutory = useMemo(() => {
+    return statutoryLiabilities.reduce((sum, item) => sum + item.accruedAmount, 0);
+  }, [statutoryLiabilities]);
 
   const handleRaisePV = (vendorName: string, vendorStatus: string, amount: number) => {
     if (vendorStatus === 'COMPLIANCE_HOLD') {
@@ -246,7 +321,7 @@ export default function AccountsPayablePage() {
 
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Due This Week (0 - 30 Days)</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Current (0 - 30 Days)</span>
               <div className="text-2xl font-black text-emerald-400 font-mono">
                 ₵ {totals.current.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
@@ -276,22 +351,38 @@ export default function AccountsPayablePage() {
       {/* 2. TAB SWITCHER & ACTION SEARCH BAR        */}
       {/* ========================================== */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div className="flex flex-wrap bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 gap-1">
           <button
             type="button"
-            onClick={() => setActiveTab('aging_matrix')}
-            className={`px-5 py-2 rounded-lg font-black uppercase text-[10px] tracking-wider transition-all cursor-pointer ${
-              activeTab === 'aging_matrix'
+            onClick={() => setActiveTab('trade_payables')}
+            className={`px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-wider transition-all cursor-pointer ${
+              activeTab === 'trade_payables'
                 ? 'bg-slate-900 text-white shadow dark:bg-slate-100 dark:text-slate-900'
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            Outbound AGING MATRIX
+            Commercial Trade Payables (₵ {totals.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('statutory_payroll')}
+            className={`px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'statutory_payroll'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <span>Statutory & Payroll Accruals</span>
+            <span className="px-1.5 py-0.5 rounded bg-indigo-500/30 text-[9px] font-mono font-bold">
+              ₵ {totalStatutory.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={() => setActiveTab('outstanding_ledger')}
-            className={`px-5 py-2 rounded-lg font-black uppercase text-[10px] tracking-wider transition-all cursor-pointer ${
+            className={`px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-wider transition-all cursor-pointer ${
               activeTab === 'outstanding_ledger'
                 ? 'bg-slate-900 text-white shadow dark:bg-slate-100 dark:text-slate-900'
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -306,7 +397,7 @@ export default function AccountsPayablePage() {
             <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
             <input
               type="text"
-              placeholder="Search vendor profile..."
+              placeholder="Search vendor / statutory liability..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
@@ -325,9 +416,9 @@ export default function AccountsPayablePage() {
       </div>
 
       {/* ========================================== */}
-      {/* 3. OUTBOUND AP AGING MATRIX TABLE          */}
+      {/* 3. SUB-LEDGER VIEWS                        */}
       {/* ========================================== */}
-      {activeTab === 'aging_matrix' ? (
+      {activeTab === 'trade_payables' ? (
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           {arePayablesLoading ? (
             <div className="p-16 text-center">
@@ -373,19 +464,19 @@ export default function AccountsPayablePage() {
                       </td>
 
                       <td className="p-4 text-right font-mono text-slate-700 dark:text-slate-300">
-                        {row.current > 0 ? `₵ ${row.current.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '-'}
+                        {row.current > 0 ? `₵ ${row.current.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                       </td>
 
                       <td className="p-4 text-right font-mono text-slate-700 dark:text-slate-300">
-                        {row.days30 > 0 ? `₵ ${row.days30.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '-'}
+                        {row.days30 > 0 ? `₵ ${row.days30.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                       </td>
 
                       <td className="p-4 text-right font-mono text-amber-600 dark:text-amber-400 font-black">
-                        {row.days60 > 0 ? `₵ ${row.days60.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '-'}
+                        {row.days60 > 0 ? `₵ ${row.days60.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                       </td>
 
                       <td className="p-4 text-right font-mono text-rose-600 dark:text-rose-400 font-black bg-rose-50/50 dark:bg-rose-950/30">
-                        {row.days90Plus > 0 ? `₵ ${row.days90Plus.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '-'}
+                        {row.days90Plus > 0 ? `₵ ${row.days90Plus.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                       </td>
 
                       <td className="p-4 text-right font-mono font-black text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800/40">
@@ -401,7 +492,7 @@ export default function AccountsPayablePage() {
                                 vendorName: row.vendorName,
                                 grnNumber: `GRN-${row.vendorId.replace('VND-', '')}-9912`,
                                 poNumber: `PO-${row.vendorId.replace('VND-', '')}-0048`,
-                                baseAmount: rowTotal / 1.189 // Calculate pre-tax base
+                                baseAmount: rowTotal / 1.189
                               });
                             }}
                             className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-black text-[9px] uppercase rounded-lg transition-all border border-slate-700 cursor-pointer flex items-center gap-1"
@@ -431,11 +522,11 @@ export default function AccountsPayablePage() {
 
                 {/* Grand Totals Footer */}
                 <tr className="bg-slate-950 text-white font-black text-xs uppercase tracking-wider">
-                  <td className="p-4">GRAND TOTALS</td>
-                  <td className="p-4 text-right font-mono">₵ {totals.current.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                  <td className="p-4 text-right font-mono">₵ {totals.days30.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                  <td className="p-4 text-right font-mono text-amber-400">₵ {totals.days60.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                  <td className="p-4 text-right font-mono text-rose-400">₵ {totals.days90Plus.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                  <td className="p-4">TRADE TOTALS</td>
+                  <td className="p-4 text-right font-mono">₵ {totals.current.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td className="p-4 text-right font-mono">₵ {totals.days30.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td className="p-4 text-right font-mono text-amber-400">₵ {totals.days60.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td className="p-4 text-right font-mono text-rose-400">₵ {totals.days90Plus.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   <td className="p-4 text-right font-mono text-emerald-400 text-sm bg-slate-900">
                     ₵ {totals.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
@@ -444,6 +535,94 @@ export default function AccountsPayablePage() {
               </tbody>
             </table>
           )}
+        </div>
+      ) : activeTab === 'statutory_payroll' ? (
+        /* ========================================================= */
+        /* STATUTORY REMITTANCES & ACCRUED PAYROLL SUB-LEDGER        */
+        /* ========================================================= */
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+          <div className="p-4 bg-indigo-950 text-white border-b border-indigo-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-indigo-400" />
+              <div>
+                <h3 className="font-black text-xs uppercase tracking-wider">Statutory Deductions & Payroll Accruals Sub-Ledger</h3>
+                <p className="text-[10px] text-indigo-200">Non-negotiable legal obligations with mandatory compliance cutoff dates</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 rounded bg-indigo-900 border border-indigo-700 text-indigo-200 text-xs font-mono font-bold">
+                Total Accrued: ₵ {totalStatutory.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+
+          <table className="w-full text-xs text-left">
+            <thead className="bg-slate-900 text-white uppercase text-[9px] tracking-widest">
+              <tr>
+                <th className="p-4">Obligation & GL Account</th>
+                <th className="p-4">Beneficiary Authority</th>
+                <th className="p-4 text-right">Accrued Amount (GHS)</th>
+                <th className="p-4">Statutory Deadline</th>
+                <th className="p-4">Next Due Date</th>
+                <th className="p-4 text-center">Compliance Status</th>
+                <th className="p-4 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-bold">
+              {statutoryLiabilities.map((item) => (
+                <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all">
+                  <td className="p-4">
+                    <p className="font-black text-slate-900 dark:text-slate-100">{item.obligationName}</p>
+                    <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">
+                      GL Account: {item.accountCode}
+                    </span>
+                  </td>
+                  <td className="p-4 text-slate-600 dark:text-slate-400 text-xs">
+                    {item.beneficiary}
+                  </td>
+                  <td className="p-4 text-right font-mono font-black text-sm text-indigo-600 dark:text-indigo-400">
+                    ₵ {item.accruedAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td className="p-4 font-mono text-slate-700 dark:text-slate-300">
+                    {item.statutoryDeadline}
+                  </td>
+                  <td className="p-4 font-mono text-slate-900 dark:text-slate-100">
+                    {item.nextDueDate}
+                  </td>
+                  <td className="p-4 text-center">
+                    {item.status === 'DUE_SOON' ? (
+                      <span className="px-2.5 py-1 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-black text-[9px] uppercase rounded-full border border-amber-300">
+                        DUE IN 5 DAYS
+                      </span>
+                    ) : item.status === 'SCHEDULED_PAYROLL' ? (
+                      <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-black text-[9px] uppercase rounded-full border border-emerald-300">
+                        MONTH-END PAYROLL
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black text-[9px] uppercase rounded-full">
+                        COMPLIANT
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-4 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toast({
+                          title: "Statutory Remittance Triggered",
+                          description: `Preparing Bank & Portal Schedule for ${item.obligationName} (GHS ${item.accruedAmount.toFixed(2)}).`
+                        });
+                      }}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase rounded-lg transition-all shadow flex items-center justify-center gap-1 mx-auto cursor-pointer"
+                    >
+                      <Landmark className="w-3 h-3" />
+                      <span>REMIT VIA BANK</span>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : (
         /* ========================================== */
