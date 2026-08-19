@@ -981,7 +981,7 @@ export default function SmartDepreciationEngine() {
                         {departmentalGlBreakdown.map(d => (
                           <div key={`dr-${d.drCode}`} className="flex justify-between text-emerald-300">
                             <span>DR {d.drCode} - {d.classLabel}</span>
-                            <span>₵ {d.amount.toFixed(2)}</span>
+                            <span>₵ {d.amount.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                         ))}
                       </div>
@@ -994,14 +994,14 @@ export default function SmartDepreciationEngine() {
                         {departmentalGlBreakdown.map(d => (
                           <div key={`cr-${d.crCode}`} className="flex justify-between text-amber-300">
                             <span>CR {d.crCode} - Accum. Depr ({d.classLabel})</span>
-                            <span>₵ {d.amount.toFixed(2)}</span>
+                            <span>₵ {d.amount.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                         ))}
                       </div>
 
                       <div className="pt-2 border-t border-slate-700 flex justify-between text-[11px] font-black text-white">
                         <span>TOTAL BALANCED JV SUM</span>
-                        <span className="text-emerald-400">₵ {totalMonthlyDepreciation.toFixed(2)} (NET: ₵0.00)</span>
+                        <span className="text-emerald-400">₵ {totalMonthlyDepreciation.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (NET: ₵0.00)</span>
                       </div>
                     </div>
                   </AlertDialogDescription>
