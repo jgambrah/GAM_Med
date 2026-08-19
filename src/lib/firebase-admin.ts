@@ -42,6 +42,7 @@ if (!admin.apps.length) {
 
 export const adminDb = admin.firestore();
 export const adminAuth = admin.auth();
+export const adminMessaging = admin.messaging();
 
 export function getAdminFirestore() {
   return admin.firestore();
@@ -49,4 +50,8 @@ export function getAdminFirestore() {
 
 export function getAdminAuth() {
   return admin.auth();
+}
+
+export function getAdminMessaging() {
+  return admin.messaging();
 }
