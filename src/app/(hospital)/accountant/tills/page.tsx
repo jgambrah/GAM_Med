@@ -79,7 +79,7 @@ export default function TillVerificationPortal() {
   }, [firestore, hospitalId]);
   const { data: allAssetAccounts, isLoading: areBanksLoading } = useCollection(bankAccountsQuery);
 
-  // Strictly filter for Liquid Cash & Bank Asset accounts (Exclude Depreciation 1099, Inventory 1300, Debtors 1200, CAPEX 1500)
+  // Strict Treasury Whitelist: ONLY Liquid Cash & Commercial Bank accounts (1001-1006)
   const bankAccounts = useMemo(() => {
     const defaultLiquid = [
       { id: '1001', accountCode: '1001', name: 'Cash in Vault & Safe Float', type: 'CASH' },
@@ -92,18 +92,22 @@ export default function TillVerificationPortal() {
     if (!allAssetAccounts || allAssetAccounts.length === 0) return defaultLiquid;
 
     const filtered = allAssetAccounts.filter(acc => {
-      const code = String(acc.accountCode || acc.id || '');
+      const code = String(acc.accountCode || acc.id || '').trim();
       const name = String(acc.name || '').toLowerCase();
       const subCat = String(acc.subCategory || '').toUpperCase();
       
-      // Strict Treasury Guard: Explicitly reject non-liquid assets
+      // Strict Blacklist against all non-liquid assets
       if (code === '1099' || name.includes('depreciation') || name.includes('accumulated')) return false;
-      if (code.startsWith('12') || name.includes('receivable') || name.includes('debtor')) return false;
-      if (code.startsWith('13') || name.includes('inventory') || name.includes('stock')) return false;
-      if (code.startsWith('15') || code.startsWith('16') || name.includes('equipment') || name.includes('property') || name.includes('building')) return false;
+      if (code.startsWith('12') || name.includes('receivable') || name.includes('debtor') || name.includes('claim')) return false;
+      if (code.startsWith('13') || name.includes('inventory') || name.includes('stock') || name.includes('pharmacy')) return false;
+      if (code.startsWith('15') || code.startsWith('16') || name.includes('equipment') || name.includes('property') || name.includes('building') || name.includes('land')) return false;
 
-      // Match liquid codes (1001-1009) or subcategory CASH_AND_BANK
-      return code.startsWith('100') || subCat === 'CASH_AND_BANK' || name.includes('bank') || name.includes('cash') || name.includes('vault');
+      // Strict Whitelist for Cash & Bank
+      const isLiquidCode = ['1001', '1002', '1003', '1004', '1005', '1006'].includes(code) || code.startsWith('100');
+      const isLiquidName = name.includes('bank') || name.includes('cash in') || name.includes('vault') || name.includes('safe') || name.includes('momo') || name.includes('mobile money');
+      const isLiquidSubCat = subCat === 'CASH_AND_BANK' || subCat === 'CASH' || subCat === 'BANK';
+
+      return isLiquidCode || isLiquidName || isLiquidSubCat;
     });
 
     return filtered.length > 0 ? filtered : defaultLiquid;
