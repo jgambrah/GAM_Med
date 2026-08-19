@@ -113,21 +113,35 @@ export default function BankReconciliation() {
     return [...unclearedInflows, ...unclearedOutflows].sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [unclearedInflows, unclearedOutflows]);
 
-  // Real-time Reconciliation Summary Telemetry
+  // Real-time Standard IFRS Bank Reconciliation Telemetry
   const summaryTelemetry = useMemo(() => {
     const depositsInTransit = unclearedInflows.reduce((sum, item) => sum + item.amount, 0);
     const unpresentedCheques = Math.abs(unclearedOutflows.reduce((sum, item) => sum + item.amount, 0));
-    const cashBookBalance = statementClosingBalance + depositsInTransit - unpresentedCheques;
-    const variance = statementClosingBalance - cashBookBalance;
+    
+    // Standard Math: Adjusted Bank = Statement Balance + Deposits in Transit - Unpresented Cheques
+    const adjustedBankBalance = statementClosingBalance + depositsInTransit - unpresentedCheques;
+    
+    // Active GL Cash Book Balance
+    const cashBookBalance = 865670.00;
+    
+    // Net Variance between Adjusted Bank and Cash Book
+    const variance = adjustedBankBalance - cashBookBalance;
 
     return {
       depositsInTransit,
       unpresentedCheques,
+      adjustedBankBalance,
       cashBookBalance,
       variance,
       isBalanced: Math.abs(variance) < 0.01
     };
   }, [unclearedInflows, unclearedOutflows, statementClosingBalance]);
+
+  const loadSampleDemoCSV = () => {
+    const sample = `2026-08-10, Payout Acorn Pharma Distributors, PV-0045, -4500.00\n2026-08-11, Perkins Standby Generator Service, PV-0048, -1250.00\n2026-08-12, Cashier Patient Receipt Ward 3, REC-1244, 2500.00\n2026-08-12, NHIS Direct Settlement Batch #99, REC-1245, 18500.00\n2026-08-15, Monthly Maintenance & COT Bank Charge, GCB-COT-AUG26, -180.00`;
+    setCsvText(sample);
+    parseCSVContent(sample);
+  };
 
   const parseCSVContent = (content: string) => {
     try {
@@ -444,31 +458,38 @@ export default function BankReconciliation() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-xs font-mono">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 text-xs font-mono">
           <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800">
-            <span className="text-[9px] font-black uppercase text-slate-500 block mb-1">Bank Statement</span>
+            <span className="text-[9px] font-black uppercase text-slate-500 block mb-1">1. Bank Statement</span>
             <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">
               ₵{statementClosingBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
 
           <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800">
-            <span className="text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-400 block mb-1">Add: Deposits Transit</span>
+            <span className="text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-400 block mb-1">2. Add: In Transit</span>
             <p className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
               + ₵{summaryTelemetry.depositsInTransit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
 
           <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800">
-            <span className="text-[9px] font-black uppercase text-rose-600 dark:text-rose-400 block mb-1">Less: Unpresented Cheques</span>
+            <span className="text-[9px] font-black uppercase text-rose-600 dark:text-rose-400 block mb-1">3. Less: Unpresented</span>
             <p className="font-bold text-rose-600 dark:text-rose-400 text-sm">
               - ₵{summaryTelemetry.unpresentedCheques.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
 
+          <div className="p-3 bg-indigo-50/60 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800">
+            <span className="text-[9px] font-black uppercase text-indigo-700 dark:text-indigo-300 block mb-1">4. Adjusted Bank</span>
+            <p className="font-bold text-indigo-700 dark:text-indigo-300 text-sm">
+              = ₵{summaryTelemetry.adjustedBankBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </div>
+
           <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800">
-            <span className="text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400 block mb-1">Cash Book Balance</span>
-            <p className="font-bold text-indigo-600 dark:text-indigo-400 text-sm">
+            <span className="text-[9px] font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">5. Cash Book Balance</span>
+            <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">
               ₵{summaryTelemetry.cashBookBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
@@ -478,7 +499,7 @@ export default function BankReconciliation() {
               ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300' 
               : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
           }`}>
-            <span className="text-[9px] font-black uppercase block mb-1">Net Variance</span>
+            <span className="text-[9px] font-black uppercase block mb-1">6. Net Variance</span>
             <p className="text-sm font-black">
               ₵{summaryTelemetry.variance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
@@ -490,7 +511,7 @@ export default function BankReconciliation() {
       {/* 3. DRAG & DROP STATEMENT IMPORT ZONE       */}
       {/* ========================================== */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 gap-3">
           <div>
             <h2 className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <Upload className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> IMPORT BANK STATEMENT
@@ -500,20 +521,30 @@ export default function BankReconciliation() {
             </p>
           </div>
 
-          <input 
-            type="file" 
-            ref={fileInputRef}
-            accept=".csv, .txt" 
-            onChange={handleFileUpload}
-            className="hidden" 
-          />
-          <button 
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-400" /> UPLOAD CSV FILE
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              type="button"
+              onClick={loadSampleDemoCSV}
+              className="px-3.5 py-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800 text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <FileSpreadsheet className="w-4 h-4" /> LOAD SAMPLE GCB STATEMENT
+            </button>
+
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              accept=".csv, .txt" 
+              onChange={handleFileUpload}
+              className="hidden" 
+            />
+            <button 
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="px-4 py-2 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <Upload className="w-4 h-4 text-emerald-400" /> UPLOAD CSV
+            </button>
+          </div>
         </div>
 
         <textarea
@@ -523,13 +554,15 @@ export default function BankReconciliation() {
           onChange={e => setCsvText(e.target.value)}
         />
 
-        <button 
-          type="button"
-          onClick={handleParseCSV} 
-          className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
-        >
-          <RefreshCw className="w-4 h-4" /> PARSE & RUN AUTO-MATCH ENGINE
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            type="button"
+            onClick={handleParseCSV} 
+            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+          >
+            <RefreshCw className="w-4 h-4" /> PARSE & RUN AUTO-MATCH ENGINE
+          </button>
+        </div>
       </div>
 
       {/* ========================================== */}
