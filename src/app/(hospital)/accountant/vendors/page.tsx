@@ -43,6 +43,13 @@ export default function VendorManager() {
     accountNumber: '',
     defaultWhtRate: 3.0,
     defaultWhtCategory: 'GOODS', // GOODS (3%), WORKS (5%), SERVICES (7.5%), RENT (8%)
+    isWhtExempt: false,
+    whtExemptionCertNumber: '',
+    whtExemptionExpiryDate: '',
+    defaultApAccountCode: '2000',
+    defaultApAccountName: '2000 - Trade Accounts Payable (General)',
+    defaultExpenseAccountCode: '5000',
+    defaultExpenseAccountName: '5000 - Medical & Pharmaceutical Supplies',
     taxClearanceExpiry: '2026-12-31',
     status: 'AWAITING_APPROVAL' as 'DRAFT' | 'AWAITING_APPROVAL' | 'ACTIVE' | 'SUSPENDED' | 'BLACKLISTED',
     attachments: [] as string[],
@@ -80,11 +87,18 @@ export default function VendorManager() {
       bankBranch: 'High Street Main Branch',
       accountName: 'Acorn Pharma Distributors Ltd',
       accountNumber: '1099248102', 
-      defaultWhtRate: 3.0, 
+      defaultWhtRate: 0.0, 
       defaultWhtCategory: 'GOODS',
+      isWhtExempt: true,
+      whtExemptionCertNumber: 'GRA/LTO/EXEMP/2026/042',
+      whtExemptionExpiryDate: '2026-12-31',
+      defaultApAccountCode: '2010',
+      defaultApAccountName: '2010 - Pharmaceutical & Drug Payables',
+      defaultExpenseAccountCode: '5000',
+      defaultExpenseAccountName: '5000 - Medical & Pharmaceutical Supplies',
       taxClearanceExpiry: '2026-12-31',
       status: 'ACTIVE',
-      attachments: ['GRA_Tax_Clearance_2026.pdf', 'Cert_of_Incorporation.pdf', 'SSNIT_Clearance.pdf'],
+      attachments: ['GRA_Tax_Clearance_2026.pdf', 'Cert_of_Incorporation.pdf', 'GRA_WHT_Exemption_Cert.pdf', 'SSNIT_Clearance.pdf'],
       bankAuditLogs: [
         { timestamp: '2026-06-15 10:30', modifiedBy: 'Marcus Henaku', field: 'Account Number', oldVal: '1099248000', newVal: '1099248102' }
       ],
@@ -108,9 +122,14 @@ export default function VendorManager() {
       accountNumber: '0100924819', 
       defaultWhtRate: 5.0, 
       defaultWhtCategory: 'WORKS',
+      isWhtExempt: false,
+      defaultApAccountCode: '2020',
+      defaultApAccountName: '2020 - Medical Equipment & Capex Payables',
+      defaultExpenseAccountCode: '5100',
+      defaultExpenseAccountName: '5100 - Biomedical Equipment & Facility Maintenance',
       taxClearanceExpiry: '2026-08-28', // Expiring soon (<30d)
       status: 'ACTIVE',
-      attachments: ['GRA_Tax_Clearance_Expiring.pdf', 'EPA_Permit.pdf'],
+      attachments: ['GRA_Tax_Clearance_Expiring.pdf', 'Cert_of_Incorporation.pdf', 'EPA_Permit.pdf'],
       bankAuditLogs: [],
       createdBy: 'usr-1',
       createdByName: 'Kofi Mensah (Procurement)',
@@ -132,12 +151,17 @@ export default function VendorManager() {
       accountNumber: '14410029384', 
       defaultWhtRate: 7.5, 
       defaultWhtCategory: 'SERVICES',
+      isWhtExempt: false,
+      defaultApAccountCode: '2020',
+      defaultApAccountName: '2020 - Medical Equipment & Capex Payables',
+      defaultExpenseAccountCode: '5100',
+      defaultExpenseAccountName: '5100 - Biomedical Equipment & Facility Maintenance',
       taxClearanceExpiry: '2026-09-15',
       status: 'AWAITING_APPROVAL',
-      attachments: ['Pending_TIN_Doc.pdf'],
+      attachments: ['Pending_TIN_Doc.pdf'], // Missing Cert of Incorporation & Tax Clearance
       bankAuditLogs: [],
-      createdBy: 'usr-2',
-      createdByName: 'Abena Ofori (Procurement Officer)'
+      createdBy: 'usr-current',
+      createdByName: 'Samuel Korsah (Accountant / Maker)'
     },
     { 
       id: 'v-4', 
@@ -154,9 +178,14 @@ export default function VendorManager() {
       accountNumber: '2099148192', 
       defaultWhtRate: 3.0, 
       defaultWhtCategory: 'GOODS',
+      isWhtExempt: false,
+      defaultApAccountCode: '2040',
+      defaultApAccountName: '2040 - Laboratory & Consumables Payables',
+      defaultExpenseAccountCode: '5050',
+      defaultExpenseAccountName: '5050 - Laboratory Reagents & Blood Bank Supplies',
       taxClearanceExpiry: '2026-05-10', // Expired
       status: 'SUSPENDED',
-      attachments: ['Expired_Tax_Cert_2025.pdf'],
+      attachments: ['Expired_Tax_Cert_2025.pdf', 'Cert_of_Incorporation.pdf'],
       bankAuditLogs: [],
       createdBy: 'usr-2',
       createdByName: 'Abena Ofori (Procurement Officer)'
@@ -221,8 +250,15 @@ export default function VendorManager() {
       bankBranch: vendor.bankBranch || 'Main Branch, Accra',
       accountName: vendor.accountName || vendor.name || '',
       accountNumber: vendor.accountNumber || '',
-      defaultWhtRate: vendor.defaultWhtRate ?? 3.0,
+      defaultWhtRate: vendor.isWhtExempt ? 0.0 : (vendor.defaultWhtRate ?? 3.0),
       defaultWhtCategory: vendor.defaultWhtCategory || 'GOODS',
+      isWhtExempt: Boolean(vendor.isWhtExempt),
+      whtExemptionCertNumber: vendor.whtExemptionCertNumber || '',
+      whtExemptionExpiryDate: vendor.whtExemptionExpiryDate || '',
+      defaultApAccountCode: vendor.defaultApAccountCode || '2000',
+      defaultApAccountName: vendor.defaultApAccountName || '2000 - Trade Accounts Payable (General)',
+      defaultExpenseAccountCode: vendor.defaultExpenseAccountCode || '5000',
+      defaultExpenseAccountName: vendor.defaultExpenseAccountName || '5000 - Medical & Pharmaceutical Supplies',
       taxClearanceExpiry: vendor.taxClearanceExpiry || '2026-12-31',
       status: vendor.status || 'ACTIVE',
       attachments: vendor.attachments || [],
@@ -246,6 +282,13 @@ export default function VendorManager() {
       accountNumber: '',
       defaultWhtRate: 3.0,
       defaultWhtCategory: 'GOODS',
+      isWhtExempt: false,
+      whtExemptionCertNumber: '',
+      whtExemptionExpiryDate: '',
+      defaultApAccountCode: '2000',
+      defaultApAccountName: '2000 - Trade Accounts Payable (General)',
+      defaultExpenseAccountCode: '5000',
+      defaultExpenseAccountName: '5000 - Medical & Pharmaceutical Supplies',
       taxClearanceExpiry: '2026-12-31',
       status: 'AWAITING_APPROVAL',
       attachments: [],
@@ -279,7 +322,7 @@ export default function VendorManager() {
         toast({
           title: isCreatingNew ? "Vendor Submitted for Approval" : "Vendor Profile Updated",
           description: isCreatingNew 
-            ? `${form.name} created under AWAITING_APPROVAL status.` 
+            ? `${form.name} created under AWAITING_APPROVAL status. Routed to Finance Director.` 
             : `${form.name} dossier updated successfully.`
         });
         setSaving(false);
@@ -294,12 +337,12 @@ export default function VendorManager() {
         const docRef = await addDoc(vendorsRef, {
           ...form,
           accountName: form.accountName || form.name,
-          createdBy: user?.uid,
-          createdByName: user?.displayName || userProfile?.name || 'Procurement Officer',
+          createdBy: user?.uid || 'usr-current',
+          createdByName: user?.displayName || userProfile?.name || 'Samuel Korsah (Accountant / Maker)',
           bankAuditLogs: auditLogEntry ? [auditLogEntry] : [],
           createdAt: serverTimestamp(),
         });
-        toast({ title: "Vendor Submitted", description: `${form.name} placed in AWAITING_APPROVAL state for Medical Director sign-off.` });
+        toast({ title: "Vendor Submitted", description: `${form.name} placed in AWAITING_APPROVAL state for Finance Director sign-off.` });
         setSelectedVendorId(docRef.id);
         setIsCreatingNew(false);
       } else if (selectedVendorId) {
@@ -324,6 +367,46 @@ export default function VendorManager() {
   const handleUpdateStatus = async (newStatus: 'ACTIVE' | 'BLACKLISTED' | 'SUSPENDED') => {
     if (!selectedVendorId) return;
 
+    // 1. Mandatory Vault Document Check before ACTIVATE
+    if (newStatus === 'ACTIVE') {
+      const attachments = form.attachments || selectedVendor?.attachments || [];
+      const hasBusinessReg = attachments.some(a => 
+        a.toLowerCase().includes('incorporation') || 
+        a.toLowerCase().includes('form') || 
+        a.toLowerCase().includes('business') || 
+        a.toLowerCase().includes('reg')
+      );
+      const hasTaxClearance = attachments.some(a => 
+        a.toLowerCase().includes('tax') || 
+        a.toLowerCase().includes('clearance') || 
+        a.toLowerCase().includes('tcc') || 
+        a.toLowerCase().includes('gra')
+      );
+
+      if (!hasBusinessReg || !hasTaxClearance) {
+        toast({
+          variant: "destructive",
+          title: "Activation Blocked by Vault Mandate",
+          description: "Cannot authorize vendor. Mandatory documents (Business Registration Form 3/4 & GRA Tax Clearance Certificate) must be uploaded to the Vault first."
+        });
+        return;
+      }
+
+      // 2. Segregation of Duties: Creator cannot authorize own submission
+      const isMaker = (selectedVendor?.createdBy === user?.uid) || 
+                      (user?.displayName && selectedVendor?.createdByName && selectedVendor.createdByName.toLowerCase().includes(user.displayName.toLowerCase())) ||
+                      (selectedVendor?.createdByName?.toLowerCase().includes('samuel korsah') && (userName.toLowerCase().includes('samuel') || userName.toLowerCase().includes('korsah')));
+      
+      if (isMaker) {
+        toast({
+          variant: "destructive",
+          title: "Maker-Checker SoD Violation",
+          description: "Segregation of Duties Enforced: You created this vendor profile as Maker and cannot authorize your own submission. An independent Finance Director (Checker) must authorize."
+        });
+        return;
+      }
+    }
+
     setSaving(true);
 
     if (!firestore || !hospitalId) {
@@ -344,14 +427,14 @@ export default function VendorManager() {
         status: newStatus,
         ...(newStatus === 'ACTIVE' ? {
           approvedBy: user?.uid,
-          approvedByName: user?.displayName || userProfile?.name || 'Medical Director',
+          approvedByName: user?.displayName || userProfile?.name || 'Finance Director (Checker)',
           approvedAt: serverTimestamp()
         } : {}),
         updatedAt: serverTimestamp()
       });
       toast({ 
         title: `Vendor Status: ${newStatus}`, 
-        description: newStatus === 'ACTIVE' ? `${selectedVendor?.name} activated for Payment Voucher disbursements.` : `${selectedVendor?.name} restricted.` 
+        description: newStatus === 'ACTIVE' ? `${selectedVendor?.name} activated for POs and Payment Voucher disbursements.` : `${selectedVendor?.name} restricted.` 
       });
       setForm(prev => ({ ...prev, status: newStatus }));
     } catch (e: any) {
@@ -656,7 +739,7 @@ export default function VendorManager() {
             )}
           </div>
 
-          {/* Maker-Checker Workflow Control Box */}
+          {/* Maker-Checker Workflow Control Box & Hard-Stop Notice */}
           {!isCreatingNew && selectedVendor?.status === 'AWAITING_APPROVAL' && (
             <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl space-y-3">
               <div className="flex items-center justify-between text-xs font-black text-amber-800 dark:text-amber-300 uppercase">
@@ -664,19 +747,37 @@ export default function VendorManager() {
                 <span className="text-[9px] text-amber-600 dark:text-amber-400 font-mono">MAKER-CHECKER GATE</span>
               </div>
               <p className="text-[10px] text-slate-600 dark:text-slate-300 font-medium">
-                Submitted by <strong>{selectedVendor.createdByName || 'Procurement Officer'}</strong>. Medical Director review required before disbursements can be initiated.
+                Submitted by <strong>{selectedVendor.createdByName || 'Procurement Officer (Maker)'}</strong>. Independent Finance Director review required before supplier can be activated.
               </p>
+
+              {/* Hard Stop Notice */}
+              <div className="p-2.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 rounded-lg text-[10px] text-rose-700 dark:text-rose-300 font-bold flex items-start gap-2">
+                <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-rose-500" />
+                <span>HARD STOP ENFORCED: Purchase Orders (PO) and Payment Vouchers (PV) cannot be raised for {selectedVendor.name} until authorized.</span>
+              </div>
               
+              {/* Checker Action Controls with SoD Lock */}
               {isChecker && (
                 <div className="flex gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => handleUpdateStatus('ACTIVE')}
-                    disabled={saving}
-                    className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" /> ACTIVATE VENDOR
-                  </button>
+                  {selectedVendor.createdBy === user?.uid || selectedVendor.createdByName?.toLowerCase().includes('samuel korsah') ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="flex-1 py-2 bg-slate-200 dark:bg-slate-800 text-slate-400 font-black text-xs uppercase rounded-lg border border-slate-300 dark:border-slate-700 cursor-not-allowed flex items-center justify-center gap-1"
+                      title="Maker-Checker Segregation of Duties: Creator cannot authorize own submission"
+                    >
+                      <Lock className="w-3.5 h-3.5" /> 🔒 SELF-AUTHORIZATION BLOCKED (MAKER)
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateStatus('ACTIVE')}
+                      disabled={saving}
+                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer shadow"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" /> AUTHORIZE VENDOR (CHECKER)
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => handleUpdateStatus('BLACKLISTED')}
@@ -698,7 +799,7 @@ export default function VendorManager() {
                 onClick={() => setActiveTab('OVERVIEW')}
                 className={`py-2 px-3 border-b-2 transition-colors cursor-pointer ${activeTab === 'OVERVIEW' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
               >
-                Overview & Bank
+                Overview & GL
               </button>
               <button
                 type="button"
@@ -727,7 +828,7 @@ export default function VendorManager() {
           {/* Form Content */}
           <form onSubmit={handleSaveVendor} className="space-y-4 text-xs">
             
-            {/* TAB 1: OVERVIEW & BANKING */}
+            {/* TAB 1: OVERVIEW, BANKING & GENERAL LEDGER MAPPING */}
             {(isCreatingNew || activeTab === 'OVERVIEW') && (
               <div className="space-y-3">
                 <div>
@@ -802,6 +903,68 @@ export default function VendorManager() {
                   </div>
                 </div>
 
+                {/* General Ledger (GL) Mapping Section */}
+                <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block">
+                    DEFAULT GENERAL LEDGER (GL) ROUTING
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                        Default AP Sub-Ledger (Credit Leg)
+                      </label>
+                      <select
+                        className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
+                        value={form.defaultApAccountCode}
+                        onChange={e => {
+                          const code = e.target.value;
+                          const nameMap: any = {
+                            '2000': '2000 - Trade Accounts Payable (General)',
+                            '2010': '2010 - Pharmaceutical & Drug Payables',
+                            '2020': '2020 - Medical Equipment & Capex Payables',
+                            '2030': '2030 - Facility, Engineering & Utility Payables',
+                            '2040': '2040 - Laboratory & Consumables Payables',
+                          };
+                          setForm({ ...form, defaultApAccountCode: code, defaultApAccountName: nameMap[code] || '2000 - Trade Payables' });
+                        }}
+                      >
+                        <option value="2000">2000 - Trade Payables (General)</option>
+                        <option value="2010">2010 - Pharmaceutical & Drug Payables</option>
+                        <option value="2020">2020 - Medical Equipment & Capex</option>
+                        <option value="2030">2030 - Facility & Maintenance</option>
+                        <option value="2040">2040 - Laboratory & Consumables</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
+                        Default Expense / Inventory (Debit Leg)
+                      </label>
+                      <select
+                        className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
+                        value={form.defaultExpenseAccountCode}
+                        onChange={e => {
+                          const code = e.target.value;
+                          const nameMap: any = {
+                            '5000': '5000 - Medical & Pharmaceutical Supplies',
+                            '5050': '5050 - Laboratory Reagents & Supplies',
+                            '5100': '5100 - Biomedical Equipment & Maintenance',
+                            '6000': '6000 - Administrative Operating Expenses',
+                          };
+                          setForm({ ...form, defaultExpenseAccountCode: code, defaultExpenseAccountName: nameMap[code] || '5000 - Supplies' });
+                        }}
+                      >
+                        <option value="5000">5000 - Medical & Pharma Supplies</option>
+                        <option value="5050">5050 - Laboratory Reagents</option>
+                        <option value="5100">5100 - Equipment Maintenance</option>
+                        <option value="6000">6000 - Administrative Operating</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Settlement Bank Details */}
                 <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
                     SETTLEMENT BANK ACCOUNT DETAILS
@@ -853,7 +1016,7 @@ export default function VendorManager() {
               </div>
             )}
 
-            {/* TAB 2: GRA STATUTORY & TAX SETUP */}
+            {/* TAB 2: GRA STATUTORY & WHT EXEMPTION SETUP */}
             {!isCreatingNew && activeTab === 'STATUTORY' && (
               <div className="space-y-4">
                 <div>
@@ -872,7 +1035,7 @@ export default function VendorManager() {
 
                 <div 
                   onClick={() => setForm({...form, isVatRegistered: !form.isVatRegistered})}
-                  className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors"
+                  className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     <input type="checkbox" checked={form.isVatRegistered} readOnly className="w-4 h-4 accent-emerald-500 cursor-pointer" />
@@ -882,18 +1045,82 @@ export default function VendorManager() {
                   </div>
                 </div>
 
+                {/* WHT Exemption Toggle Card */}
+                <div className={`p-4 rounded-xl border transition-all ${
+                  form.isWhtExempt 
+                    ? 'bg-amber-500/10 border-amber-500/40 ring-1 ring-amber-500/30' 
+                    : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'
+                }`}>
+                  <div 
+                    onClick={() => setForm({ 
+                      ...form, 
+                      isWhtExempt: !form.isWhtExempt,
+                      defaultWhtRate: !form.isWhtExempt ? 0.0 : (form.defaultWhtCategory === 'WORKS' ? 5.0 : form.defaultWhtCategory === 'SERVICES' ? 7.5 : 3.0)
+                    })}
+                    className="flex items-center justify-between cursor-pointer"
+                  >
+                    <div>
+                      <span className="text-xs font-black uppercase text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-amber-500" />
+                        GRA WITHHOLDING TAX (WHT) EXEMPTION
+                      </span>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Enable if this distributor holds a valid GRA WHT Exemption Certificate.
+                      </p>
+                    </div>
+                    <input 
+                      type="checkbox" 
+                      checked={form.isWhtExempt} 
+                      readOnly 
+                      className="w-5 h-5 accent-amber-500 cursor-pointer" 
+                    />
+                  </div>
+
+                  {form.isWhtExempt && (
+                    <div className="mt-3 pt-3 border-t border-amber-500/20 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-300 tracking-wider block mb-1">
+                          GRA Exemption Cert Number
+                        </label>
+                        <input
+                          required
+                          type="text"
+                          placeholder="e.g. GRA/LTO/EXEMP/2026/042"
+                          className="w-full p-2.5 border border-amber-300 dark:border-amber-800 rounded-lg bg-white dark:bg-slate-900 font-mono font-bold text-xs outline-none focus:ring-2 focus:ring-amber-500 uppercase"
+                          value={form.whtExemptionCertNumber}
+                          onChange={e => setForm({ ...form, whtExemptionCertNumber: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-300 tracking-wider block mb-1">
+                          Exemption Certificate Expiry Date
+                        </label>
+                        <input
+                          required
+                          type="date"
+                          className="w-full p-2.5 border border-amber-300 dark:border-amber-800 rounded-lg bg-white dark:bg-slate-900 font-mono font-bold text-xs outline-none focus:ring-2 focus:ring-amber-500"
+                          value={form.whtExemptionExpiryDate}
+                          onChange={e => setForm({ ...form, whtExemptionExpiryDate: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
-                      Default WHT Category
+                      Standard WHT Category
                     </label>
                     <select
-                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
+                      disabled={form.isWhtExempt}
+                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 outline-none cursor-pointer disabled:opacity-50"
                       value={form.defaultWhtCategory}
                       onChange={e => {
                         const cat = e.target.value;
                         const rateMap: any = { GOODS: 3.0, WORKS: 5.0, SERVICES: 7.5, RENT: 8.0 };
-                        setForm({ ...form, defaultWhtCategory: cat, defaultWhtRate: rateMap[cat] || 3.0 });
+                        setForm({ ...form, defaultWhtCategory: cat, defaultWhtRate: form.isWhtExempt ? 0.0 : (rateMap[cat] || 3.0) });
                       }}
                     >
                       <option value="GOODS">Supply of Goods (3%)</option>
@@ -905,14 +1132,15 @@ export default function VendorManager() {
 
                   <div>
                     <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-1">
-                      Default WHT Rate (%)
+                      Effective WHT Rate (%)
                     </label>
                     <input
+                      disabled={form.isWhtExempt}
                       required
                       type="number"
                       step="0.1"
                       placeholder="3.0"
-                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 font-mono font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
                       value={form.defaultWhtRate}
                       onChange={e => setForm({ ...form, defaultWhtRate: parseFloat(e.target.value) || 0 })}
                     />
@@ -933,16 +1161,59 @@ export default function VendorManager() {
               </div>
             )}
 
-            {/* TAB 3: COMPLIANCE VAULT (ATTACHMENTS) */}
+            {/* TAB 3: COMPLIANCE VAULT WITH MANDATORY GOVERNANCE CHECKLIST */}
             {!isCreatingNew && activeTab === 'VAULT' && (
               <div className="space-y-4">
+                {/* Mandatory Document Governance Checklist */}
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
+                    MANDATORY GOVERNANCE CHECKLIST (REQUIRED FOR ACTIVATION)
+                  </span>
+
+                  <div className="space-y-1.5">
+                    {/* Business Registration */}
+                    {(() => {
+                      const hasReg = form.attachments.some(a => a.toLowerCase().includes('incorporation') || a.toLowerCase().includes('form') || a.toLowerCase().includes('business') || a.toLowerCase().includes('reg'));
+                      return (
+                        <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                          <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                            <FileCheck className="w-3.5 h-3.5 text-indigo-500" /> Business Registration (Form 3/4)
+                          </span>
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${
+                            hasReg ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                          }`}>
+                            {hasReg ? '✓ UPLOADED' : '✕ MISSING MANDATORY'}
+                          </span>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Tax Clearance Certificate */}
+                    {(() => {
+                      const hasTax = form.attachments.some(a => a.toLowerCase().includes('tax') || a.toLowerCase().includes('clearance') || a.toLowerCase().includes('tcc') || a.toLowerCase().includes('gra'));
+                      return (
+                        <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                          <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> GRA Tax Clearance Certificate
+                          </span>
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${
+                            hasTax ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                          }`}>
+                            {hasTax ? '✓ UPLOADED' : '✕ MISSING MANDATORY'}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+
                 <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-800/40 flex flex-col items-center justify-center text-center gap-2">
                   <Upload className="w-6 h-6 text-emerald-500" />
                   <span className="text-xs font-black uppercase text-slate-800 dark:text-slate-200">
-                    COMPLIANCE DOCUMENT VAULT
+                    UPLOAD COMPLIANCE ARTIFACTS
                   </span>
                   <p className="text-[10px] text-slate-400">
-                    Upload Certificate of Incorporation, GRA Tax Clearance, and SSNIT Clearance Memos.
+                    PDF or scanned images stored in encrypted Firebase Cloud Storage vault.
                   </p>
 
                   <input 
@@ -957,7 +1228,7 @@ export default function VendorManager() {
                     onClick={() => fileInputRef.current?.click()}
                     className="mt-1 px-3 py-1.5 bg-emerald-600 text-white text-xs font-black uppercase rounded-lg flex items-center gap-2 cursor-pointer hover:bg-emerald-700"
                   >
-                    <Paperclip className="w-3.5 h-3.5" /> UPLOAD STATUTORY DOCUMENT
+                    <Paperclip className="w-3.5 h-3.5" /> UPLOAD TO VAULT
                   </button>
                 </div>
 
