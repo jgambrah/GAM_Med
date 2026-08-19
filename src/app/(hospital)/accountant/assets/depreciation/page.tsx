@@ -26,68 +26,115 @@ import {
 // ============================================================================
 // DYNAMIC IFRS/IPSAS GENERAL LEDGER ROUTING CLASSIFIER
 // ============================================================================
-export function getGlRoutingForAsset(asset: any): { code: string; name: string; classLabel: string } {
+export function getGlRoutingForAsset(asset: any): { 
+  drCode: string; 
+  drName: string; 
+  crCode: string; 
+  crName: string; 
+  classLabel: string; 
+} {
   const cat = (asset.category || '').toUpperCase();
   const sub = (asset.subDivision || '').toUpperCase();
   const name = (asset.name || '').toUpperCase();
   const tag = (asset.tagId || asset.tag || '').toUpperCase();
 
-  // 1. Medical, Clinical & Diagnostic Equipment (GL 6505) - Prioritize Diagnostic Imaging & Clinical
+  // 1. Medical, Clinical & Diagnostic Equipment (DR 6505 -> CR 1505)
   if (
     name.includes('MRI') || name.includes('MAGNETIC RESONANCE') || name.includes('X-RAY') || 
     name.includes('ULTRASOUND') || name.includes('AUTOCLAVE') || name.includes('FLUOROSCOPY') || 
     name.includes('VENTILATOR') || name.includes('DIALYSIS') || tag.includes('MRI') || 
     tag.includes('XRY') || tag.includes('RAD') || tag.includes('MED') || cat === 'MEDICAL_EQ' || cat === 'MEDICAL_EQUIPMENT'
   ) {
-    return { code: '6505', name: '6505 - Medical & Clinical Equipment Depreciation', classLabel: 'Medical & Diagnostic Equipment' };
+    return { 
+      drCode: '6505', 
+      drName: '6505 - Medical & Clinical Equipment Depreciation', 
+      crCode: '1505', 
+      crName: '1505 - Accum. Depr: Medical & Clinical Equipment', 
+      classLabel: 'Medical & Diagnostic Equipment' 
+    };
   }
 
-  // 2. Buildings & Civil Infrastructure (GL 6510)
+  // 2. Buildings & Civil Infrastructure (DR 6510 -> CR 1510)
   if (
     cat.includes('BUILD') || cat.includes('INFRA') || cat.includes('ESTATE') || sub.includes('BUILD') ||
     name.includes('BLOCK') || name.includes('BUILDING') || name.includes('ANNEX') || tag.includes('AMB-23') || tag.includes('BLD')
   ) {
-    return { code: '6510', name: '6510 - Building & Infrastructure Depreciation', classLabel: 'Buildings & Civil Works' };
+    return { 
+      drCode: '6510', 
+      drName: '6510 - Building & Infrastructure Depreciation', 
+      crCode: '1510', 
+      crName: '1510 - Accum. Depr: Buildings & Civil Infrastructure', 
+      classLabel: 'Buildings & Civil Works' 
+    };
   }
 
-  // 3. Furniture, Fixtures & Hospital Fittings (GL 6525)
+  // 3. Furniture, Fixtures & Hospital Fittings (DR 6525 -> CR 1525)
   if (
     cat.includes('FURN') || cat.includes('FITT') || sub.includes('FURN') ||
     name.includes('BED') || name.includes('DESK') || name.includes('CHAIR') || name.includes('CABINET') || 
     name.includes('FURNITURE') || tag.includes('FUR') || tag.includes('FF') || tag.startsWith('FF-')
   ) {
-    return { code: '6525', name: '6525 - Furniture, Fixtures & Fittings Depreciation', classLabel: 'Furniture & Hospital Fittings' };
+    return { 
+      drCode: '6525', 
+      drName: '6525 - Furniture, Fixtures & Fittings Depreciation', 
+      crCode: '1525', 
+      crName: '1525 - Accum. Depr: Furniture, Fixtures & Fittings', 
+      classLabel: 'Furniture & Hospital Fittings' 
+    };
   }
 
-  // 4. Motor Vehicles & Fleet (GL 6515)
+  // 4. Motor Vehicles & Fleet (DR 6515 -> CR 1515)
   if (
     cat.includes('VEHICLE') || cat.includes('MOTOR') || cat.includes('FLEET') || sub.includes('VEHICLE') ||
     name.includes('AMBULANCE') || name.includes('TOYOTA') || name.includes('HILUX') || name.includes('CRUISER') || tag.includes('AMB-') || tag.includes('VEH')
   ) {
-    return { code: '6515', name: '6515 - Motor Vehicles & Ambulance Fleet Depreciation', classLabel: 'Motor Vehicles & Ambulance Fleet' };
+    return { 
+      drCode: '6515', 
+      drName: '6515 - Motor Vehicles & Ambulance Fleet Depreciation', 
+      crCode: '1515', 
+      crName: '1515 - Accum. Depr: Motor Vehicles & Ambulance Fleet', 
+      classLabel: 'Motor Vehicles & Ambulance Fleet' 
+    };
   }
 
-  // 5. Plant, Power & Standby Machinery (GL 6530)
+  // 5. Plant, Power & Standby Machinery (DR 6530 -> CR 1530)
   if (
     cat.includes('PLANT') || cat.includes('MACH') || cat.includes('POWER') || sub.includes('PLANT') ||
     name.includes('GENERATOR') || name.includes('PERKINS') || name.includes('SOLAR') || name.includes('UPS') || tag.includes('GEN')
   ) {
-    return { code: '6530', name: '6530 - Plant, Power & Heavy Machinery Depreciation', classLabel: 'Plant, Power & Heavy Machinery' };
+    return { 
+      drCode: '6530', 
+      drName: '6530 - Plant, Power & Heavy Machinery Depreciation', 
+      crCode: '1530', 
+      crName: '1530 - Accum. Depr: Plant, Power & Heavy Machinery', 
+      classLabel: 'Plant, Power & Heavy Machinery' 
+    };
   }
 
-  // 6. IT, Computing & Software Infrastructure (GL 6520) - Precise Matching avoiding 'ACC' false positives
+  // 6. IT, Computing & Software Infrastructure (DR 6520 -> CR 1520)
   if (
     cat.includes('IT') || cat.includes('COMP') || cat.includes('SOFT') || sub.includes('IT') ||
     name.includes('SERVER') || name.includes('COMPUTER') || name.includes('DELL') || name.includes('LAPTOP') || 
     name.includes('WORKSTATION') || tag.includes('SRV') || tag.startsWith('IT-') || tag.includes('-CC-') || tag.startsWith('MMH CC')
   ) {
-    return { code: '6520', name: '6520 - IT & Software Depreciation', classLabel: 'IT & Digital Infrastructure' };
+    return { 
+      drCode: '6520', 
+      drName: '6520 - IT & Software Depreciation', 
+      crCode: '1520', 
+      crName: '1520 - Accum. Depr: IT & Digital Infrastructure', 
+      classLabel: 'IT & Digital Infrastructure' 
+    };
   }
 
-  // Default Fallback
-  return { code: '6505', name: '6505 - Medical & Clinical Equipment Depreciation', classLabel: 'Medical & Diagnostic Equipment' };
+  // Default Fallback (DR 6505 -> CR 1505)
+  return { 
+    drCode: '6505', 
+    drName: '6505 - Medical & Clinical Equipment Depreciation', 
+    crCode: '1505', 
+    crName: '1505 - Accum. Depr: Medical & Clinical Equipment', 
+    classLabel: 'Medical & Diagnostic Equipment' 
+  };
 }
-
 
 export default function SmartDepreciationEngine() {
   const { user, isUserLoading } = useUser();
@@ -316,19 +363,35 @@ export default function SmartDepreciationEngine() {
     return totalMonthlyDepreciation.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }, [totalMonthlyDepreciation]);
 
-  // Granular Dynamic Departmental General Ledger Breakdown
+  // Granular Dynamic Paired Departmental General Ledger Breakdown (Debit Expense & Credit Contra-Asset)
   const departmentalGlBreakdown = useMemo(() => {
-    const map: Record<string, { code: string; name: string; classLabel: string; amount: number; count: number }> = {};
+    const map: Record<string, { 
+      drCode: string; 
+      drName: string; 
+      crCode: string; 
+      crName: string; 
+      classLabel: string; 
+      amount: number; 
+      count: number 
+    }> = {};
 
     eligibleAssets.forEach(a => {
       const amount = calculateMonthlyDep(a);
       const routing = getGlRoutingForAsset(a);
 
-      if (!map[routing.code]) {
-        map[routing.code] = { code: routing.code, name: routing.name, classLabel: routing.classLabel, amount: 0, count: 0 };
+      if (!map[routing.drCode]) {
+        map[routing.drCode] = { 
+          drCode: routing.drCode, 
+          drName: routing.drName, 
+          crCode: routing.crCode, 
+          crName: routing.crName, 
+          classLabel: routing.classLabel, 
+          amount: 0, 
+          count: 0 
+        };
       }
-      map[routing.code].amount += amount;
-      map[routing.code].count += 1;
+      map[routing.drCode].amount += amount;
+      map[routing.drCode].count += 1;
     });
 
     return Object.values(map).sort((a, b) => b.amount - a.amount);
@@ -349,7 +412,7 @@ export default function SmartDepreciationEngine() {
       setTimeout(() => {
         toast({ 
           title: `Depreciation Batch ${batchId} Committed`, 
-          description: `Processed ${eligibleAssets.length} assets for ₵ ${formattedPendingExpense}. Journal Voucher ${jvNumber} posted.` 
+          description: `Processed ${eligibleAssets.length} assets for ₵ ${formattedPendingExpense}. Multi-Leg Journal Voucher ${jvNumber} posted.` 
         });
         setPeriodStatus('POSTED');
         setEligibleAssets([]);
@@ -361,28 +424,30 @@ export default function SmartDepreciationEngine() {
     const batch = writeBatch(firestore);
 
     try {
-      // Create Granular Multi-Leg Journal Voucher matching individual asset categories
+      // Create Granular Paired Multi-Leg Journal Voucher (DR Expense -> CR Matching Contra-Asset)
       const jvRef = doc(collection(firestore, `hospitals/${hospitalId}/journal_entries`));
       
       const jvLines = [
+        // 1. All Departmental P&L Debit Legs
         ...departmentalGlBreakdown.map(dept => ({
-          accountId: dept.code,
-          accountName: dept.name,
+          accountId: dept.drCode,
+          accountName: dept.drName,
           debit: dept.amount,
           credit: 0
         })),
-        {
-          accountId: '1550',
-          accountName: '1550 - Accumulated Depreciation (Contra-Asset Credit Leg)',
+        // 2. All Matching Balance Sheet Contra-Asset Credit Legs
+        ...departmentalGlBreakdown.map(dept => ({
+          accountId: dept.crCode,
+          accountName: dept.crName,
           debit: 0,
-          credit: totalMonthlyDepreciation
-        }
+          credit: dept.amount
+        }))
       ];
 
       batch.set(jvRef, {
         jvNumber,
         batchId,
-        narration: `Automated Multi-Leg Depreciation Run for ${periodKey} (${eligibleAssets.length} assets categorized)`,
+        narration: `Automated IFRS Multi-Leg Depreciation Run for ${periodKey} (${eligibleAssets.length} assets paired with Contra-Assets)`,
         totalAmount: totalMonthlyDepreciation,
         hospitalId,
         createdBy: user.uid,
@@ -411,8 +476,10 @@ export default function SmartDepreciationEngine() {
           assetId: asset.id,
           assetName: asset.name,
           assetCategory: asset.category,
-          glExpenseCode: routing.code,
-          glExpenseName: routing.name,
+          glExpenseCode: routing.drCode,
+          glExpenseName: routing.drName,
+          glContraCode: routing.crCode,
+          glContraName: routing.crName,
           batchId,
           jvNumber,
           hospitalId,
@@ -442,7 +509,7 @@ export default function SmartDepreciationEngine() {
       await batch.commit();
       toast({ 
         title: `Success: ${periodKey} Depreciation Batch Finalized`, 
-        description: `Multi-Leg Journal Voucher ${jvNumber} posted to General Ledger with proper departmental accounts.` 
+        description: `Multi-Leg Journal Voucher ${jvNumber} posted with balanced Contra-Asset sub-ledgers.` 
       });
       
       setEligibleAssets([]);
@@ -467,9 +534,24 @@ export default function SmartDepreciationEngine() {
           batch.update(runRef, { status: 'REVERSED', reversedAt: serverTimestamp(), reversedBy: user.uid });
         }
 
-        // 2. Post Reversing Journal Entry (Debit 1550 / Credit 6500)
+        // 2. Post Reversing Journal Entry (Reverse every Contra-Asset DR and P&L CR)
         const revJvRef = doc(collection(firestore, `hospitals/${hospitalId}/journal_entries`));
         const revJvNumber = `REV-${runItem.jvNumber || runItem.batchId || 'DEP'}`;
+
+        const reversalLines = [
+          ...departmentalGlBreakdown.map(dept => ({
+            accountId: dept.crCode,
+            accountName: `${dept.crName} (Reversal Debit)`,
+            debit: dept.amount,
+            credit: 0
+          })),
+          ...departmentalGlBreakdown.map(dept => ({
+            accountId: dept.drCode,
+            accountName: `${dept.drName} (Reversal Credit)`,
+            debit: 0,
+            credit: dept.amount
+          }))
+        ];
 
         batch.set(revJvRef, {
           jvNumber: revJvNumber,
@@ -481,10 +563,7 @@ export default function SmartDepreciationEngine() {
           createdAt: serverTimestamp(),
           type: 'REVERSAL',
           status: 'AUTHORIZED',
-          lines: [
-            { accountId: '1550', accountName: '1550 - Accumulated Depreciation (Reversal Debit)', debit: runItem.totalAmount, credit: 0 },
-            { accountId: '6500', accountName: '6500 - Depreciation Expense (Reversal Credit)', debit: 0, credit: runItem.totalAmount }
-          ]
+          lines: reversalLines
         });
 
         await batch.commit();
@@ -554,7 +633,7 @@ export default function SmartDepreciationEngine() {
               </h1>
             </div>
             <p className="mt-2 text-xs md:text-sm text-slate-400 font-medium">
-              DYNAMIC CLASS-BASED GL ROUTING, RESIDUAL VALUE AMORTIZATION, AND IFRS-COMPLIANT JOURNALS.
+              PAIRED SUB-LEDGER ROUTING (DR EXPENSES ↔ CR CONTRA-ASSETS) & IFRS-COMPLIANT AMORTIZATION.
             </p>
           </div>
 
@@ -613,7 +692,7 @@ export default function SmartDepreciationEngine() {
             <div>
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">In-Scope Assets</span>
               <div className="text-xl font-black text-white">{eligibleAssets.length} Capital Units</div>
-              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">Categorized by GL Class</span>
+              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">Paired with Contra-Assets</span>
             </div>
             <div className="p-3 bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded-xl">
               <Layers className="w-5 h-5" />
@@ -622,7 +701,7 @@ export default function SmartDepreciationEngine() {
 
           <div className="bg-slate-900 border border-emerald-500/30 p-4 rounded-xl flex items-center justify-between ring-1 ring-emerald-500/20 shadow-lg">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-1">Total Monthly Expense (GL 6500)</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-1">Total Monthly Depreciation Expense</span>
               <div className="text-xl font-black text-emerald-400">₵ {formattedPendingExpense}</div>
               <span className="text-[10px] font-bold text-emerald-400/80 mt-0.5 block">Strict 2-Decimal Ledger Value</span>
             </div>
@@ -726,32 +805,48 @@ export default function SmartDepreciationEngine() {
               {showPreview && (
                 <div className="p-4 border-t border-slate-800 space-y-6">
                   
-                  {/* Granular Departmental General Ledger Routing Matrix */}
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-black uppercase text-indigo-400 tracking-wider block">
-                      DEPARTMENTAL GENERAL LEDGER ROUTING MATRIX (DEBIT DISTRIBUTION)
-                    </span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {/* Paired Departmental General Ledger Routing Matrix (Debit Expense <-> Credit Contra-Asset) */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black uppercase text-indigo-400 tracking-wider block">
+                        PAIRED GENERAL LEDGER SUB-LEDGER MATRIX (IFRS / IAS 16 PRESENTATION)
+                      </span>
+                      <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
+                        Zero-Variance Balanced Multi-Leg Distribution
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {departmentalGlBreakdown.map(dept => (
-                        <div key={dept.code} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
-                          <div>
-                            <span className="font-bold text-slate-200 block">{dept.name}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">DR {dept.code} • {dept.count} asset(s) in {dept.classLabel}</span>
+                        <div key={dept.drCode} className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2 text-xs">
+                          <div className="flex justify-between items-center border-b border-slate-800/80 pb-1.5">
+                            <span className="font-bold text-white uppercase text-[11px]">{dept.classLabel}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">({dept.count} asset{dept.count > 1 ? 's' : ''})</span>
                           </div>
-                          <span className="font-mono font-black text-emerald-400">
-                            ₵ {dept.amount.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
+
+                          {/* Debit P&L Leg */}
+                          <div className="flex justify-between items-center font-mono text-[11px]">
+                            <span className="text-emerald-400 flex items-center gap-1">
+                              <span className="px-1.5 py-0.5 bg-emerald-950 border border-emerald-800 rounded font-bold text-[9px]">DR</span>
+                              <span>{dept.drName}</span>
+                            </span>
+                            <span className="font-bold text-white">
+                              ₵{dept.amount.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+
+                          {/* Credit Contra-Asset Leg */}
+                          <div className="flex justify-between items-center font-mono text-[11px]">
+                            <span className="text-amber-400 flex items-center gap-1">
+                              <span className="px-1.5 py-0.5 bg-amber-950 border border-amber-800 rounded font-bold text-[9px]">CR</span>
+                              <span>{dept.crName}</span>
+                            </span>
+                            <span className="font-bold text-amber-400">
+                              ₵{dept.amount.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
                         </div>
                       ))}
-                      <div className="p-3 bg-slate-950 rounded-xl border border-amber-500/30 flex justify-between items-center text-xs md:col-span-2">
-                        <div>
-                          <span className="font-bold text-amber-300 block">1550 - Accumulated Depreciation (Contra-Asset Credit Leg)</span>
-                          <span className="text-[10px] text-amber-400/80 font-mono">CR 1550 Balance Sheet Contra-Asset Balance</span>
-                        </div>
-                        <span className="font-mono font-black text-amber-400">
-                          ₵ {totalMonthlyDepreciation.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
                     </div>
                   </div>
 
@@ -771,7 +866,7 @@ export default function SmartDepreciationEngine() {
                         <tr className="bg-slate-950 text-slate-400 text-[9px] font-black uppercase tracking-widest border-b border-slate-800">
                           <th className="p-2.5">Tag ID</th>
                           <th className="p-2.5">Asset Description & Location</th>
-                          <th className="p-2.5">GL Expense Routing</th>
+                          <th className="p-2.5">GL Routing (DR / CR)</th>
                           <th className="p-2.5 text-right">Cost Price (GHS)</th>
                           <th className="p-2.5 text-right text-amber-400">Residual Salvage (GHS)</th>
                           <th className="p-2.5 text-right text-indigo-400">Depreciable Base (GHS)</th>
@@ -798,19 +893,14 @@ export default function SmartDepreciationEngine() {
                                 </span>
                               </td>
                               <td className="p-2.5 font-sans">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
-                                  routing.code === '6510' ? 'bg-indigo-950 text-indigo-300 border-indigo-800' :
-                                  routing.code === '6520' ? 'bg-sky-950 text-sky-300 border-sky-800' :
-                                  routing.code === '6515' ? 'bg-amber-950 text-amber-300 border-amber-800' :
-                                  routing.code === '6530' ? 'bg-purple-950 text-purple-300 border-purple-800' :
-                                  routing.code === '6525' ? 'bg-rose-950 text-rose-300 border-rose-800' :
-                                  'bg-emerald-950 text-emerald-300 border-emerald-800'
-                                }`}>
-                                  {routing.code}
-                                </span>
-                                <span className="text-[9px] text-slate-400 block font-sans truncate max-w-[130px] mt-0.5">
-                                  {routing.classLabel}
-                                </span>
+                                <div className="space-y-0.5">
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 block w-fit">
+                                    DR {routing.drCode} → CR {routing.crCode}
+                                  </span>
+                                  <span className="text-[9px] text-slate-400 block font-sans truncate max-w-[140px]">
+                                    {routing.classLabel}
+                                  </span>
+                                </div>
                               </td>
                               <td className="p-2.5 text-right text-slate-200">
                                 ₵{cost.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -859,28 +949,60 @@ export default function SmartDepreciationEngine() {
                   )}
                 </button>
               </AlertDialogTrigger>
-              <AlertDialogContent className="bg-white dark:bg-slate-900 border border-slate-800 rounded-2xl p-6">
+              <AlertDialogContent className="bg-white dark:bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-xl">
                 <AlertDialogHeader>
                   <AlertDialogTitle className="text-xl font-black uppercase text-slate-900 dark:text-slate-100 italic">
-                    Confirm Depreciation Run: DEP-{periodKey}
+                    Confirm Multi-Leg Depreciation Run: DEP-{periodKey}
                   </AlertDialogTitle>
                   <AlertDialogDescription className="space-y-3 pt-2 text-slate-600 dark:text-slate-300 text-xs">
                     <p>
-                      This will post a total multi-leg depreciation expense of{' '}
+                      This will post a balanced multi-leg Journal Voucher totaling{' '}
                       <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
                         ₵ {formattedPendingExpense}
                       </span>{' '}
-                      for period{' '}
+                      across P&L expense and Balance Sheet Contra-Asset sub-ledgers for period{' '}
                       <span className="font-extrabold text-slate-900 dark:text-white">
                         {periodKey}
                       </span>.
                     </p>
-                    <div className="p-3 bg-slate-950 text-white rounded-xl font-mono text-[10px] space-y-1">
-                      <p className="text-slate-400 font-sans font-bold uppercase">Dynamic Departmental JV Allocation:</p>
-                      {departmentalGlBreakdown.map(d => (
-                        <p key={d.code} className="text-emerald-400">DR {d.code} ({d.classLabel}): ₵{d.amount.toFixed(2)}</p>
-                      ))}
-                      <p className="text-amber-400 pt-1 border-t border-slate-800">CR 1550 (Accumulated Depreciation): ₵{totalMonthlyDepreciation.toFixed(2)}</p>
+
+                    {/* Black Terminal Preview of Paired DR/CR Journal Lines */}
+                    <div className="p-4 bg-slate-950 text-white rounded-2xl font-mono text-[10px] space-y-2 border border-slate-800 max-h-60 overflow-y-auto">
+                      <div className="flex justify-between text-slate-400 font-sans font-bold uppercase border-b border-slate-800 pb-1">
+                        <span>ACCOUNT NARRATION</span>
+                        <span>DEBIT / CREDIT (GHS)</span>
+                      </div>
+
+                      {/* Debits */}
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-sans font-black text-emerald-400 uppercase tracking-wider block">
+                          DEBIT LEGS (P&L DEPRECIATION EXPENSE):
+                        </span>
+                        {departmentalGlBreakdown.map(d => (
+                          <div key={`dr-${d.drCode}`} className="flex justify-between text-emerald-300">
+                            <span>DR {d.drCode} - {d.classLabel}</span>
+                            <span>₵ {d.amount.toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Credits */}
+                      <div className="space-y-1 pt-1.5 border-t border-slate-800">
+                        <span className="text-[9px] font-sans font-black text-amber-400 uppercase tracking-wider block">
+                          CREDIT LEGS (BALANCE SHEET CONTRA-ASSETS):
+                        </span>
+                        {departmentalGlBreakdown.map(d => (
+                          <div key={`cr-${d.crCode}`} className="flex justify-between text-amber-300">
+                            <span>CR {d.crCode} - Accum. Depr ({d.classLabel})</span>
+                            <span>₵ {d.amount.toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-700 flex justify-between text-[11px] font-black text-white">
+                        <span>TOTAL BALANCED JV SUM</span>
+                        <span className="text-emerald-400">₵ {totalMonthlyDepreciation.toFixed(2)} (NET: ₵0.00)</span>
+                      </div>
                     </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -975,3 +1097,4 @@ export default function SmartDepreciationEngine() {
     </div>
   );
 }
+
