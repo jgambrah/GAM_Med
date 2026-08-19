@@ -235,6 +235,29 @@ export default function JournalEntryManager() {
     }
   };
 
+  const handleExportGeneralLedger = () => {
+    if (!journalHistory || journalHistory.length === 0) {
+      toast({ variant: 'destructive', title: 'Export Unavailable', description: 'No journal voucher records found.' });
+      return;
+    }
+
+    const headers = "JV_Number,Posting_Date,Source_Type,Preparer,Narration,Total_Amount_GHS,Status\n";
+    const rows = journalHistory.map((j: any) => {
+      const dateStr = j.createdAt?.toDate ? j.createdAt.toDate().toISOString().split('T')[0] : '2026-08-19';
+      return `"${j.jvNumber}","${dateStr}","${j.source || 'MANUAL'}","${j.createdByName || 'Accountant'}","${(j.narration || '').replace(/"/g, '""')}",${(j.totalAmount || 0).toFixed(2)},"${j.status || 'POSTED'}"`;
+    }).join('\n');
+
+    const csvData = "data:text/csv;charset=utf-8," + headers + rows;
+    const encodedUri = encodeURI(csvData);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `GAM_MED_General_Ledger_Journals_August_2026.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: "General Ledger Exported", description: `Generated export for ${journalHistory.length} journal voucher transactions.` });
+  };
+
   const handleRejectJv = async (jv: any) => {
     setActionLoading(jv.id);
 
@@ -321,6 +344,13 @@ export default function JournalEntryManager() {
 
           {/* Active User Context & Dynamic Balance Status */}
           <div className="flex flex-wrap items-center gap-3 self-start xl:self-auto">
+            <button
+              type="button"
+              onClick={handleExportGeneralLedger}
+              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-emerald-400 text-xs font-black uppercase tracking-wider rounded-xl border border-emerald-500/30 transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+            >
+              <FileText className="w-4 h-4 text-emerald-400" /> EXPORT GENERAL LEDGER (CSV)
+            </button>
             <div className="hidden md:flex items-center gap-3 bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2.5">
               <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-white text-xs">
                 {userInitials}

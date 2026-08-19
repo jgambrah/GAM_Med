@@ -166,6 +166,67 @@ export default function ChartOfAccountsHub() {
     );
   }
 
+  const handleExportTrialBalance = () => {
+    const allAccounts = Object.entries(categorizedAccounts).flatMap(([category, accs]) => 
+      accs.map(acc => {
+        const isNormalDebit = ['ASSETS', 'EXPENSES'].includes(category.toUpperCase());
+        let debit = 0;
+        let credit = 0;
+
+        if (isNormalDebit) {
+          if (acc.balance >= 0) {
+            debit = acc.balance;
+          } else {
+            credit = Math.abs(acc.balance);
+          }
+        } else {
+          if (acc.balance >= 0) {
+            credit = acc.balance;
+          } else {
+            debit = Math.abs(acc.balance);
+          }
+        }
+
+        return {
+          code: acc.code,
+          name: acc.name,
+          category,
+          type: acc.type || (isNormalDebit ? 'DEBIT' : 'CREDIT'),
+          debit,
+          credit
+        };
+      })
+    );
+
+    if (allAccounts.length === 0) {
+      toast({ variant: 'destructive', title: 'Export Error', description: 'No active accounts found in chart of accounts.' });
+      return;
+    }
+
+    const totalDebit = allAccounts.reduce((s, a) => s + a.debit, 0);
+    const totalCredit = allAccounts.reduce((s, a) => s + a.credit, 0);
+    const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01;
+
+    const headers = "Account_Code,Account_Name,Account_Category,Normal_Type,Debit_Balance_GHS,Credit_Balance_GHS\n";
+    const rows = allAccounts.map(a => 
+      `"${a.code}","${a.name}","${a.category}","${a.type}",${a.debit.toFixed(2)},${a.credit.toFixed(2)}`
+    ).join('\n');
+    const footer = `\n"TOTAL","TRIAL BALANCE SUMMARY","","${isBalanced ? 'BALANCED' : 'UNBALANCED'}",${totalDebit.toFixed(2)},${totalCredit.toFixed(2)}`;
+
+    const csvData = "data:text/csv;charset=utf-8," + headers + rows + footer;
+    const encodedUri = encodeURI(csvData);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `GAM_MED_Trial_Balance_August_2026.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ 
+      title: "Trial Balance Exported", 
+      description: `Generated Trial Balance (${allAccounts.length} Accounts). Total DR: GHS ${totalDebit.toFixed(2)} | Total CR: GHS ${totalCredit.toFixed(2)}.` 
+    });
+  };
+
   return (
     <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 max-w-7xl mx-auto space-y-6 pb-12">
       
@@ -185,16 +246,16 @@ export default function ChartOfAccountsHub() {
                 <Network className="w-7 h-7" />
               </div>
               <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-wider text-white">
-                CHART OF ACCOUNTS
+                CHART OF ACCOUNTS & TRIAL BALANCE
               </h1>
             </div>
             <p className="mt-2 text-xs md:text-sm text-slate-400 font-medium">
-              SYSTEM-WIDE LEDGER CLASSIFICATIONS, BALANCES, AND FACILITY ACCOUNT STRUCTURE.
+              IPSAS GENERAL LEDGER STRUCTURE, BALANCES, AND REAL-TIME TRIAL BALANCE EQUILIBRIUM.
             </p>
           </div>
 
           {/* Active User Context & Actions */}
-          <div className="flex flex-wrap items-center gap-4 self-start xl:self-auto">
+          <div className="flex flex-wrap items-center gap-3 self-start xl:self-auto">
             <div className="hidden md:flex items-center gap-3 bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2.5">
               <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-white text-xs">
                 {userInitials}
@@ -204,6 +265,14 @@ export default function ChartOfAccountsHub() {
                 <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">FINANCE CONTROLLER</div>
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={handleExportTrialBalance}
+              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-emerald-400 text-xs font-black uppercase tracking-wider rounded-xl border border-emerald-500/30 transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+            >
+              <FileCheck2 className="w-4 h-4 text-emerald-400" /> EXPORT TRIAL BALANCE (CSV)
+            </button>
 
             <AddAccountDialog 
               hospitalId={hospitalId}
