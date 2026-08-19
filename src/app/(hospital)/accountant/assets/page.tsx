@@ -1245,25 +1245,25 @@ export default function FixedAssetRegisterConsole() {
                 <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
                   <p className="text-[9px] text-slate-500 uppercase">Purchase Cost</p>
                   <p className="font-mono text-sm font-black text-slate-900 dark:text-slate-100 mt-1">
-                    ₵ {selectedAssetForDossier.cost.toLocaleString('en-GH', { minimumFractionDigits: 2 })}
+                    ₵ {selectedAssetForDossier.cost.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
                 <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900/50">
                   <p className="text-[9px] text-amber-700 dark:text-amber-400 uppercase">Accum. Depr</p>
                   <p className="font-mono text-sm font-black text-amber-700 dark:text-amber-400 mt-1">
-                    ₵ {selectedAssetForDossier.accumDepr.toLocaleString('en-GH', { minimumFractionDigits: 2 })}
+                    ₵ {selectedAssetForDossier.accumDepr.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
                 <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-900/50">
                   <p className="text-[9px] text-emerald-700 dark:text-emerald-400 uppercase">Net Book Value</p>
                   <p className="font-mono text-sm font-black text-emerald-700 dark:text-emerald-400 mt-1">
-                    ₵ {selectedAssetForDossier.nbv.toLocaleString('en-GH', { minimumFractionDigits: 2 })}
+                    ₵ {selectedAssetForDossier.nbv.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
                 <div className="p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl border border-indigo-200 dark:border-indigo-900/50">
                   <p className="text-[9px] text-indigo-700 dark:text-indigo-400 uppercase">Monthly Depr</p>
                   <p className="font-mono text-sm font-black text-indigo-700 dark:text-indigo-400 mt-1">
-                    ₵ {((selectedAssetForDossier.cost - selectedAssetForDossier.salvageValue) / (selectedAssetForDossier.usefulLifeYears * 12)).toLocaleString('en-GH', { minimumFractionDigits: 2 })}
+                    ₵ {((selectedAssetForDossier.cost - selectedAssetForDossier.salvageValue) / (selectedAssetForDossier.usefulLifeYears * 12)).toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
               </div>
@@ -1277,7 +1277,7 @@ export default function FixedAssetRegisterConsole() {
                   <div>
                     <span className="text-slate-500 uppercase text-[9px] block">Location / Department:</span>
                     <span className="text-slate-900 dark:text-slate-100 flex items-center gap-1 font-bold">
-                      <MapPin className="w-3.5 h-3.5 text-rose-500" /> {selectedAssetForDossier.location}
+                      <MapPin className="w-3.5 h-3.5 text-rose-500" /> {selectedAssetForDossier.location?.replace(/Administraion/gi, 'Administration')}
                     </span>
                   </div>
                   <div>
@@ -1325,10 +1325,10 @@ export default function FixedAssetRegisterConsole() {
                     <div className="flex items-center gap-1.5 text-[9px] font-black text-emerald-700 tracking-wider uppercase">
                       <Building2 className="w-3 h-3 text-emerald-600" /> GAM MED HOSPITAL • ASSET VAULT
                     </div>
-                    <p className="font-black text-xs text-slate-900 truncate uppercase">{selectedAssetForDossier.name}</p>
+                    <p className="font-black text-xs text-slate-900 truncate uppercase">{selectedAssetForDossier.name?.replace(/Administraion/gi, 'Administration')}</p>
                     <p className="font-mono text-lg font-black text-slate-950 tracking-tight">{selectedAssetForDossier.tag}</p>
                     <div className="text-[9px] text-slate-600 font-bold space-y-0.5">
-                      <p className="truncate">LOC: {selectedAssetForDossier.location}</p>
+                      <p className="truncate">LOC: {selectedAssetForDossier.location?.replace(/Administraion/gi, 'Administration')}</p>
                       <p className="truncate">CUST: {selectedAssetForDossier.custodian}</p>
                     </div>
                   </div>
@@ -1426,11 +1426,11 @@ export default function FixedAssetRegisterConsole() {
                 <p className="text-[9px] text-slate-400 font-sans font-black uppercase tracking-widest">Automated Journal Voucher Mapping</p>
                 <div className="flex justify-between text-emerald-400 border-b border-slate-800 pb-1">
                   <span>Debit: 6500 - Depreciation Expense</span>
-                  <span>₵ {((selectedAssetForDossier.cost - selectedAssetForDossier.salvageValue) / (selectedAssetForDossier.usefulLifeYears * 12)).toFixed(2)} / mo</span>
+                  <span>₵ {((selectedAssetForDossier.cost - selectedAssetForDossier.salvageValue) / (selectedAssetForDossier.usefulLifeYears * 12)).toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / mo</span>
                 </div>
                 <div className="flex justify-between text-amber-400 pt-1">
                   <span>Credit: 1550 - Accumulated Depreciation: {selectedAssetForDossier.category}</span>
-                  <span>₵ {((selectedAssetForDossier.cost - selectedAssetForDossier.salvageValue) / (selectedAssetForDossier.usefulLifeYears * 12)).toFixed(2)} / mo</span>
+                  <span>₵ {((selectedAssetForDossier.cost - selectedAssetForDossier.salvageValue) / (selectedAssetForDossier.usefulLifeYears * 12)).toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / mo</span>
                 </div>
               </div>
 
