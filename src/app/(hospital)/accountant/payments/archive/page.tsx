@@ -42,7 +42,10 @@ type PaymentVoucherItem = {
   netAmount: number;
   narration?: string;
   valueDate?: string;
+  createdBy?: string;
+  createdByName?: string;
   processedByName?: string;
+  approvedBy?: string;
   approvedByName?: string;
   approvedAt?: any;
   paymentMethod?: string;
@@ -74,6 +77,8 @@ export default function PaymentVoucherArchive() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'ALL' | 'VENDOR' | 'LOCUM' | 'BATCH' | 'OPEX'>('ALL');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [selectedVoucherIds, setSelectedVoucherIds] = useState<string[]>([]);
+  const [isBulkAuthorizing, setIsBulkAuthorizing] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -228,8 +233,27 @@ export default function PaymentVoucherArchive() {
     return archivedVouchers.reduce((acc, curr) => acc + (curr.netAmount || 0), 0);
   }, [archivedVouchers]);
 
+  // Segregation of Duties (SoD) Verification
+  const isMakerOfPV = (pv: PaymentVoucherItem) => {
+    const currentUid = user?.uid;
+    const currentName = (user?.displayName || userProfile?.name || 'MARCUS AMOSAH HENAKU').toLowerCase().trim();
+    if (pv.createdBy && currentUid && pv.createdBy === currentUid) return true;
+    if (pv.createdByName && currentName && pv.createdByName.toLowerCase().trim() === currentName) return true;
+    if (pv.processedByName && currentName && pv.processedByName.toLowerCase().trim() === currentName) return true;
+    return false;
+  };
+
   // Checker Workflow Actions
   const handleApproveVoucher = async (pv: PaymentVoucherItem) => {
+    if (isMakerOfPV(pv)) {
+      toast({
+        variant: 'destructive',
+        title: 'Segregation of Duties Violation',
+        description: `Maker-Checker Rule: You prepared PV #${pv.pvNumber}. Another authorized officer must sign off.`
+      });
+      return;
+    }
+
     setProcessingId(pv.id);
     const checkerName = user?.displayName || userProfile?.name || 'Chief Accountant (Checker)';
 
@@ -265,6 +289,54 @@ export default function PaymentVoucherArchive() {
       toast({ variant: 'destructive', title: 'Approval Error', description: err.message });
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  const handleBatchAuthorize = async () => {
+    const eligibleVouchers = pendingVouchers.filter(pv => selectedVoucherIds.includes(pv.id) && !isMakerOfPV(pv));
+    if (eligibleVouchers.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Batch Authorization Blocked',
+        description: 'No eligible vouchers selected. Ensure selected vouchers do not violate Segregation of Duties (Maker !== Checker).'
+      });
+      return;
+    }
+
+    setIsBulkAuthorizing(true);
+    const checkerName = user?.displayName || userProfile?.name || 'Chief Accountant (Checker)';
+
+    try {
+      if (firestore && hospitalId) {
+        await runTransaction(firestore, async (transaction) => {
+          for (const pv of eligibleVouchers) {
+            const pvRef = doc(firestore, `hospitals/${hospitalId}/payment_vouchers`, pv.id);
+            transaction.update(pvRef, {
+              status: 'AUTHORIZED',
+              approvedBy: user?.uid || 'checker',
+              approvedByName: checkerName,
+              approvedAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+          }
+        });
+      } else {
+        eligibleVouchers.forEach(pv => {
+          pv.status = 'AUTHORIZED';
+          pv.approvedByName = checkerName;
+          pv.approvedAt = new Date();
+        });
+      }
+
+      toast({
+        title: `Batch Authorization Complete (${eligibleVouchers.length} PVs)`,
+        description: `Successfully signed off and posted ${eligibleVouchers.length} payment vouchers to the General Ledger.`
+      });
+      setSelectedVoucherIds([]);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Batch Approval Error', description: err.message });
+    } finally {
+      setIsBulkAuthorizing(false);
     }
   };
 
@@ -315,6 +387,37 @@ export default function PaymentVoucherArchive() {
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const handleExportAuditLedger = () => {
+    if (archivedVouchers.length === 0) {
+      toast({ variant: 'destructive', title: 'No Records', description: 'Audit vault has no executed payment vouchers to export.' });
+      return;
+    }
+
+    const headers = "PV_Number,Value_Date,Voucher_Type,Payee,Gross_GHS,WHT_GHS,VAT_GHS,Net_Outflow_GHS,Debit_Account_Code,Debit_Account_Name,Credit_Bank_Code,Credit_Bank_Name,Maker_Name,Checker_Name,Status,Narration\n";
+    const rowsContent = archivedVouchers.map(pv => {
+      const vDate = pv.valueDate || (pv.createdAt ? format(pv.createdAt.toDate ? pv.createdAt.toDate() : new Date(pv.createdAt), 'yyyy-MM-dd') : '2026-08-19');
+      const vType = pv.disbursementMode === 'BATCH' ? 'BATCH' : 'SINGLE';
+      const cleanPayee = (pv.payee || '').replace(/"/g, '""');
+      const cleanNarration = (pv.narration || '').replace(/"/g, '""');
+      const cleanDebitName = (pv.debitAccountName || '').replace(/"/g, '""');
+      const cleanCreditName = (pv.creditAccountName || '').replace(/"/g, '""');
+      const maker = (pv.processedByName || pv.createdByName || 'Accountant').replace(/"/g, '""');
+      const checker = (pv.approvedByName || 'Authorized Checker').replace(/"/g, '""');
+      
+      return `"${pv.pvNumber}","${vDate}","${vType}","${cleanPayee}",${(pv.grossAmount || 0).toFixed(2)},${(pv.whtAmount || 0).toFixed(2)},${(pv.vatAmount || 0).toFixed(2)},${(pv.netAmount || 0).toFixed(2)},"${pv.debitAccountCode || ''}","${cleanDebitName}","${pv.creditAccountCode || ''}","${cleanCreditName}","${maker}","${checker}","${pv.status || 'AUTHORIZED'}","${cleanNarration}"`;
+    }).join('\n');
+
+    const csvData = "data:text/csv;charset=utf-8," + headers + rowsContent;
+    const encodedUri = encodeURI(csvData);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `GAM_MED_Immutable_Audit_Ledger_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: "Audit Ledger Exported", description: `Exported ${archivedVouchers.length} immutable voucher ledger transactions.` });
   };
 
   const handleExportBankSchedule = (pv: PaymentVoucherItem) => {
@@ -461,11 +564,11 @@ export default function PaymentVoucherArchive() {
       {/* ========================================== */}
       {/* 2. TABBED DUAL-WORKSPACE NAVIGATOR         */}
       {/* ========================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setActiveTab('PENDING_CHECKER')}
+            onClick={() => { setActiveTab('PENDING_CHECKER'); setSelectedVoucherIds([]); }}
             className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'PENDING_CHECKER'
                 ? 'bg-slate-950 text-emerald-400 border border-emerald-500/30 shadow-lg'
@@ -481,7 +584,7 @@ export default function PaymentVoucherArchive() {
 
           <button
             type="button"
-            onClick={() => setActiveTab('AUDIT_VAULT')}
+            onClick={() => { setActiveTab('AUDIT_VAULT'); setSelectedVoucherIds([]); }}
             className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'AUDIT_VAULT'
                 ? 'bg-slate-950 text-emerald-400 border border-emerald-500/30 shadow-lg'
@@ -496,8 +599,32 @@ export default function PaymentVoucherArchive() {
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="relative w-full sm:w-64">
+        <div className="flex flex-wrap items-center gap-3">
+          {activeTab === 'PENDING_CHECKER' && selectedVoucherIds.length > 0 && (
+            <button
+              type="button"
+              onClick={handleBatchAuthorize}
+              disabled={isBulkAuthorizing}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {isBulkAuthorizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+              <span>BATCH AUTHORIZE ({selectedVoucherIds.length})</span>
+            </button>
+          )}
+
+          {activeTab === 'AUDIT_VAULT' && (
+            <button
+              type="button"
+              onClick={handleExportAuditLedger}
+              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-slate-700 font-black text-xs uppercase rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+              title="Download full flat-file transaction audit log for auditors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>EXPORT LEDGER (CSV)</span>
+            </button>
+          )}
+
+          <div className="relative w-full sm:w-56">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -529,7 +656,25 @@ export default function PaymentVoucherArchive() {
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
-              <TableHead className="p-4 pl-6">Voucher Number & Type</TableHead>
+              {activeTab === 'PENDING_CHECKER' && (
+                <TableHead className="w-10 p-4 pl-6 text-center">
+                  <input
+                    type="checkbox"
+                    checked={displayedVouchers.length > 0 && selectedVoucherIds.length === displayedVouchers.filter(pv => !isMakerOfPV(pv)).length && displayedVouchers.filter(pv => !isMakerOfPV(pv)).length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const eligibleIds = displayedVouchers.filter(pv => !isMakerOfPV(pv)).map(pv => pv.id);
+                        setSelectedVoucherIds(eligibleIds);
+                      } else {
+                        setSelectedVoucherIds([]);
+                      }
+                    }}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    title="Select all eligible low-risk vouchers"
+                  />
+                </TableHead>
+              )}
+              <TableHead className={`p-4 ${activeTab === 'PENDING_CHECKER' ? '' : 'pl-6'}`}>Voucher Number & Type</TableHead>
               <TableHead className="p-4">Payee / Beneficiary Schedule</TableHead>
               <TableHead className="p-4 text-right">Gross (GHS)</TableHead>
               <TableHead className="p-4 text-right">Tax (GHS)</TableHead>
@@ -541,18 +686,39 @@ export default function PaymentVoucherArchive() {
           </TableHeader>
           <TableBody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200">
             {areVouchersLoading ? (
-              <TableRow><TableCell colSpan={8} className="text-center p-12"><Loader2 className="animate-spin mx-auto text-emerald-500" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={activeTab === 'PENDING_CHECKER' ? 9 : 8} className="text-center p-12"><Loader2 className="animate-spin mx-auto text-emerald-500" /></TableCell></TableRow>
             ) : displayedVouchers.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center p-12 text-slate-400 italic">No vouchers found in this view.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={activeTab === 'PENDING_CHECKER' ? 9 : 8} className="text-center p-12 text-slate-400 italic">No vouchers found in this view.</TableCell></TableRow>
             ) : (
               displayedVouchers.map(pv => {
                 const isBatch = pv.disbursementMode === 'BATCH' || (pv.batchPayees && pv.batchPayees.length > 0);
                 const isPending = ['AWAITING_FINANCE_APPROVAL', 'AWAITING_BUDGET_OVERRIDE'].includes(pv.status || '');
                 const isProcessing = processingId === pv.id;
+                const isMaker = isMakerOfPV(pv);
+                const isSelected = selectedVoucherIds.includes(pv.id);
 
                 return (
                   <TableRow key={pv.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                    <TableCell className="p-4 pl-6">
+                    {activeTab === 'PENDING_CHECKER' && (
+                      <TableCell className="w-10 p-4 pl-6 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={isMaker}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedVoucherIds(prev => [...prev, pv.id]);
+                            } else {
+                              setSelectedVoucherIds(prev => prev.filter(id => id !== pv.id));
+                            }
+                          }}
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={isMaker ? "Self-approval blocked: Maker cannot authorize their own voucher" : "Select voucher for batch authorization"}
+                        />
+                      </TableCell>
+                    )}
+
+                    <TableCell className={`p-4 ${activeTab === 'PENDING_CHECKER' ? '' : 'pl-6'}`}>
                       <div className="font-mono font-black text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
                         <span>{pv.pvNumber}</span>
                         <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${
@@ -594,7 +760,7 @@ export default function PaymentVoucherArchive() {
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[9px] font-black uppercase bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
                             <Clock className="w-3 h-3" /> AWAITING SIGN-OFF
                           </span>
-                          <span className="text-[9px] text-slate-400 block mt-1">Maker: {pv.processedByName || 'Accountant'}</span>
+                          <span className="text-[9px] text-slate-400 block mt-1">Maker: {pv.processedByName || pv.createdByName || 'Accountant'}</span>
                         </div>
                       ) : pv.status === 'REJECTED_WITH_QUERY' ? (
                         <div>
@@ -617,15 +783,25 @@ export default function PaymentVoucherArchive() {
                       <div className="flex items-center justify-end gap-2">
                         {isPending ? (
                           <>
-                            <button
-                              type="button"
-                              onClick={() => handleApproveVoucher(pv)}
-                              disabled={isProcessing}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase rounded-lg transition-colors cursor-pointer shadow-sm disabled:opacity-50"
-                            >
-                              {isProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                              <span>AUTHORIZE</span>
-                            </button>
+                            {isMaker ? (
+                              <span 
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 rounded-lg text-[9px] font-black uppercase"
+                                title="Segregation of Duties: You prepared this voucher (Maker !== Checker). Another officer must authorize."
+                              >
+                                <ShieldAlert className="w-3 h-3 text-amber-500" />
+                                <span>SELF-APPROVAL BLOCKED</span>
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleApproveVoucher(pv)}
+                                disabled={isProcessing}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase rounded-lg transition-colors cursor-pointer shadow-sm disabled:opacity-50"
+                              >
+                                {isProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                <span>AUTHORIZE</span>
+                              </button>
+                            )}
 
                             <button
                               type="button"
