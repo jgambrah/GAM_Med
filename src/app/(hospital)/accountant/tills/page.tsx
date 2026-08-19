@@ -148,15 +148,17 @@ export default function TillVerificationPortal() {
   const handleVerifyAndBank = async (till: TillSession) => {
     const targetBankId = selectedBankMap[till.id] || defaultBank;
     const resolution = resolutionMap[till.id] || 'WRITE_OFF';
-    const declaredCash = declaredCountMap[till.id] ?? (till.declaredPhysicalCash ?? till.totalCollected);
-    const shortage = (till.cashSales || till.totalCollected) - declaredCash;
+    const declaredCash = declaredCountMap[till.id] ?? (till.declaredPhysicalCash ?? (till.cashSales || till.totalCollected));
+    const expectedCashSales = till.cashSales ?? (till.totalCollected - (till.momoSales || 0));
+    const momoAmount = Number(till.momoSales || 0);
+    const shortage = expectedCashSales - declaredCash; // Positive = Cash Shortage, Negative = Cash Overage
 
     setProcessingId(till.id);
     try {
       if (firestore && hospitalId) {
         const batch = writeBatch(firestore);
 
-        // Update Till Document
+        // 1. Update Till Document Status
         const tillRef = doc(firestore, `hospitals/${hospitalId}/cash_tills`, till.id);
         batch.update(tillRef, {
           status: 'VERIFIED',
@@ -166,51 +168,96 @@ export default function TillVerificationPortal() {
           targetBankId,
           declaredPhysicalCash: declaredCash,
           shortageAmount: Math.max(0, shortage),
-          resolutionType: shortage > 0 ? resolution : 'BALANCED'
+          overageAmount: shortage < 0 ? Math.abs(shortage) : 0,
+          resolutionType: shortage > 0 ? resolution : (shortage < 0 ? 'OVERAGE_GAIN' : 'BALANCED')
         });
 
-        // Increment Target Bank Balance
+        // 2. Increment Physical Bank/Vault Ledger Balance
         const bankRef = doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, targetBankId);
         batch.update(bankRef, {
           currentBalance: increment(declaredCash)
         });
 
-        // Create Automated Variance JV if shortage exists
-        if (shortage !== 0) {
-          const jvRef = doc(collection(firestore, `hospitals/${hospitalId}/journal_vouchers`));
-          batch.set(jvRef, {
-            jvNumber: `JV-TILL-${till.id.slice(-6).toUpperCase()}`,
-            source: 'TILL_RECONCILIATION',
-            datePosted: serverTimestamp(),
-            preparerId: user?.uid || 'ACCOUNTANT',
-            preparerName: userProfile?.fullName || 'Marcus Amosah Henaku',
-            narration: `Automated Till Variance JV for Cashier ${till.cashierName} (${till.id}). Variance: GHS ${Math.abs(shortage).toFixed(2)}. Resolution: ${resolution}.`,
-            status: 'POSTED',
-            hospitalId,
-            period: new Date().toISOString().slice(0, 7),
-            entries: [
-              {
-                accountCode: shortage > 0 ? (resolution === 'STAFF_DEDUCTION' ? '1210' : '5200') : targetBankId,
-                accountName: shortage > 0 ? (resolution === 'STAFF_DEDUCTION' ? 'Staff Receivables' : 'Cash Shortage Expense') : 'Bank Ledger',
-                debit: Math.abs(shortage),
-                credit: 0
-              },
-              {
-                accountCode: shortage > 0 ? '1005' : '5200',
-                accountName: shortage > 0 ? 'Till Clearing Account' : 'Cash Overage Gain',
-                debit: 0,
-                credit: Math.abs(shortage)
-              }
-            ]
+        // 3. Increment MoMo Merchant Holding Balance (Account 1005)
+        if (momoAmount > 0) {
+          const momoRef = doc(firestore, `hospitals/${hospitalId}/chart_of_accounts`, '1005');
+          batch.set(momoRef, {
+            accountCode: '1005',
+            name: 'Mobile Money (MoMo) Settlement Holding',
+            category: 'ASSETS',
+            subCategory: 'CASH_AND_BANK',
+            currentBalance: increment(momoAmount),
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        }
+
+        // 4. Create Master Compound Journal Voucher (4-Leg Double Entry Segregated GL Posting)
+        const jvRef = doc(collection(firestore, `hospitals/${hospitalId}/journal_vouchers`));
+        const entries: Array<{ accountCode: string; accountName: string; debit: number; credit: number }> = [
+          // Leg 1: Debit Selected Bank/Vault for Physical Cash
+          {
+            accountCode: targetBankId,
+            accountName: `Physical Cash Deposit (${targetBankId})`,
+            debit: declaredCash,
+            credit: 0
+          }
+        ];
+
+        // Leg 2: Debit MoMo Merchant Wallet for Digital Collections
+        if (momoAmount > 0) {
+          entries.push({
+            accountCode: '1005',
+            accountName: 'Mobile Money (MoMo) Settlement Holding Account',
+            debit: momoAmount,
+            credit: 0
           });
         }
+
+        // Leg 3: Debit Shortage Expense / Staff Receivable OR Credit Overage Gain
+        if (shortage > 0) {
+          entries.push({
+            accountCode: resolution === 'STAFF_DEDUCTION' ? '1210' : '5200',
+            accountName: resolution === 'STAFF_DEDUCTION' ? 'Staff Payroll Receivables (Cashier Charge)' : 'Cash Shortage Expense (Hospital Write-Off)',
+            debit: shortage,
+            credit: 0
+          });
+        } else if (shortage < 0) {
+          entries.push({
+            accountCode: '5200',
+            accountName: 'Cash Overage Gain (Till Variance)',
+            debit: 0,
+            credit: Math.abs(shortage)
+          });
+        }
+
+        // Leg 4: Credit Till Sales Clearing Account for Total Expected Revenue
+        const totalCredited = expectedCashSales + momoAmount;
+        entries.push({
+          accountCode: '1000',
+          accountName: 'Daily Cashier Till POS Clearing Ledger',
+          debit: 0,
+          credit: totalCredited
+        });
+
+        batch.set(jvRef, {
+          jvNumber: `JV-TILL-${till.id.slice(-6).toUpperCase()}`,
+          source: 'TILL_RECONCILIATION',
+          datePosted: serverTimestamp(),
+          preparerId: user?.uid || 'ACCOUNTANT',
+          preparerName: userProfile?.fullName || 'Marcus Amosah Henaku',
+          narration: `Segregated Till Reconciliation for Cashier ${till.cashierName} (${till.id}). Physical Cash: GHS ${declaredCash.toFixed(2)}, MoMo: GHS ${momoAmount.toFixed(2)}, Variance: GHS ${shortage.toFixed(2)}.`,
+          status: 'POSTED',
+          hospitalId,
+          period: new Date().toISOString().slice(0, 7),
+          entries
+        });
 
         await batch.commit();
       }
 
       toast({
-        title: "Till Reconciled & Banked",
-        description: `Verified ${till.cashierName}'s till. GHS ${declaredCash.toFixed(2)} deposited into Bank Ledger.`
+        title: "Compound Till Journal Posted",
+        description: `Verified ${till.cashierName}'s till. GHS ${declaredCash.toFixed(2)} cash banked, GHS ${(till.momoSales || 0).toFixed(2)} MoMo routed to Account 1005.`
       });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Verification Failed", description: e.message });
@@ -435,8 +482,8 @@ export default function TillVerificationPortal() {
                     <div className="text-2xl font-black font-mono text-sky-600 dark:text-sky-400">
                       ₵ {(till.momoSales || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
-                    <span className="text-[10px] text-slate-400 font-medium block">
-                      Auto-Settled via MoMo Merchant
+                    <span className="px-2 py-0.5 bg-sky-100 dark:bg-sky-950 border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300 text-[9px] font-mono font-bold rounded inline-block mt-0.5">
+                      Auto-Settles to 1005 (MoMo Wallet)
                     </span>
                   </div>
                 </div>
@@ -446,7 +493,9 @@ export default function TillVerificationPortal() {
                   {/* Bank Account Selection */}
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-slate-400 block">Target Deposit Bank Ledger</label>
+                      <label className="text-[10px] font-black uppercase text-slate-400 block">
+                        Target Deposit Bank Ledger (Physical Cash Only)
+                      </label>
                       <select
                         value={selectedBankMap[till.id] || defaultBank}
                         onChange={(e) => setSelectedBankMap(prev => ({ ...prev, [till.id]: e.target.value }))}
@@ -457,7 +506,7 @@ export default function TillVerificationPortal() {
                             <option key={b.id} value={b.id}>{b.accountCode} - {b.name}</option>
                           ))
                         ) : (
-                          <option value="1001">1001 - GCB Main Cash Account</option>
+                          <option value="1001">1001 - Cash in Vault & Safe Float</option>
                         )}
                       </select>
                     </div>
