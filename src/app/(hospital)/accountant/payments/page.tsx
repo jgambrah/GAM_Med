@@ -114,6 +114,9 @@ export default function PaymentVoucherManager() {
   ]);
 
   const [form, setForm] = useState({
+    valueDate: '2026-08-19',
+    defaultExpenseId: 'acc-4003',
+    defaultExpenseName: '5100 - Staff Non-Wage Allowances',
     debitAccountId: 'acc-4003',
     debitAccountName: 'Locum & Clinical Consultancy Fees',
     creditAccountId: 'acc-1001',
@@ -127,6 +130,23 @@ export default function PaymentVoucherManager() {
     pvNumber: '',
     vendorId: ''
   });
+
+  const handleDownloadCsvTemplate = () => {
+    const csvContent = "data:text/csv;charset=utf-8," + 
+      "Staff_ID,Payee_Name,Department_GL,Gross_Amount,Tax_Rate,Account_Number\n" +
+      "GAM/STF/0042,Dr. Eric Appiah,5105 - OPD Medical Staff Allowances,2000.00,0,1099248102\n" +
+      "GAM/STF/0118,Sister Grace Mensah,5110 - Maternity Night-Shift Allowances,1500.00,0,0100924819\n" +
+      "EXT/LOC/009,Dr. James Obrempong,5120 - Visiting Consultant Locum Fees,2500.00,0.075,2088192011\n" +
+      "GAM/STF/0088,Samuel Kofi Mensah,5115 - Laboratory Weekend Float,800.00,0,3099182736\n";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "GAM_MED_Disbursement_Batch_Template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: "Template Downloaded", description: "CSV format: Staff_ID, Payee_Name, Department_GL, Gross_Amount, Tax_Rate, Account_Number." });
+  };
   
   useEffect(() => {
     const payee = searchParams.get('payee');
@@ -647,24 +667,61 @@ export default function PaymentVoucherManager() {
             </div>
           </div>
 
-          {/* Searchable Funding Source Account */}
-          <div>
-            <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">
-              SOURCE BANK / CASH VAULT ACCOUNT (CREDIT - SOURCE OF FUNDS)
-            </label>
-            <SearchableAccountSelect 
-              value={form.creditAccountId}
-              onChange={val => setForm(prev => ({ ...prev, creditAccountId: val }))}
-              coa={coa.filter(a => a.category === 'ASSETS')}
-              isCoaLoading={isCoaLoading}
-              placeholder="Search Bank/Cash Funding Source..."
-            />
+          {/* Header: Funding & Batch Parameters */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+            {/* Searchable Funding Source Account */}
+            <div className="md:col-span-2">
+              <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">
+                BANK / FUNDING ACCOUNT (CREDIT - SOURCE OF FUNDS)
+              </label>
+              <SearchableAccountSelect 
+                value={form.creditAccountId}
+                onChange={val => setForm(prev => ({ ...prev, creditAccountId: val }))}
+                coa={coa.filter(a => a.category === 'ASSETS')}
+                isCoaLoading={isCoaLoading}
+                placeholder="Search Bank/Cash Funding Source..."
+              />
+            </div>
+
+            {/* Value Date */}
+            <div>
+              <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">
+                VALUE / POSTING DATE
+              </label>
+              <input 
+                type="date"
+                value={form.valueDate}
+                onChange={e => setForm(prev => ({ ...prev, valueDate: e.target.value }))}
+                className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold font-mono outline-none cursor-pointer"
+              />
+            </div>
+
+            {/* Default Expense Ledger (For Batch Overrides) */}
+            {disbursementMode === 'BATCH' && (
+              <div className="md:col-span-3 pt-2 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex-1">
+                  <label className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-widest block mb-1">
+                    DEFAULT EXPENSE LEDGER (AUTO-APPLIES TO NEW ROWS)
+                  </label>
+                  <SearchableAccountSelect 
+                    value={form.defaultExpenseId}
+                    onChange={val => setForm(prev => ({ ...prev, defaultExpenseId: val }))}
+                    coa={coa.filter(a => a.category === 'EXPENSES')}
+                    isCoaLoading={isCoaLoading}
+                    placeholder="Select default expense account..."
+                  />
+                </div>
+                <span className="text-[10px] text-slate-400 italic sm:self-end sm:pb-2">
+                  Line items below can override this default per department.
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Master Narration */}
           <div>
             <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">
-              MASTER PV NARRATION / PURPOSE
+              MASTER PV NARRATION & AUDIT MEMO
             </label>
             <textarea 
               className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 h-20"
@@ -740,11 +797,19 @@ export default function PaymentVoucherManager() {
                     </span>
                   </h4>
                   <p className="text-[10px] text-indigo-700 dark:text-indigo-300">
-                    Supports individual departmental cost centers and row-level statutory tax deductions
+                    Master-Detail Architecture with row-level cost accounting and statutory tax deductions
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDownloadCsvTemplate}
+                    className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase rounded-lg border border-slate-300 dark:border-slate-700 flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>📥 CSV TEMPLATE</span>
+                  </button>
+
                   <input 
                     type="file" 
                     ref={csvInputRef} 
@@ -758,7 +823,7 @@ export default function PaymentVoucherManager() {
                     className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 text-indigo-700 dark:text-indigo-300 text-xs font-black uppercase rounded-lg border border-indigo-300 dark:border-indigo-800 flex items-center gap-1.5 shadow-sm cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>BULK UPLOAD CSV</span>
+                    <span>BULK CSV UPLOAD</span>
                   </button>
 
                   <button
@@ -766,7 +831,7 @@ export default function PaymentVoucherManager() {
                     onClick={handleAddBatchRow}
                     className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase rounded-lg transition-all shadow flex items-center gap-1 cursor-pointer"
                   >
-                    <span>+ ADD PAYEE ROW</span>
+                    <span>+ ADD PAYEE</span>
                   </button>
                 </div>
               </div>
@@ -776,22 +841,26 @@ export default function PaymentVoucherManager() {
                 <table className="w-full text-xs text-left">
                   <thead className="bg-slate-900 text-white uppercase text-[9px] tracking-wider">
                     <tr>
-                      <th className="p-3">Payee & Staff ID</th>
-                      <th className="p-3">Cost Center (Debit GL)</th>
+                      <th className="p-3 w-8 text-center">#</th>
+                      <th className="p-3">Staff / Payee</th>
+                      <th className="p-3">Dept / Cost Center</th>
                       <th className="p-3 text-right">Gross (GHS)</th>
-                      <th className="p-3">Tax Status</th>
-                      <th className="p-3 text-right">WHT (GHS)</th>
-                      <th className="p-3 text-right">Net Payable</th>
+                      <th className="p-3">Tax / WHT</th>
+                      <th className="p-3 text-right">Tax (GHS)</th>
+                      <th className="p-3 text-right">Net (GHS)</th>
                       <th className="p-3 text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-                    {batchPayees.map((row) => (
+                    {batchPayees.map((row, idx) => (
                       <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                        <td className="p-3 text-center font-mono text-[10px] text-slate-400 font-bold">
+                          {idx + 1}
+                        </td>
                         <td className="p-3">
                           <input 
                             type="text" 
-                            placeholder="Staff Name"
+                            placeholder="Staff / Payee Name"
                             value={row.payeeName}
                             onChange={e => handleUpdateBatchRow(row.id, 'payeeName', e.target.value)}
                             className="w-full p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-bold outline-none"
@@ -810,9 +879,9 @@ export default function PaymentVoucherManager() {
                             onChange={e => handleUpdateBatchRow(row.id, 'department', e.target.value)}
                             className="w-full p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-bold outline-none cursor-pointer"
                           >
-                            <option value="OPD Clinical">5105 - OPD Staff Allowances</option>
-                            <option value="Maternity Ward">5110 - Maternity Clinical Allowances</option>
-                            <option value="Central Laboratory">5115 - Lab Night Shift Float</option>
+                            <option value="OPD Clinical">5105 - OPD Clinical Allowances</option>
+                            <option value="Maternity Ward">5110 - Maternity Night Float</option>
+                            <option value="Central Laboratory">5115 - Lab Weekend Float</option>
                             <option value="Surgery Theatre">5120 - Visiting Locum Fees</option>
                             <option value="Administration">5100 - General Staff Allowances</option>
                           </select>
@@ -832,10 +901,10 @@ export default function PaymentVoucherManager() {
                             onChange={e => handleUpdateBatchRow(row.id, 'whtRate', parseFloat(e.target.value))}
                             className="p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-bold outline-none cursor-pointer"
                           >
-                            <option value={0}>0% Exempt (Staff Allowances)</option>
-                            <option value={0.03}>3% WHT (Locum Service)</option>
-                            <option value={0.075}>7.5% WHT (External Consultant)</option>
-                            <option value={0.15}>15% WHT (Non-Resident)</option>
+                            <option value={0}>0% (Exempt Allowance)</option>
+                            <option value={0.03}>3% (Locum Service)</option>
+                            <option value={0.075}>7.5% (Consultancy)</option>
+                            <option value={0.15}>15% (Non-Resident)</option>
                           </select>
                         </td>
                         <td className="p-3 text-right font-mono font-bold text-amber-600">
@@ -850,7 +919,7 @@ export default function PaymentVoucherManager() {
                             onClick={() => handleDeleteBatchRow(row.id)}
                             className="text-rose-500 hover:text-rose-700 text-xs font-black uppercase p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950 cursor-pointer"
                           >
-                            ✕
+                            [Delete]
                           </button>
                         </td>
                       </tr>
@@ -859,9 +928,9 @@ export default function PaymentVoucherManager() {
                   {/* Grid Summary Footer */}
                   <tfoot className="bg-slate-900 text-white font-black text-xs uppercase">
                     <tr>
-                      <td colSpan={2} className="p-3">BATCH TOTALS ({batchMetrics.payeeCount} PAYEES)</td>
+                      <td colSpan={3} className="p-3">STATUTORY AUDIT & SETTLEMENT SUMMARY ({batchMetrics.payeeCount} PAYEES)</td>
                       <td className="p-3 text-right font-mono">₵ {batchMetrics.totalGross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td className="p-3 text-slate-400 text-[10px]">TOTAL WHT</td>
+                      <td className="p-3 text-slate-400 text-[10px]">TOTAL TAX</td>
                       <td className="p-3 text-right font-mono text-amber-400">₵ {batchMetrics.totalWht.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className="p-3 text-right font-mono text-emerald-400 text-sm bg-slate-950">
                         ₵ {batchMetrics.totalNet.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
