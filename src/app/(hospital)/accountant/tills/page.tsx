@@ -77,7 +77,37 @@ export default function TillVerificationPortal() {
       where("category", "==", "ASSETS")
     );
   }, [firestore, hospitalId]);
-  const { data: bankAccounts, isLoading: areBanksLoading } = useCollection(bankAccountsQuery);
+  const { data: allAssetAccounts, isLoading: areBanksLoading } = useCollection(bankAccountsQuery);
+
+  // Strictly filter for Liquid Cash & Bank Asset accounts (Exclude Depreciation 1099, Inventory 1300, Debtors 1200, CAPEX 1500)
+  const bankAccounts = useMemo(() => {
+    const defaultLiquid = [
+      { id: '1001', accountCode: '1001', name: 'Cash in Vault & Safe Float', type: 'CASH' },
+      { id: '1002', accountCode: '1002', name: 'GCB Main Operating Bank Account', type: 'BANK' },
+      { id: '1003', accountCode: '1003', name: 'Ecobank Hospital Collections Account', type: 'BANK' },
+      { id: '1004', accountCode: '1004', name: 'Stanbic Operating Account', type: 'BANK' },
+      { id: '1005', accountCode: '1005', name: 'Mobile Money (MoMo) Settlement Holding', type: 'MOMO' }
+    ];
+
+    if (!allAssetAccounts || allAssetAccounts.length === 0) return defaultLiquid;
+
+    const filtered = allAssetAccounts.filter(acc => {
+      const code = String(acc.accountCode || acc.id || '');
+      const name = String(acc.name || '').toLowerCase();
+      const subCat = String(acc.subCategory || '').toUpperCase();
+      
+      // Strict Treasury Guard: Explicitly reject non-liquid assets
+      if (code === '1099' || name.includes('depreciation') || name.includes('accumulated')) return false;
+      if (code.startsWith('12') || name.includes('receivable') || name.includes('debtor')) return false;
+      if (code.startsWith('13') || name.includes('inventory') || name.includes('stock')) return false;
+      if (code.startsWith('15') || code.startsWith('16') || name.includes('equipment') || name.includes('property') || name.includes('building')) return false;
+
+      // Match liquid codes (1001-1009) or subcategory CASH_AND_BANK
+      return code.startsWith('100') || subCat === 'CASH_AND_BANK' || name.includes('bank') || name.includes('cash') || name.includes('vault');
+    });
+
+    return filtered.length > 0 ? filtered : defaultLiquid;
+  }, [allAssetAccounts]);
 
   // Demodata Fallback for Immediate Assurance Demonstration
   const demoClosedTills: TillSession[] = useMemo(() => [
