@@ -346,22 +346,6 @@ export default function NHISBatchingPortal() {
       toast({ title: `${formatType} Payload Downloaded`, description: `Saved ${filename} for NHIA Claim Portal upload.` });
     }, 600);
   };
-
-    const blob = new Blob([content], { type: formatType === 'JSON' ? 'application/json' : 'application/xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    setTimeout(() => {
-      setDownloadingFormat(null);
-      toast({ title: `${formatType} Payload Downloaded`, description: `Saved ${filename} for NHIA Claim Portal upload.` });
-    }, 600);
-  };
   
   const isLoading = isUserLoading || isProfileLoading;
   const userName = user?.displayName || userProfile?.name || 'MARCUS AMOSAH HENAKU';
