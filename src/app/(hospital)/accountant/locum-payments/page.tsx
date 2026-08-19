@@ -215,17 +215,32 @@ export default function LocumPaymentsHub() {
     };
   }, [locumPayrollData]);
 
+  const eligibleLocums = useMemo(() => {
+    return locumPayrollData.filter(v => Boolean(v.tin));
+  }, [locumPayrollData]);
+
   const toggleSelectVoucher = (id: string) => {
+    const target = locumPayrollData.find(v => v.id === id);
+    if (target && !target.tin) {
+      toast({
+        variant: "destructive",
+        title: "Selection Blocked",
+        description: `Cannot select ${target.name}. Missing statutory GRA TIN.`
+      });
+      return;
+    }
+
     setSelectedVoucherIds(prev => 
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
 
   const toggleSelectAll = () => {
-    if (selectedVoucherIds.length === locumPayrollData.length) {
+    const eligibleIds = eligibleLocums.map(v => v.id);
+    if (selectedVoucherIds.length === eligibleIds.length && eligibleIds.length > 0) {
       setSelectedVoucherIds([]);
     } else {
-      setSelectedVoucherIds(locumPayrollData.map(v => v.id));
+      setSelectedVoucherIds(eligibleIds);
     }
   };
 
@@ -479,12 +494,12 @@ export default function LocumPaymentsHub() {
             onClick={toggleSelectAll}
             className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-all"
           >
-            {selectedVoucherIds.length === locumPayrollData.length ? (
+            {selectedVoucherIds.length === eligibleLocums.length && eligibleLocums.length > 0 ? (
               <CheckSquare className="w-4 h-4 text-emerald-500" />
             ) : (
               <Square className="w-4 h-4 text-slate-400" />
             )}
-            <span>Select All ({locumPayrollData.length})</span>
+            <span>Select All Eligible ({eligibleLocums.length})</span>
           </button>
 
           <div className="relative w-full sm:w-64">
@@ -542,7 +557,11 @@ export default function LocumPaymentsHub() {
                   <button
                     type="button"
                     onClick={() => toggleSelectVoucher(voucher.id)}
-                    className="cursor-pointer text-slate-400 hover:text-emerald-500"
+                    disabled={isMissingTin}
+                    className={`cursor-pointer ${
+                      isMissingTin ? 'cursor-not-allowed opacity-30 text-slate-400' : 'text-slate-400 hover:text-emerald-500'
+                    }`}
+                    title={isMissingTin ? "Disbursement blocked: Missing statutory GRA TIN" : isSelected ? "Deselect clinician" : "Select clinician for batch payment"}
                   >
                     {isSelected ? (
                       <CheckSquare className="w-5 h-5 text-emerald-500" />
