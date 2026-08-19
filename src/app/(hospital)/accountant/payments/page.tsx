@@ -533,6 +533,9 @@ export default function PaymentVoucherManager() {
     );
   }
 
+  const selectedDebitAccount = coa.find(a => a.id === form.debitAccountId || a.accountCode === form.debitAccountId);
+  const selectedCreditAccount = coa.find(a => a.id === form.creditAccountId || a.accountCode === form.creditAccountId);
+
   return (
     <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 max-w-7xl mx-auto space-y-6 pb-12">
       
