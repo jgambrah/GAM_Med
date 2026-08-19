@@ -47,7 +47,7 @@ export default function PaymentVoucherManager() {
     { label: "Director / Board Sitting Fees (20%)", rate: 0.20 }
   ];
 
-  // Batch Multi-Payee Row Definition
+  // Batch Multi-Payee Row Definition with Banking Routing
   type BatchPayeeRow = {
     id: string;
     payeeName: string;
@@ -59,6 +59,7 @@ export default function PaymentVoucherManager() {
     whtRate: number;
     whtAmount: number;
     netPayable: number;
+    paymentChannel: string;
   };
 
   // Realistic Multi-Payee Initial Batch Data
@@ -73,7 +74,8 @@ export default function PaymentVoucherManager() {
       grossAmount: 1500.00,
       whtRate: 0,
       whtAmount: 0.00,
-      netPayable: 1500.00
+      netPayable: 1500.00,
+      paymentChannel: 'GCB Bank - 1099248102'
     },
     {
       id: 'row-2',
@@ -85,7 +87,8 @@ export default function PaymentVoucherManager() {
       grossAmount: 1200.00,
       whtRate: 0,
       whtAmount: 0.00,
-      netPayable: 1200.00
+      netPayable: 1200.00,
+      paymentChannel: 'Standard Chartered - 0100924819'
     },
     {
       id: 'row-3',
@@ -97,7 +100,8 @@ export default function PaymentVoucherManager() {
       grossAmount: 2500.00,
       whtRate: 0.075,
       whtAmount: 187.50,
-      netPayable: 2312.50
+      netPayable: 2312.50,
+      paymentChannel: 'Ecobank Ghana - 2088192011'
     },
     {
       id: 'row-4',
@@ -109,7 +113,8 @@ export default function PaymentVoucherManager() {
       grossAmount: 800.00,
       whtRate: 0,
       whtAmount: 0.00,
-      netPayable: 800.00
+      netPayable: 800.00,
+      paymentChannel: 'MTN Mobile Money - 0244192801'
     }
   ]);
 
@@ -131,13 +136,58 @@ export default function PaymentVoucherManager() {
     vendorId: ''
   });
 
+  const handleClearBatch = () => {
+    setBatchPayees([
+      {
+        id: `row-${Date.now()}`,
+        payeeName: '',
+        staffId: '',
+        department: 'OPD Clinical',
+        debitAccountId: form.defaultExpenseId || 'acc-4003',
+        debitAccountName: '5100 - Staff Non-Wage Allowances',
+        grossAmount: 0,
+        whtRate: 0,
+        whtAmount: 0,
+        netPayable: 0,
+        paymentChannel: ''
+      }
+    ]);
+    toast({ title: "Batch Cleared", description: "All rows reset to clean initial state." });
+  };
+
+  const handleExportBankSchedule = () => {
+    const validRows = batchPayees.filter(r => r.payeeName.trim() && r.netPayable > 0);
+    if (validRows.length === 0) {
+      toast({ variant: "destructive", title: "Cannot Export", description: "No valid payee rows with net payable amounts found." });
+      return;
+    }
+
+    const headers = "Beneficiary_Name,Staff_ID,Bank_MoMo_Provider,Account_Number,Net_Disbursement_Amount,Narration,Value_Date\n";
+    const rowsContent = validRows.map(r => {
+      const parts = (r.paymentChannel || 'Bank Transfer - 0000000000').split(' - ');
+      const bank = parts[0] || 'Bank';
+      const acct = parts[1] || 'N/A';
+      return `"${r.payeeName}","${r.staffId}","${bank}","${acct}",${r.netPayable.toFixed(2)},"${form.narration || 'Staff Allowance'}","${form.valueDate}"`;
+    }).join('\n');
+
+    const csvData = "data:text/csv;charset=utf-8," + headers + rowsContent;
+    const encodedUri = encodeURI(csvData);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `GAM_MED_Bank_Disbursement_${form.valueDate}_Batch.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: "Corporate Bank File Exported", description: `Generated banking file for ${validRows.length} payees totaling GHS ${validRows.reduce((s, r) => s + r.netPayable, 0).toFixed(2)}.` });
+  };
+
   const handleDownloadCsvTemplate = () => {
     const csvContent = "data:text/csv;charset=utf-8," + 
-      "Staff_ID,Payee_Name,Department_GL,Gross_Amount,Tax_Rate,Account_Number\n" +
-      "GAM/STF/0042,Dr. Eric Appiah,5105 - OPD Medical Staff Allowances,2000.00,0,1099248102\n" +
-      "GAM/STF/0118,Sister Grace Mensah,5110 - Maternity Night-Shift Allowances,1500.00,0,0100924819\n" +
-      "EXT/LOC/009,Dr. James Obrempong,5120 - Visiting Consultant Locum Fees,2500.00,0.075,2088192011\n" +
-      "GAM/STF/0088,Samuel Kofi Mensah,5115 - Laboratory Weekend Float,800.00,0,3099182736\n";
+      "Staff_ID,Payee_Name,Department_GL,Gross_Amount,Tax_Rate,Bank_Payment_Details\n" +
+      "GAM/STF/0042,Dr. Eric Appiah,5105 - OPD Medical Staff Allowances,2000.00,0,GCB Bank - 1099248102\n" +
+      "GAM/STF/0118,Sister Grace Mensah,5110 - Maternity Night-Shift Allowances,1500.00,0,Standard Chartered - 0100924819\n" +
+      "EXT/LOC/009,Dr. James Obrempong,5120 - Visiting Consultant Locum Fees,2500.00,0.075,Ecobank Ghana - 2088192011\n" +
+      "GAM/STF/0088,Samuel Kofi Mensah,5115 - Laboratory Weekend Float,800.00,0,MTN Mobile Money - 0244192801\n";
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -145,7 +195,7 @@ export default function PaymentVoucherManager() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast({ title: "Template Downloaded", description: "CSV format: Staff_ID, Payee_Name, Department_GL, Gross_Amount, Tax_Rate, Account_Number." });
+    toast({ title: "Template Downloaded", description: "CSV format: Staff_ID, Payee_Name, Department_GL, Gross_Amount, Tax_Rate, Bank_Payment_Details." });
   };
   
   useEffect(() => {
@@ -346,6 +396,7 @@ export default function PaymentVoucherManager() {
             const department = cols[2] || 'Clinical Operations';
             const gross = parseFloat(cols[3]) || 500;
             const rate = parseFloat(cols[4]) || 0;
+            const paymentChannel = cols[5] || 'Bank Direct Deposit';
             const wht = Math.round(gross * rate * 100) / 100;
             const net = Math.round((gross - wht) * 100) / 100;
 
@@ -359,7 +410,8 @@ export default function PaymentVoucherManager() {
               grossAmount: gross,
               whtRate: rate,
               whtAmount: wht,
-              netPayable: net
+              netPayable: net,
+              paymentChannel
             });
           }
         }
@@ -391,14 +443,17 @@ export default function PaymentVoucherManager() {
   const effectiveNet = disbursementMode === 'SINGLE' ? netAmount : batchMetrics.totalNet;
 
   const handleAuthorizePayment = async () => {
+    // 1. Clean and filter batch payees (strip empty rows automatically)
+    const cleanBatchPayees = batchPayees.filter(r => r.payeeName.trim() && r.grossAmount > 0);
+
     if (disbursementMode === 'SINGLE') {
       if (!form.debitAccountId || !form.creditAccountId || form.grossAmount <= 0) {
         toast({ variant: 'destructive', title: "Validation Error", description: "Please select expenditure/bank accounts and enter a valid gross amount." });
         return;
       }
     } else {
-      if (!form.creditAccountId || batchMetrics.totalGross <= 0) {
-        toast({ variant: 'destructive', title: "Validation Error", description: "Please select a funding bank account and add payee rows with valid amounts." });
+      if (!form.creditAccountId || cleanBatchPayees.length === 0) {
+        toast({ variant: 'destructive', title: "Empty Batch Error", description: "Please select a funding bank account and ensure at least one payee has a name and gross amount > 0." });
         return;
       }
     }
@@ -421,7 +476,7 @@ export default function PaymentVoucherManager() {
         toast({ 
           title: isOverBudget ? `PV ${demoPvNum} Escalated for Budget Override` : `PV ${demoPvNum} Sent for Approval`, 
           description: disbursementMode === 'BATCH'
-            ? `Batch PV for ${batchMetrics.payeeCount} payees (GHS ${effectiveNet.toLocaleString('en-US', { minimumFractionDigits: 2 })}) routed to Checker Queue.`
+            ? `Batch PV for ${cleanBatchPayees.length} payees (GHS ${effectiveNet.toLocaleString('en-US', { minimumFractionDigits: 2 })}) routed to Checker Queue.`
             : "Awaiting review from the internal auditor / checker." 
         });
         setProcessing(false);
@@ -453,6 +508,7 @@ export default function PaymentVoucherManager() {
         transaction.set(pvDocRef, {
           pvNumber,
           disbursementMode,
+          valueDate: form.valueDate,
           debitAccountId: form.debitAccountId,
           creditAccountId: form.creditAccountId,
           debitAccountCode: debitAccount.accountCode,
@@ -463,8 +519,8 @@ export default function PaymentVoucherManager() {
           vatAmount: disbursementMode === 'SINGLE' ? vatAmount : 0,
           netAmount: effectiveNet,
           narration: form.narration,
-          payee: disbursementMode === 'SINGLE' ? form.payee : `Batch Disbursement (${batchMetrics.payeeCount} Payees)`,
-          batchPayees: disbursementMode === 'BATCH' ? batchPayees : null,
+          payee: disbursementMode === 'SINGLE' ? form.payee : `Batch Disbursement (${cleanBatchPayees.length} Payees)`,
+          batchPayees: disbursementMode === 'BATCH' ? cleanBatchPayees : null,
           hospitalId,
           debitAccountName: debitAccount.name,
           creditAccountName: creditAccount.name,
@@ -807,6 +863,22 @@ export default function PaymentVoucherManager() {
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
+                    onClick={handleClearBatch}
+                    className="px-2.5 py-1.5 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-700 dark:text-rose-300 text-[10px] font-bold uppercase rounded-lg border border-rose-200 dark:border-rose-900 flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>🗑️ CLEAR BATCH</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExportBankSchedule}
+                    className="px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold uppercase rounded-lg border border-emerald-300 dark:border-emerald-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>📥 EXPORT BANK SCHEDULE</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={handleDownloadCsvTemplate}
                     className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase rounded-lg border border-slate-300 dark:border-slate-700 flex items-center gap-1 cursor-pointer"
                   >
@@ -845,7 +917,7 @@ export default function PaymentVoucherManager() {
                   <thead className="bg-slate-900 text-white uppercase text-[9px] tracking-wider">
                     <tr>
                       <th className="p-3 w-8 text-center">#</th>
-                      <th className="p-3">Staff / Payee</th>
+                      <th className="p-3">Staff / Payee & Banking Route</th>
                       <th className="p-3">Dept / Cost Center</th>
                       <th className="p-3 text-right">Gross (GHS)</th>
                       <th className="p-3">Tax / WHT</th>
@@ -868,13 +940,22 @@ export default function PaymentVoucherManager() {
                             onChange={e => handleUpdateBatchRow(row.id, 'payeeName', e.target.value)}
                             className="w-full p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-bold outline-none"
                           />
-                          <input 
-                            type="text" 
-                            placeholder="Staff ID (e.g. GAM/STF/004)"
-                            value={row.staffId}
-                            onChange={e => handleUpdateBatchRow(row.id, 'staffId', e.target.value)}
-                            className="w-full p-1 bg-transparent text-[10px] font-mono text-slate-500 outline-none mt-1"
-                          />
+                          <div className="grid grid-cols-2 gap-1 mt-1">
+                            <input 
+                              type="text" 
+                              placeholder="Staff ID (e.g. GAM/STF/004)"
+                              value={row.staffId}
+                              onChange={e => handleUpdateBatchRow(row.id, 'staffId', e.target.value)}
+                              className="p-1 bg-transparent text-[10px] font-mono text-slate-500 outline-none"
+                            />
+                            <input 
+                              type="text" 
+                              placeholder="Bank/MoMo (e.g. GCB - 109924)"
+                              value={row.paymentChannel || ''}
+                              onChange={e => handleUpdateBatchRow(row.id, 'paymentChannel', e.target.value)}
+                              className="p-1 bg-transparent text-[10px] font-mono text-emerald-600 dark:text-emerald-400 outline-none text-right"
+                            />
+                          </div>
                         </td>
                         <td className="p-3">
                           <select
