@@ -30,6 +30,8 @@ export default function BillingQueuePage() {
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
   const hospitalId = userProfile?.hospitalId;
+  const userRole = (userProfile?.role || 'CASHIER').toUpperCase();
+  const isExecutiveOrFinance = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'SUPER_ADMIN', 'CHIEF_FINANCE', 'CHIEF_FINANCE_OFFICER', 'AUDITOR'].includes(userRole);
   const [searchTerm, setSearchTerm] = useState('');
 
   // 1. Active Till Security Gate Check (Separation of Duties & Cashier Custody)
@@ -271,8 +273,9 @@ export default function BillingQueuePage() {
 
   // -------------------------------------------------------------
   // SECURITY INTERCEPT: OPEN TILL & DECLARE OPENING FLOAT GATE
+  // (Strictly enforced for Cashiers; Bypassed for Executive/Finance Audit Roles under SoD)
   // -------------------------------------------------------------
-  if (!isTillOpen) {
+  if (!isTillOpen && !isExecutiveOrFinance) {
     return (
       <div className="max-w-4xl mx-auto space-y-6 pb-16 pt-4">
         
@@ -420,12 +423,18 @@ export default function BillingQueuePage() {
 
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                <CreditCard className="w-3.5 h-3.5" /> Point of Sale & Revenue Hub
-              </span>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              {isExecutiveOrFinance && !isTillOpen ? (
+                <span className="px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" /> AUDIT & FINANCIAL OVERSIGHT MODE (SoD Active)
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                  <CreditCard className="w-3.5 h-3.5" /> Point of Sale & Revenue Hub
+                </span>
+              )}
               <span className="text-xs text-slate-400 font-mono">
-                Cashier: {userProfile?.fullName || 'Priscilla Adysei'} ({userProfile?.staffNumber || 'GAM/STF/26/0008'})
+                {isExecutiveOrFinance ? `Officer: ${userProfile?.fullName || 'Samuel Korsah'} (${userProfile?.role || 'CHIEF_FINANCE'})` : `Cashier: ${userProfile?.fullName || 'Priscilla Adysei'} (${userProfile?.staffNumber || 'GAM/STF/26/0008'})`}
               </span>
             </div>
             <h1 className="text-2xl lg:text-3xl font-black uppercase tracking-tight text-white flex items-center gap-3 italic">
