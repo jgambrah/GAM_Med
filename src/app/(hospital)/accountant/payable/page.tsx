@@ -122,85 +122,95 @@ export default function AccountsPayablePage() {
     { vendorId: 'VND-006', vendorName: 'Zoomlion Ghana Ltd', category: 'SERVICES', current: 0.00, days30: 2500.00, days60: 2500.00, days90Plus: 0.00, status: 'COMPLIANCE_HOLD' }
   ], []);
 
-  // Statutory & Payroll Accrued Liabilities (Strict Regulatory Remittance Deadlines)
+  // Statutory & Payroll Accrued Liabilities (Strict Regulatory Remittance Deadlines & Period Identifiers)
   const statutoryLiabilities = useMemo(() => {
     const fallbackList = [
       {
         id: 'STAT-001',
         obligationName: 'SSNIT Pension Fund (13.5% Tier 1 + 5% Tier 2)',
+        periodTag: 'July 2026 Statutory Remittance Cycle',
         category: 'PENSION_STATUTORY',
         beneficiary: 'Social Security and National Insurance Trust',
         accruedAmount: 32488.39,
         statutoryDeadline: '14th of Ensuing Month',
         nextDueDate: '2026-09-14',
-        status: 'DUE_SOON',
-        penaltyRisk: 'HIGH_STATUTORY_FINE',
-        accountCode: '2110'
+        accountCode: '2110 - SSNIT Tier 1 & 2 Payable'
       },
       {
         id: 'STAT-002',
         obligationName: 'GRA Withholding Tax (3% WHT / 7.5% Services)',
+        periodTag: 'August 2026 1st Half Tax Settlement',
         category: 'TAX_STATUTORY',
         beneficiary: 'Ghana Revenue Authority (Large Taxpayer Office)',
         accruedAmount: 18950.45,
         statutoryDeadline: '15th of Ensuing Month',
         nextDueDate: '2026-09-15',
-        status: 'COMPLIANT',
-        penaltyRisk: 'MONTHLY_COMPOUND_INTEREST',
-        accountCode: '2120'
+        accountCode: '2120 - GRA Withholding Tax Payable'
       },
       {
         id: 'STAT-003',
         obligationName: 'GRA PAYE (Pay-As-You-Earn Staff Income Tax)',
+        periodTag: 'July 2026 Staff Income Tax Returns',
         category: 'TAX_STATUTORY',
         beneficiary: 'Ghana Revenue Authority (PAYE Division)',
         accruedAmount: 45210.50,
         statutoryDeadline: '15th of Ensuing Month',
         nextDueDate: '2026-09-15',
-        status: 'DUE_SOON',
-        penaltyRisk: 'AUTOMATED_GRA_LEVY',
-        accountCode: '2125'
+        accountCode: '2125 - GRA PAYE Income Tax Payable'
       },
       {
         id: 'STAT-004',
         obligationName: 'Staff Net Salaries Accrual (Clinical & Admin Payroll)',
+        periodTag: 'August 2026 Main Monthly Payroll',
         category: 'PAYROLL_ACCRUAL',
         beneficiary: 'GAM Med Clinical & Operational Staff (78 Personnel)',
         accruedAmount: 205945.04,
         statutoryDeadline: '28th of Current Month',
         nextDueDate: '2026-08-28',
-        status: 'SCHEDULED_PAYROLL',
-        penaltyRisk: 'LABOR_DISPUTE_RISK',
-        accountCode: '2100'
+        accountCode: '2100 - Staff Net Salaries Payable'
       },
       {
         id: 'STAT-005',
         obligationName: 'Tier 3 Voluntary Provident Fund Trustees',
+        periodTag: 'July 2026 Master Trust Contributions',
         category: 'PENSION_STATUTORY',
         beneficiary: 'Enterprise Trustees / Petra Trust (Tier 3 Master Trust)',
         accruedAmount: 14500.00,
         statutoryDeadline: '14th of Ensuing Month',
         nextDueDate: '2026-09-14',
-        status: 'COMPLIANT',
-        penaltyRisk: 'TRUSTEE_SURCHARGE',
-        accountCode: '2115'
+        accountCode: '2115 - Tier 3 Provident Fund Payable'
+      },
+      {
+        id: 'STAT-006',
+        obligationName: 'Locum & Part-Time Specialist Doctors Fees',
+        periodTag: 'August 2026 Mid-Month Locum Run',
+        category: 'PAYROLL_ACCRUAL',
+        beneficiary: 'Visiting Consultants & Surgical Locums (6 Specialists)',
+        accruedAmount: 28450.00,
+        statutoryDeadline: '25th of Current Month',
+        nextDueDate: '2026-08-25',
+        accountCode: '2105 - Locum Doctor Fees Payable'
       }
     ];
 
-    if (!rawStatutoryItems || rawStatutoryItems.length === 0) return fallbackList;
+    let items = fallbackList;
 
-    return rawStatutoryItems.map((p: any, idx: number) => ({
-      id: p.id || `STAT-00${idx + 1}`,
-      obligationName: p.supplierName || p.vendorName || 'Statutory Obligation',
-      category: 'STATUTORY_PAYROLL',
-      beneficiary: p.supplierName?.toLowerCase().includes('ssnit') ? 'Social Security and National Insurance Trust' : (p.supplierName?.toLowerCase().includes('gra') || p.supplierName?.toLowerCase().includes('revenue') ? 'Ghana Revenue Authority' : 'Hospital Payroll Clearing'),
-      accruedAmount: Number(p.amountOwed || 0),
-      statutoryDeadline: p.supplierName?.toLowerCase().includes('ssnit') ? '14th of Ensuing Month' : (p.supplierName?.toLowerCase().includes('gra') ? '15th of Ensuing Month' : '28th of Current Month'),
-      nextDueDate: p.dueDate || '2026-09-15',
-      status: 'DUE_SOON',
-      penaltyRisk: 'STATUTORY_INTEREST_AND_FINES',
-      accountCode: p.accountCode || (p.supplierName?.toLowerCase().includes('ssnit') ? '2110' : (p.supplierName?.toLowerCase().includes('gra') ? '2120' : '2100'))
-    }));
+    if (rawStatutoryItems && rawStatutoryItems.length > 0) {
+      items = rawStatutoryItems.map((p: any, idx: number) => ({
+        id: p.id || `STAT-00${idx + 1}`,
+        obligationName: p.supplierName || p.vendorName || 'Statutory Obligation',
+        periodTag: p.period || p.batchRef || 'Current Statutory Run',
+        category: 'STATUTORY_PAYROLL',
+        beneficiary: p.supplierName?.toLowerCase().includes('ssnit') ? 'Social Security and National Insurance Trust' : (p.supplierName?.toLowerCase().includes('gra') || p.supplierName?.toLowerCase().includes('revenue') ? 'Ghana Revenue Authority' : 'Hospital Payroll Clearing'),
+        accruedAmount: Number(p.amountOwed || 0),
+        statutoryDeadline: p.supplierName?.toLowerCase().includes('ssnit') ? '14th of Ensuing Month' : (p.supplierName?.toLowerCase().includes('gra') ? '15th of Ensuing Month' : '28th of Current Month'),
+        nextDueDate: p.dueDate || '2026-09-15',
+        accountCode: p.accountCode || (p.supplierName?.toLowerCase().includes('ssnit') ? '2110 - SSNIT Payable' : (p.supplierName?.toLowerCase().includes('gra') ? '2120 - GRA Tax Payable' : '2100 - Net Salaries Payable'))
+      }));
+    }
+
+    // Strict Filter: Remove Zero-Balance lines (> ₵0.01 only)
+    return items.filter(item => item.accruedAmount > 0.01);
   }, [rawStatutoryItems]);
 
   // Aggregate Raw Payables into Vendor Aging Rows (Strict Commercial Vendors Only)
@@ -621,58 +631,91 @@ export default function AccountsPayablePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-bold">
-              {statutoryLiabilities.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all">
-                  <td className="p-4">
-                    <p className="font-black text-slate-900 dark:text-slate-100">{item.obligationName}</p>
-                    <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">
-                      GL Account: {item.accountCode}
+              {statutoryLiabilities.map((item) => {
+                // Dynamic Countdown Calculator (Ref Date: 2026-08-19)
+                const nowRef = new Date('2026-08-19');
+                const dueTarget = new Date(item.nextDueDate);
+                const diffTime = dueTarget.getTime() - nowRef.getTime();
+                const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                let badgeMarkup = (
+                  <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black text-[9px] uppercase rounded-full">
+                    SCHEDULED ({daysUntil} DAYS)
+                  </span>
+                );
+
+                if (daysUntil < 0) {
+                  badgeMarkup = (
+                    <span className="px-2.5 py-1 bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 font-black text-[9px] uppercase rounded-full border border-rose-300 animate-pulse">
+                      OVERDUE ({Math.abs(daysUntil)} DAYS)
                     </span>
-                  </td>
-                  <td className="p-4 text-slate-600 dark:text-slate-400 text-xs">
-                    {item.beneficiary}
-                  </td>
-                  <td className="p-4 text-right font-mono font-black text-sm text-indigo-600 dark:text-indigo-400">
-                    ₵ {item.accruedAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                  <td className="p-4 font-mono text-slate-700 dark:text-slate-300">
-                    {item.statutoryDeadline}
-                  </td>
-                  <td className="p-4 font-mono text-slate-900 dark:text-slate-100">
-                    {item.nextDueDate}
-                  </td>
-                  <td className="p-4 text-center">
-                    {item.status === 'DUE_SOON' ? (
-                      <span className="px-2.5 py-1 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-black text-[9px] uppercase rounded-full border border-amber-300">
-                        DUE IN 5 DAYS
-                      </span>
-                    ) : item.status === 'SCHEDULED_PAYROLL' ? (
-                      <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-black text-[9px] uppercase rounded-full border border-emerald-300">
-                        MONTH-END PAYROLL
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black text-[9px] uppercase rounded-full">
-                        COMPLIANT
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-4 text-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        toast({
-                          title: "Statutory Remittance Triggered",
-                          description: `Preparing Bank & Portal Schedule for ${item.obligationName} (GHS ${item.accruedAmount.toFixed(2)}).`
-                        });
-                      }}
-                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase rounded-lg transition-all shadow flex items-center justify-center gap-1 mx-auto cursor-pointer"
-                    >
-                      <Landmark className="w-3 h-3" />
-                      <span>REMIT VIA BANK</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                  );
+                } else if (daysUntil <= 5) {
+                  badgeMarkup = (
+                    <span className="px-2.5 py-1 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-black text-[9px] uppercase rounded-full border border-rose-300">
+                      CRITICAL: DUE IN {daysUntil} {daysUntil === 1 ? 'DAY' : 'DAYS'}
+                    </span>
+                  );
+                } else if (daysUntil <= 10) {
+                  badgeMarkup = (
+                    <span className="px-2.5 py-1 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-black text-[9px] uppercase rounded-full border border-amber-300">
+                      DUE IN {daysUntil} DAYS
+                    </span>
+                  );
+                } else {
+                  badgeMarkup = (
+                    <span className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-black text-[9px] uppercase rounded-full border border-emerald-300">
+                      COMPLIANT ({daysUntil} DAYS)
+                    </span>
+                  );
+                }
+
+                return (
+                  <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all">
+                    <td className="p-4">
+                      <p className="font-black text-slate-900 dark:text-slate-100">{item.obligationName}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 font-mono text-[9px] font-bold border border-indigo-200 dark:border-indigo-800">
+                          {item.periodTag}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-500 font-semibold">
+                          GL: {item.accountCode}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-4 text-slate-600 dark:text-slate-400 text-xs">
+                      {item.beneficiary}
+                    </td>
+                    <td className="p-4 text-right font-mono font-black text-sm text-indigo-600 dark:text-indigo-400">
+                      ₵ {item.accruedAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="p-4 font-mono text-slate-700 dark:text-slate-300">
+                      {item.statutoryDeadline}
+                    </td>
+                    <td className="p-4 font-mono text-slate-900 dark:text-slate-100">
+                      {item.nextDueDate}
+                    </td>
+                    <td className="p-4 text-center">
+                      {badgeMarkup}
+                    </td>
+                    <td className="p-4 text-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toast({
+                            title: "Statutory Remittance Triggered",
+                            description: `Preparing Bank & Portal Remittance Schedule for ${item.obligationName} (GHS ${item.accruedAmount.toFixed(2)}).`
+                          });
+                        }}
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase rounded-lg transition-all shadow flex items-center justify-center gap-1 mx-auto cursor-pointer"
+                      >
+                        <Landmark className="w-3 h-3" />
+                        <span>REMIT VIA BANK</span>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
