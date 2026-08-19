@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import { adminDb, adminMessaging } from '@/lib/firebase-admin';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const resend = resendApiKey ? new Resend(resendApiKey) : null;
     const body = await request.json();
     const { hospitalId, pvId, totalAmount, payeeCount, makerName, checkerId } = body;
 
@@ -63,7 +65,7 @@ export async function POST(request: Request) {
       }
 
       // 3. Email Notification (via Resend)
-      if (checkerEmail && process.env.RESEND_API_KEY) {
+      if (checkerEmail && resend) {
         const emailPayload = resend.emails.send({
           from: 'GAM Med Finance <finance@gam-med.com>',
           to: checkerEmail,
