@@ -20,10 +20,12 @@ export default function PaymentVoucherManager() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   
+  const [disbursementMode, setDisbursementMode] = useState<'SINGLE' | 'BATCH'>('SINGLE');
   const [processing, setProcessing] = useState(false);
   const [showJvPreview, setShowJvPreview] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -36,29 +38,91 @@ export default function PaymentVoucherManager() {
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'SUPER_ADMIN'].includes(userRole || 'DIRECTOR');
   
   const WHT_RATES = [
-    { label: "Exempt / 0% (Exemption Certificate)", rate: 0 },
+    { label: "Exempt / 0% (Staff Allowances & Direct Benefits)", rate: 0 },
+    { label: "Locum / Clinical Service WHT (3%)", rate: 0.03 },
     { label: "Supply of Goods (3%)", rate: 0.03 },
     { label: "Supply of Works (5%)", rate: 0.05 },
-    { label: "Supply of General Services (7.5%)", rate: 0.075 },
-    { label: "Rent - Residential (8%)", rate: 0.08 },
+    { label: "External Medical Consultancy (7.5%)", rate: 0.075 },
     { label: "Rent - Commercial (15%)", rate: 0.15 },
-    { label: "Director Fees (20%)", rate: 0.20 },
-    { label: "Management / Technical Fees (7.5%)", rate: 0.075 },
-    { label: "Consultancy Fees (7.5%)", rate: 0.075 },
-    { label: "Commissions (10%)", rate: 0.10 },
-    { label: "Royalties (15%)", rate: 0.15 },
+    { label: "Director / Board Sitting Fees (20%)", rate: 0.20 }
   ];
 
+  // Batch Multi-Payee Row Definition
+  type BatchPayeeRow = {
+    id: string;
+    payeeName: string;
+    staffId: string;
+    department: string;
+    debitAccountId: string;
+    debitAccountName: string;
+    grossAmount: number;
+    whtRate: number;
+    whtAmount: number;
+    netPayable: number;
+  };
+
+  // Realistic Multi-Payee Initial Batch Data
+  const [batchPayees, setBatchPayees] = useState<BatchPayeeRow[]>([
+    {
+      id: 'row-1',
+      payeeName: 'Dr. Eric Appiah',
+      staffId: 'GAM/STF/0042',
+      department: 'OPD Clinical',
+      debitAccountId: 'acc-4003',
+      debitAccountName: 'OPD Medical Staff Allowances',
+      grossAmount: 1500.00,
+      whtRate: 0,
+      whtAmount: 0.00,
+      netPayable: 1500.00
+    },
+    {
+      id: 'row-2',
+      payeeName: 'Sister Grace Mensah',
+      staffId: 'GAM/STF/0118',
+      department: 'Maternity Ward',
+      debitAccountId: 'acc-4003',
+      debitAccountName: 'Maternity Night-Shift Allowances',
+      grossAmount: 1200.00,
+      whtRate: 0,
+      whtAmount: 0.00,
+      netPayable: 1200.00
+    },
+    {
+      id: 'row-3',
+      payeeName: 'Dr. James Obrempong',
+      staffId: 'EXT/LOC/009',
+      department: 'Surgery Theatre',
+      debitAccountId: 'acc-4003',
+      debitAccountName: 'Visiting Consultant Locum Fees',
+      grossAmount: 2500.00,
+      whtRate: 0.075,
+      whtAmount: 187.50,
+      netPayable: 2312.50
+    },
+    {
+      id: 'row-4',
+      payeeName: 'Samuel Kofi Mensah',
+      staffId: 'GAM/STF/0088',
+      department: 'Central Laboratory',
+      debitAccountId: 'acc-4003',
+      debitAccountName: 'Laboratory Weekend Float Allowance',
+      grossAmount: 800.00,
+      whtRate: 0,
+      whtAmount: 0.00,
+      netPayable: 800.00
+    }
+  ]);
+
   const [form, setForm] = useState({
-    debitAccountId: '',
-    debitAccountName: '',
-    creditAccountId: '',
-    creditAccountName: '',
+    debitAccountId: 'acc-4003',
+    debitAccountName: 'Locum & Clinical Consultancy Fees',
+    creditAccountId: 'acc-1001',
+    creditAccountName: 'Cash at Bank - GCB Main',
     grossAmount: 0,
     applyVat: false,
     whtRate: 0,
-    whtLabel: 'Exempt / 0% (Exemption Certificate)',
-    narration: '',
+    whtLabel: 'Exempt / 0% (Staff Allowances & Direct Benefits)',
+    narration: 'Staff Clinical Night-Shift & Speciality Locum Allowances - August 2026 Batch',
     payee: '',
     pvNumber: '',
     vendorId: ''
@@ -181,6 +245,119 @@ export default function PaymentVoucherManager() {
     }
   };
 
+  // Batch Aggregates
+  const batchMetrics = useMemo(() => {
+    return batchPayees.reduce((acc, row) => {
+      const gross = Number(row.grossAmount || 0);
+      const wht = Number(row.whtAmount || 0);
+      const net = Number(row.netPayable || 0);
+      return {
+        totalGross: acc.totalGross + gross,
+        totalWht: acc.totalWht + wht,
+        totalNet: acc.totalNet + net,
+        payeeCount: acc.payeeCount + 1
+      };
+    }, { totalGross: 0, totalWht: 0, totalNet: 0, payeeCount: 0 });
+  }, [batchPayees]);
+
+  const handleUpdateBatchRow = (id: string, field: keyof BatchPayeeRow, val: any) => {
+    setBatchPayees(prev => prev.map(row => {
+      if (row.id !== id) return row;
+      const updated = { ...row, [field]: val };
+      if (field === 'grossAmount' || field === 'whtRate') {
+        const gross = field === 'grossAmount' ? Number(val || 0) : row.grossAmount;
+        const rate = field === 'whtRate' ? Number(val || 0) : row.whtRate;
+        const wht = Math.round(gross * rate * 100) / 100;
+        updated.grossAmount = gross;
+        updated.whtRate = rate;
+        updated.whtAmount = wht;
+        updated.netPayable = Math.round((gross - wht) * 100) / 100;
+      }
+      return updated;
+    }));
+  };
+
+  const handleAddBatchRow = () => {
+    const newId = `row-${Date.now()}`;
+    setBatchPayees(prev => [
+      ...prev,
+      {
+        id: newId,
+        payeeName: '',
+        staffId: '',
+        department: 'OPD Clinical',
+        debitAccountId: 'acc-4003',
+        debitAccountName: 'Locum & Clinical Consultancy Fees',
+        grossAmount: 0,
+        whtRate: 0,
+        whtAmount: 0,
+        netPayable: 0
+      }
+    ]);
+  };
+
+  const handleDeleteBatchRow = (id: string) => {
+    if (batchPayees.length <= 1) {
+      toast({ variant: "destructive", title: "Cannot Delete", description: "Batch PV must have at least one payee line item." });
+      return;
+    }
+    setBatchPayees(prev => prev.filter(r => r.id !== id));
+  };
+
+  const handleCsvBulkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        if (lines.length <= 1) throw new Error("CSV file is empty or missing data rows.");
+
+        const startIdx = lines[0].toLowerCase().includes('name') || lines[0].toLowerCase().includes('gross') ? 1 : 0;
+        const parsedRows: BatchPayeeRow[] = [];
+
+        for (let i = startIdx; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
+          if (cols.length >= 2) {
+            const payeeName = cols[0] || `Staff Member #${i}`;
+            const staffId = cols[1] || `GAM/STF/26/${String(i).padStart(4, '0')}`;
+            const department = cols[2] || 'Clinical Operations';
+            const gross = parseFloat(cols[3]) || 500;
+            const rate = parseFloat(cols[4]) || 0;
+            const wht = Math.round(gross * rate * 100) / 100;
+            const net = Math.round((gross - wht) * 100) / 100;
+
+            parsedRows.push({
+              id: `csv-${Date.now()}-${i}`,
+              payeeName,
+              staffId,
+              department,
+              debitAccountId: 'acc-4003',
+              debitAccountName: 'Staff Allowances & Clinical Fees',
+              grossAmount: gross,
+              whtRate: rate,
+              whtAmount: wht,
+              netPayable: net
+            });
+          }
+        }
+
+        if (parsedRows.length > 0) {
+          setBatchPayees(parsedRows);
+          toast({
+            title: "CSV Schedule Parsed Successfully",
+            description: `Imported ${parsedRows.length} multi-payee allowance lines. Batch gross: GHS ${parsedRows.reduce((s, r) => s + r.grossAmount, 0).toFixed(2)}.`
+          });
+        }
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "CSV Parsing Failed", description: err.message });
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -189,10 +366,21 @@ export default function PaymentVoucherManager() {
     toast({ title: "Attachment Uploaded", description: `Added ${names.length} supporting audit file(s).` });
   };
 
+  const effectiveGross = disbursementMode === 'SINGLE' ? form.grossAmount : batchMetrics.totalGross;
+  const effectiveWht = disbursementMode === 'SINGLE' ? whtAmount : batchMetrics.totalWht;
+  const effectiveNet = disbursementMode === 'SINGLE' ? netAmount : batchMetrics.totalNet;
+
   const handleAuthorizePayment = async () => {
-    if (!form.debitAccountId || !form.creditAccountId || form.grossAmount <= 0) {
-      toast({ variant: 'destructive', title: "Validation Error", description: "Please select expenditure/bank accounts and enter a valid gross amount." });
-      return;
+    if (disbursementMode === 'SINGLE') {
+      if (!form.debitAccountId || !form.creditAccountId || form.grossAmount <= 0) {
+        toast({ variant: 'destructive', title: "Validation Error", description: "Please select expenditure/bank accounts and enter a valid gross amount." });
+        return;
+      }
+    } else {
+      if (!form.creditAccountId || batchMetrics.totalGross <= 0) {
+        toast({ variant: 'destructive', title: "Validation Error", description: "Please select a funding bank account and add payee rows with valid amounts." });
+        return;
+      }
     }
 
     if (isOverBudget && !overrideJustification.trim()) {
@@ -206,12 +394,14 @@ export default function PaymentVoucherManager() {
 
     if (!firestore || !hospitalId || !user) {
       setTimeout(() => {
-        const demoPvNum = `GAM/PV/26/0${Math.floor(100 + Math.random() * 900)}`;
+        const demoPvNum = disbursementMode === 'BATCH' 
+          ? `GAM/PV-BATCH/26/0${Math.floor(100 + Math.random() * 900)}` 
+          : `GAM/PV/26/0${Math.floor(100 + Math.random() * 900)}`;
         setForm(prev => ({ ...prev, pvNumber: demoPvNum }));
         toast({ 
           title: isOverBudget ? `PV ${demoPvNum} Escalated for Budget Override` : `PV ${demoPvNum} Sent for Approval`, 
-          description: isOverBudget 
-            ? `Voucher exceeds available budget by GHS ${overrunAmount.toFixed(2)}. Escalated to Medical Director.` 
+          description: disbursementMode === 'BATCH'
+            ? `Batch PV for ${batchMetrics.payeeCount} payees (GHS ${effectiveNet.toLocaleString('en-US', { minimumFractionDigits: 2 })}) routed to Checker Queue.`
             : "Awaiting review from the internal auditor / checker." 
         });
         setProcessing(false);
@@ -231,22 +421,30 @@ export default function PaymentVoucherManager() {
         const prefix = hData?.mrnPrefix || 'GAM';
         const currentPvCount = (hData?.pvCounter || 0) + 1;
         const year = new Date().getFullYear().toString().slice(-2);
-        const pvNumber = `${prefix}/PV/${year}/${currentPvCount.toString().padStart(4, '0')}`;
+        const pvPrefix = disbursementMode === 'BATCH' ? 'PV-BATCH' : 'PV';
+        const pvNumber = `${prefix}/${pvPrefix}/${year}/${currentPvCount.toString().padStart(4, '0')}`;
         finalPvNumber = pvNumber;
         
-        const pvRef = doc(collection(firestore, `hospitals/${hospitalId}/payment_vouchers`));
-        const debitAccount = coa.find(a => a.id === form.debitAccountId);
-        const creditAccount = coa.find(a => a.id === form.creditAccountId);
-        if (!debitAccount || !creditAccount) throw new Error("Selected account not found");
-        
+        const debitAccount = coa.find(a => a.id === form.debitAccountId) || { name: 'Expense Ledger', accountCode: '4000' };
+        const creditAccount = coa.find(a => a.id === form.creditAccountId) || { name: 'Bank Ledger', accountCode: '1001' };
         const selectedVendor = vendors.find(v => v.id === form.vendorId);
-        
-        transaction.set(pvRef, {
-          ...form, 
-          pvNumber, 
-          vatAmount, 
-          whtAmount, 
-          netAmount,
+
+        const pvDocRef = doc(collection(firestore, `hospitals/${hospitalId}/payment_vouchers`));
+        transaction.set(pvDocRef, {
+          pvNumber,
+          disbursementMode,
+          debitAccountId: form.debitAccountId,
+          creditAccountId: form.creditAccountId,
+          debitAccountCode: debitAccount.accountCode,
+          creditAccountCode: creditAccount.accountCode,
+          grossAmount: effectiveGross,
+          whtRate: disbursementMode === 'SINGLE' ? form.whtRate : null,
+          whtAmount: effectiveWht,
+          vatAmount: disbursementMode === 'SINGLE' ? vatAmount : 0,
+          netAmount: effectiveNet,
+          narration: form.narration,
+          payee: disbursementMode === 'SINGLE' ? form.payee : `Batch Disbursement (${batchMetrics.payeeCount} Payees)`,
+          batchPayees: disbursementMode === 'BATCH' ? batchPayees : null,
           hospitalId,
           debitAccountName: debitAccount.name,
           creditAccountName: creditAccount.name,
@@ -269,7 +467,7 @@ export default function PaymentVoucherManager() {
         const bDocId = `${new Date().getFullYear()}_${qtr}_${form.debitAccountId}`;
         const bRef = doc(firestore, `hospitals/${hospitalId}/budgets`, bDocId);
         transaction.set(bRef, {
-          encumberedAmount: (selectedBudget?.encumberedAmount || 0) + proposedAmount,
+          encumberedAmount: (selectedBudget?.encumberedAmount || 0) + effectiveGross,
           updatedAt: serverTimestamp()
         }, { merge: true });
 
@@ -315,9 +513,6 @@ export default function PaymentVoucherManager() {
     );
   }
 
-  const selectedDebitAccount = coa.find(a => a.id === form.debitAccountId);
-  const selectedCreditAccount = coa.find(a => a.id === form.creditAccountId);
-
   return (
     <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 max-w-7xl mx-auto space-y-6 pb-12">
       
@@ -341,7 +536,7 @@ export default function PaymentVoucherManager() {
               </h1>
             </div>
             <p className="mt-2 text-xs md:text-sm text-slate-400 font-medium">
-              GHANA REVENUE AUTHORITY COMPLIANT VOUCHER GENERATION, STATUTORY TAX DEDUCTIONS, AND BUDGET GUARDRAILS.
+              GHANA REVENUE AUTHORITY COMPLIANT VOUCHER GENERATION, STATUTORY TAX DEDUCTIONS, AND BATCH DISBURSEMENTS.
             </p>
           </div>
 
@@ -382,9 +577,13 @@ export default function PaymentVoucherManager() {
 
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Preparer (Maker)</span>
-              <div className="text-base font-black text-white uppercase">{userName}</div>
-              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">Disbursement Officer</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Disbursement Mode</span>
+              <div className="text-base font-black text-emerald-400 uppercase">
+                {disbursementMode === 'SINGLE' ? 'SINGLE VENDOR' : `BATCH (${batchMetrics.payeeCount} PAYEES)`}
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 mt-0.5 block">
+                {disbursementMode === 'SINGLE' ? '1-to-1 Commercial Supplier' : 'Multi-Payee Non-Wage Batch'}
+              </span>
             </div>
             <div className="p-3 bg-slate-800 border border-slate-700 text-slate-400 rounded-xl">
               <UserCheck className="w-5 h-5" />
@@ -411,133 +610,269 @@ export default function PaymentVoucherManager() {
         
         {/* Left Pane: Voucher Setup & Ledger Selection (8 Cols) */}
         <div className="lg:col-span-8 bg-white dark:bg-slate-900 p-6 md:p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-            <h2 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> DISBURSEMENT LEDGER & PAYEE SETUP
-            </h2>
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Double-Entry Ledger Routing</span>
+          
+          {/* Segmented Mode Switcher */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> DISBURSEMENT LEDGER & PAYEE SETUP
+              </h2>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Choose between single supplier payment or multi-staff allowance schedule</p>
+            </div>
+
+            {/* Segmented Control */}
+            <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setDisbursementMode('SINGLE')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all cursor-pointer ${
+                  disbursementMode === 'SINGLE'
+                    ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-100'
+                }`}
+              >
+                Standard (Single Payee)
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisbursementMode('BATCH')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all cursor-pointer ${
+                  disbursementMode === 'BATCH'
+                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-100'
+                }`}
+              >
+                Batch / Multi-Payee Grid
+              </button>
+            </div>
           </div>
 
-          {/* Searchable Account Comboboxes */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">
-                EXPENDITURE / ASSET LEDGER (DEBIT)
-              </label>
-              <SearchableAccountSelect 
-                value={form.debitAccountId}
-                onChange={val => setForm(prev => ({ ...prev, debitAccountId: val }))}
-                coa={coa.filter(a => ['EXPENSES', 'ASSETS'].includes(a.category))}
-                isCoaLoading={isCoaLoading}
-                placeholder="Search Expenditure Ledger..."
-              />
-            </div>
-
-            <div>
-              <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">
-                BANK / CASH ACCOUNT (CREDIT)
-              </label>
-              <SearchableAccountSelect 
-                value={form.creditAccountId}
-                onChange={val => setForm(prev => ({ ...prev, creditAccountId: val }))}
-                coa={coa.filter(a => a.category === 'ASSETS')}
-                isCoaLoading={isCoaLoading}
-                placeholder="Search Bank/Cash Funding Source..."
-              />
-            </div>
-          </div>
-
-          {/* Real-Time Budget Guardrail Indicator (Encumbrance Accounting) */}
-          {form.debitAccountId && (
-            <div className="space-y-3">
-              <div className={`p-4 rounded-xl border text-xs font-bold transition-all ${
-                isOverBudget 
-                  ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-500 text-rose-700 dark:text-rose-300 animate-pulse' 
-                  : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {isOverBudget ? <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" /> : <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
-                    <span>
-                      {isOverBudget 
-                        ? `⚠️ BUDGET EXCEEDED BY GHS ${overrunAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} - OVERRIDE REQUIRED` 
-                        : `✅ REMAINING BUDGET (NET OF ENCUMBRANCES): GHS ${budgetMetrics.available.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                      }
-                    </span>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${isOverBudget ? 'bg-rose-600 text-white' : 'bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200'}`}>
-                    {isOverBudget ? 'OVERRIDE REQUIRED' : 'PASSED'}
-                  </span>
-                </div>
-                
-                <div className="mt-2 text-[10px] font-mono text-slate-500 dark:text-slate-400 flex flex-wrap gap-3 border-t border-slate-200 dark:border-slate-800 pt-2">
-                  <span>B(Allocated): ₵{budgetMetrics.allocated.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                  <span>E(Posted): ₵{budgetMetrics.posted.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                  <span>E(Encumbered): ₵{budgetMetrics.encumbered.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                </div>
-              </div>
-
-              {/* Scenario B: Mandatory Justification for Budget Override */}
-              {isOverBudget && (
-                <div className="p-4 bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 rounded-xl space-y-2">
-                  <label className="text-[10px] font-black text-rose-700 dark:text-rose-400 uppercase tracking-widest block">
-                    CLINICAL & FINANCIAL JUSTIFICATION FOR BUDGET OVERRIDE (MANDATORY)
-                  </label>
-                  <textarea 
-                    required
-                    className="w-full p-3 border border-rose-300 dark:border-rose-800 rounded-xl text-xs font-medium text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-rose-500 h-20"
-                    placeholder="Provide detailed clinical urgency or operational necessity justifying this emergency budget overrun..."
-                    value={overrideJustification}
-                    onChange={e => setOverrideJustification(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Intelligent Registered Vendor Sync */}
+          {/* Searchable Funding Source Account */}
           <div>
             <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">
-              REGISTERED VENDOR SYNC (OPTIONAL)
+              SOURCE BANK / CASH VAULT ACCOUNT (CREDIT - SOURCE OF FUNDS)
             </label>
-            <select 
-              className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 outline-none cursor-pointer"
-              value={form.vendorId} 
-              onChange={e => handleSelectVendor(e.target.value)}
-            >
-              <option value="">-- Select Registered Vendor (Auto-fills payee, TIN & WHT Category) --</option>
-              {isVendorsLoading ? <option>Loading vendors...</option> : vendors.map(v => (
-                <option key={v.id} value={v.id}>{v.name} (TIN: {v.tin || 'N/A'})</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Payee Info */}
-          <div>
-            <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">
-              PAYEE INFORMATION
-            </label>
-            <input 
-              required 
-              className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-emerald-500" 
-              placeholder="Official Name of Recipient / Company" 
-              value={form.payee} 
-              onChange={e => setForm({...form, payee: e.target.value})} 
+            <SearchableAccountSelect 
+              value={form.creditAccountId}
+              onChange={val => setForm(prev => ({ ...prev, creditAccountId: val }))}
+              coa={coa.filter(a => a.category === 'ASSETS')}
+              isCoaLoading={isCoaLoading}
+              placeholder="Search Bank/Cash Funding Source..."
             />
           </div>
 
-          {/* Detailed Narration */}
+          {/* Master Narration */}
           <div>
             <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">
-              DETAILED NARRATION
+              MASTER PV NARRATION / PURPOSE
             </label>
             <textarea 
-              className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 h-24"
-              placeholder="Detailed justification for disbursement (Reference supplier invoice numbers, GRN tags, or contract memos)..." 
+              className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 h-20"
+              placeholder="Detailed purpose for disbursement (e.g. Clinical Night-Shift Allowances, Doctor Locum Batch, Board Sitting Fees)..." 
               value={form.narration} 
               onChange={e => setForm({...form, narration: e.target.value})} 
             />
           </div>
+
+          {/* ======================================================== */}
+          {/* A. SINGLE PAYEE MODE                                     */}
+          {/* ======================================================== */}
+          {disbursementMode === 'SINGLE' ? (
+            <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+              {/* Expenditure Ledger (Debit) */}
+              <div>
+                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">
+                  EXPENDITURE / ASSET LEDGER (DEBIT)
+                </label>
+                <SearchableAccountSelect 
+                  value={form.debitAccountId}
+                  onChange={val => setForm(prev => ({ ...prev, debitAccountId: val }))}
+                  coa={coa.filter(a => ['EXPENSES', 'ASSETS'].includes(a.category))}
+                  isCoaLoading={isCoaLoading}
+                  placeholder="Search Expenditure Ledger..."
+                />
+              </div>
+
+              {/* Registered Vendor Sync */}
+              <div>
+                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">
+                  REGISTERED VENDOR SYNC (OPTIONAL)
+                </label>
+                <select 
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 outline-none cursor-pointer"
+                  value={form.vendorId} 
+                  onChange={e => handleSelectVendor(e.target.value)}
+                >
+                  <option value="">-- Select Registered Vendor (Auto-fills payee, TIN & WHT Category) --</option>
+                  {isVendorsLoading ? <option>Loading vendors...</option> : vendors.map(v => (
+                    <option key={v.id} value={v.id}>{v.name} (TIN: {v.tin || 'N/A'})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Payee Info */}
+              <div>
+                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">
+                  PAYEE INFORMATION
+                </label>
+                <input 
+                  required 
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-emerald-500" 
+                  placeholder="Official Name of Recipient / Company" 
+                  value={form.payee} 
+                  onChange={e => setForm({...form, payee: e.target.value})} 
+                />
+              </div>
+            </div>
+          ) : (
+            /* ======================================================== */
+            /* B. BATCH MULTI-PAYEE DATA GRID                           */
+            /* ======================================================== */
+            <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+              
+              {/* Batch Action Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900 p-3.5 rounded-xl">
+                <div>
+                  <h4 className="text-xs font-black uppercase text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                    <span>Payee Allowance & Locum Schedule</span>
+                    <span className="px-2 py-0.5 rounded bg-indigo-600 text-white text-[9px] font-mono font-bold">
+                      {batchPayees.length} Payees
+                    </span>
+                  </h4>
+                  <p className="text-[10px] text-indigo-700 dark:text-indigo-300">
+                    Supports individual departmental cost centers and row-level statutory tax deductions
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="file" 
+                    ref={csvInputRef} 
+                    accept=".csv,.txt"
+                    onChange={handleCsvBulkUpload} 
+                    className="hidden" 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => csvInputRef.current?.click()}
+                    className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 text-indigo-700 dark:text-indigo-300 text-xs font-black uppercase rounded-lg border border-indigo-300 dark:border-indigo-800 flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>BULK UPLOAD CSV</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAddBatchRow}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase rounded-lg transition-all shadow flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>+ ADD PAYEE ROW</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Dynamic Payee Interactive Grid */}
+              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-900 text-white uppercase text-[9px] tracking-wider">
+                    <tr>
+                      <th className="p-3">Payee & Staff ID</th>
+                      <th className="p-3">Cost Center (Debit GL)</th>
+                      <th className="p-3 text-right">Gross (GHS)</th>
+                      <th className="p-3">Tax Status</th>
+                      <th className="p-3 text-right">WHT (GHS)</th>
+                      <th className="p-3 text-right">Net Payable</th>
+                      <th className="p-3 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                    {batchPayees.map((row) => (
+                      <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                        <td className="p-3">
+                          <input 
+                            type="text" 
+                            placeholder="Staff Name"
+                            value={row.payeeName}
+                            onChange={e => handleUpdateBatchRow(row.id, 'payeeName', e.target.value)}
+                            className="w-full p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-bold outline-none"
+                          />
+                          <input 
+                            type="text" 
+                            placeholder="Staff ID (e.g. GAM/STF/004)"
+                            value={row.staffId}
+                            onChange={e => handleUpdateBatchRow(row.id, 'staffId', e.target.value)}
+                            className="w-full p-1 bg-transparent text-[10px] font-mono text-slate-500 outline-none mt-1"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <select
+                            value={row.department}
+                            onChange={e => handleUpdateBatchRow(row.id, 'department', e.target.value)}
+                            className="w-full p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-bold outline-none cursor-pointer"
+                          >
+                            <option value="OPD Clinical">5105 - OPD Staff Allowances</option>
+                            <option value="Maternity Ward">5110 - Maternity Clinical Allowances</option>
+                            <option value="Central Laboratory">5115 - Lab Night Shift Float</option>
+                            <option value="Surgery Theatre">5120 - Visiting Locum Fees</option>
+                            <option value="Administration">5100 - General Staff Allowances</option>
+                          </select>
+                        </td>
+                        <td className="p-3 text-right">
+                          <input 
+                            type="number" 
+                            step="0.01"
+                            value={row.grossAmount || ''}
+                            onChange={e => handleUpdateBatchRow(row.id, 'grossAmount', parseFloat(e.target.value) || 0)}
+                            className="w-24 p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono font-black text-right outline-none"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <select
+                            value={row.whtRate}
+                            onChange={e => handleUpdateBatchRow(row.id, 'whtRate', parseFloat(e.target.value))}
+                            className="p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-bold outline-none cursor-pointer"
+                          >
+                            <option value={0}>0% Exempt (Staff Allowances)</option>
+                            <option value={0.03}>3% WHT (Locum Service)</option>
+                            <option value={0.075}>7.5% WHT (External Consultant)</option>
+                            <option value={0.15}>15% WHT (Non-Resident)</option>
+                          </select>
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-amber-600">
+                          ₵ {row.whtAmount.toFixed(2)}
+                        </td>
+                        <td className="p-3 text-right font-mono font-black text-emerald-600">
+                          ₵ {row.netPayable.toFixed(2)}
+                        </td>
+                        <td className="p-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBatchRow(row.id)}
+                            className="text-rose-500 hover:text-rose-700 text-xs font-black uppercase p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950 cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {/* Grid Summary Footer */}
+                  <tfoot className="bg-slate-900 text-white font-black text-xs uppercase">
+                    <tr>
+                      <td colSpan={2} className="p-3">BATCH TOTALS ({batchMetrics.payeeCount} PAYEES)</td>
+                      <td className="p-3 text-right font-mono">₵ {batchMetrics.totalGross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="p-3 text-slate-400 text-[10px]">TOTAL WHT</td>
+                      <td className="p-3 text-right font-mono text-amber-400">₵ {batchMetrics.totalWht.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="p-3 text-right font-mono text-emerald-400 text-sm bg-slate-950">
+                        ₵ {batchMetrics.totalNet.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Supporting Voucher Package Upload Zone */}
           <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-800/40 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -548,7 +883,7 @@ export default function PaymentVoucherManager() {
                   VOUCHER PACKAGE & AUDIT PROOFS
                 </span>
                 <span className="text-[10px] font-bold text-slate-400">
-                  Attach scanned Invoices, GRNs, and Delivery Notes ({attachedFiles.length} attached)
+                  Attach signed memos, attendance sheets, or invoices ({attachedFiles.length} attached)
                 </span>
               </div>
             </div>
@@ -570,82 +905,141 @@ export default function PaymentVoucherManager() {
           </div>
         </div>
 
-        {/* Right Pane: GRA Tax Engine & Calculation Card (4 Cols) */}
+        {/* Right Pane: Adaptive GRA Tax Engine & Calculation Card (4 Cols) */}
         <div className="lg:col-span-4 bg-slate-950 p-6 md:p-8 rounded-2xl text-white shadow-xl space-y-6 border border-slate-800">
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <h3 className="text-xs font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2">
-              <Calculator className="w-4 h-4" /> GRA STATUTORY TAX ENGINE
+              <Calculator className="w-4 h-4" /> 
+              {disbursementMode === 'SINGLE' ? 'GRA STATUTORY TAX ENGINE' : 'BATCH SETTLEMENT TELEMETRY'}
             </h3>
             <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase rounded border border-emerald-500/30">
-              GRA COMPLIANT
+              {disbursementMode === 'SINGLE' ? '1-TO-1 MATCH' : 'MULTI-LEG SPLIT'}
             </span>
           </div>
 
-          <div className="space-y-4 text-xs">
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
-                Gross Amount (GHS)
-              </label>
-              <input 
-                type="number" 
-                step="0.01"
-                className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white font-black text-2xl font-mono outline-none focus:ring-2 focus:ring-emerald-500"
-                value={form.grossAmount || ''} 
-                onChange={e => setForm({...form, grossAmount: parseFloat(e.target.value) || 0})} 
-              />
-            </div>
-
-            {/* VAT Checkbox */}
-            <div 
-              onClick={() => setForm({...form, applyVat: !form.applyVat})}
-              className="flex items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-xl cursor-pointer hover:bg-slate-800/60 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <input type="checkbox" checked={form.applyVat} readOnly className="w-4 h-4 accent-emerald-500 cursor-pointer" />
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-200">Apply VAT + Levies (21.9%)</span>
+          {disbursementMode === 'SINGLE' ? (
+            /* Single Payee Calculation Mode */
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
+                  Gross Amount (GHS)
+                </label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white font-black text-2xl font-mono outline-none focus:ring-2 focus:ring-emerald-500"
+                  value={form.grossAmount || ''} 
+                  onChange={e => setForm({...form, grossAmount: parseFloat(e.target.value) || 0})} 
+                />
               </div>
-              <Info className="w-4 h-4 text-slate-500" />
-            </div>
 
-            {/* WHT Dropdown */}
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
-                WHT Category (Ghana Tax Law)
-              </label>
-              <select 
-                className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white font-bold text-xs outline-none cursor-pointer"
-                value={form.whtRate}
-                onChange={e => {
-                  const selected = WHT_RATES.find(r => r.rate === parseFloat(e.target.value));
-                  setForm({...form, whtRate: parseFloat(e.target.value), whtLabel: selected?.label || ''});
-                }}
+              {/* VAT Checkbox */}
+              <div 
+                onClick={() => setForm({...form, applyVat: !form.applyVat})}
+                className="flex items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-xl cursor-pointer hover:bg-slate-800/60 transition-colors"
               >
-                {WHT_RATES.map((w, i) => (
-                  <option key={i} value={w.rate} className="bg-slate-900 text-white">{w.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" checked={form.applyVat} readOnly className="w-4 h-4 accent-emerald-500 cursor-pointer" />
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-200">Apply VAT + Levies (21.9%)</span>
+                </div>
+                <Info className="w-4 h-4 text-slate-500" />
+              </div>
 
-          {/* Tax Calculation Breakdown */}
-          <div className="pt-4 space-y-2 border-t border-slate-800 font-mono text-xs">
-            <div className="flex justify-between text-slate-400">
-              <span className="font-sans text-[10px] uppercase font-bold">Base Gross Amount</span>
-              <span>GHS {form.grossAmount.toFixed(2)}</span>
+              {/* WHT Dropdown */}
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
+                  WHT Category (Ghana Tax Law)
+                </label>
+                <select 
+                  className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white font-bold text-xs outline-none cursor-pointer"
+                  value={form.whtRate}
+                  onChange={e => {
+                    const selected = WHT_RATES.find(r => r.rate === parseFloat(e.target.value));
+                    setForm({...form, whtRate: parseFloat(e.target.value), whtLabel: selected?.label || ''});
+                  }}
+                >
+                  {WHT_RATES.map((w, i) => (
+                    <option key={i} value={w.rate} className="bg-slate-900 text-white">{w.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Financial Calculation Breakdown */}
+              <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800/80 space-y-2.5 font-mono text-xs">
+                <div className="flex justify-between text-slate-400">
+                  <span>Gross Invoice:</span>
+                  <span>₵ {form.grossAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                {form.applyVat && (
+                  <div className="flex justify-between text-indigo-400">
+                    <span>+ VAT Component (21.9%):</span>
+                    <span>₵ {vatAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-amber-400">
+                  <span>- GRA Withholding Tax ({(form.whtRate * 100).toFixed(1)}%):</span>
+                  <span>(₵ {whtAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+                </div>
+                <div className="border-t border-slate-800 pt-2 flex justify-between text-emerald-400 font-black text-sm">
+                  <span>NET PAYABLE TO PAYEE:</span>
+                  <span>₵ {netAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-between text-slate-400">
-              <span className="font-sans text-[10px] uppercase font-bold">VAT + Statutory Levies</span>
-              <span>+ GHS {vatAmount.toFixed(2)}</span>
+          ) : (
+            /* Batch Multi-Payee Telemetry Mode */
+            <div className="space-y-4 text-xs">
+              <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-3">
+                <div className="flex justify-between items-center text-slate-400">
+                  <span>Total Payees in Batch:</span>
+                  <span className="font-mono font-bold text-white text-sm">{batchMetrics.payeeCount} Staff / Locums</span>
+                </div>
+
+                <div className="flex justify-between items-center text-slate-400">
+                  <span>Total Gross Batch Value:</span>
+                  <span className="font-mono font-bold text-white text-sm">
+                    ₵ {batchMetrics.totalGross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center text-amber-400">
+                  <span>Total GRA WHT Withheld:</span>
+                  <span className="font-mono font-bold text-sm">
+                    (₵ {batchMetrics.totalWht.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                  </span>
+                </div>
+
+                <div className="border-t border-slate-800 pt-3 flex justify-between items-center text-emerald-400 font-black text-base">
+                  <span>NET BANK CASH OUTFLOW:</span>
+                  <span className="font-mono">
+                    ₵ {batchMetrics.totalNet.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Double-Entry Multi-Leg Balance Proof */}
+              <div className="p-3.5 bg-slate-900/60 border border-slate-800 rounded-xl space-y-2">
+                <div className="flex items-center justify-between text-[10px] font-black uppercase text-slate-400">
+                  <span>Double-Entry Proof</span>
+                  <span className="text-emerald-400">100% BALANCED</span>
+                </div>
+                <div className="text-[11px] font-mono text-slate-300 space-y-1">
+                  <div className="flex justify-between">
+                    <span>DR: Cost Centers (Total OPEX)</span>
+                    <span className="text-indigo-400">₵ {batchMetrics.totalGross.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>CR: GRA WHT Liability (Account 2120)</span>
+                    <span className="text-amber-400">₵ {batchMetrics.totalWht.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>CR: Bank Ledger ({selectedCreditAccount?.accountCode || '1001'})</span>
+                    <span className="text-emerald-400">₵ {batchMetrics.totalNet.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-between text-rose-400">
-              <span className="font-sans text-[10px] uppercase font-bold">Less: WHT ({form.whtLabel.split('(')[1] || '0%)'})</span>
-              <span>- GHS {whtAmount.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-xl font-black text-white pt-2 border-t border-slate-800">
-              <span className="font-sans text-xs uppercase tracking-wider">Net Amount Payable</span>
-              <span className="text-emerald-400">GHS {netAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
-          </div>
+          )}
 
           {/* PREVIEW DOUBLE-ENTRY JOURNAL BUTTON */}
           <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/80">
@@ -662,26 +1056,47 @@ export default function PaymentVoucherManager() {
 
             {showJvPreview && (
               <div className="p-3 border-t border-slate-800 font-mono text-[10px] space-y-1.5 bg-slate-950 text-slate-300">
-                <div className="flex justify-between text-emerald-400 font-bold">
-                  <span>DR {selectedDebitAccount?.accountCode || '4001'} - {selectedDebitAccount?.name || 'Expenditure Ledger'}</span>
-                  <span>GHS {form.grossAmount.toFixed(2)}</span>
-                </div>
-                {form.applyVat && (
-                  <div className="flex justify-between text-emerald-400 font-bold">
-                    <span>DR 2004 - Input VAT Receivable</span>
-                    <span>GHS {vatAmount.toFixed(2)}</span>
-                  </div>
+                {disbursementMode === 'SINGLE' ? (
+                  <>
+                    <div className="flex justify-between text-emerald-400 font-bold">
+                      <span>DR {selectedDebitAccount?.accountCode || '4001'} - {selectedDebitAccount?.name || 'Expenditure Ledger'}</span>
+                      <span>GHS {form.grossAmount.toFixed(2)}</span>
+                    </div>
+                    {form.applyVat && (
+                      <div className="flex justify-between text-emerald-400 font-bold">
+                        <span>DR 2004 - Input VAT Receivable</span>
+                        <span>GHS {vatAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {whtAmount > 0 && (
+                      <div className="flex justify-between text-rose-400 font-bold">
+                        <span>CR 2120 - GRA WHT Payable</span>
+                        <span>GHS {whtAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-slate-100 font-black border-t border-slate-800 pt-1">
+                      <span>CR {selectedCreditAccount?.accountCode || '1001'} - {selectedCreditAccount?.name || 'Bank Account'}</span>
+                      <span>GHS {netAmount.toFixed(2)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between text-emerald-400 font-bold">
+                      <span>DR 5100 - Departmental Allowances & Locum Cost Centers</span>
+                      <span>GHS {batchMetrics.totalGross.toFixed(2)}</span>
+                    </div>
+                    {batchMetrics.totalWht > 0 && (
+                      <div className="flex justify-between text-rose-400 font-bold">
+                        <span>CR 2120 - GRA Withholding Tax Payable</span>
+                        <span>GHS {batchMetrics.totalWht.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-slate-100 font-black border-t border-slate-800 pt-1">
+                      <span>CR {selectedCreditAccount?.accountCode || '1001'} - {selectedCreditAccount?.name || 'Bank Funding Account'}</span>
+                      <span>GHS {batchMetrics.totalNet.toFixed(2)}</span>
+                    </div>
+                  </>
                 )}
-                {whtAmount > 0 && (
-                  <div className="flex justify-between text-rose-400 font-bold">
-                    <span>CR 2005 - GRA WHT Payable</span>
-                    <span>GHS {whtAmount.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-slate-100 font-black border-t border-slate-800 pt-1">
-                  <span>CR {selectedCreditAccount?.accountCode || '1001'} - {selectedCreditAccount?.name || 'Bank Account'}</span>
-                  <span>GHS {netAmount.toFixed(2)}</span>
-                </div>
               </div>
             )}
           </div>
@@ -690,7 +1105,7 @@ export default function PaymentVoucherManager() {
           <button
             type="button"
             onClick={handleAuthorizePayment}
-            disabled={processing}
+            disabled={processing || effectiveNet <= 0}
             className={`w-full py-4 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
               isOverBudget ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'
             }`}
@@ -705,7 +1120,7 @@ export default function PaymentVoucherManager() {
             ) : (
               <>
                 <Save className="w-4 h-4" />
-                <span>SEND PV FOR APPROVAL (MAKER-CHECKER)</span>
+                <span>{disbursementMode === 'SINGLE' ? 'SEND PV FOR APPROVAL (MAKER-CHECKER)' : `AUTHORIZE BATCH PV (${batchMetrics.payeeCount} PAYEES)`}</span>
               </>
             )}
           </button>
