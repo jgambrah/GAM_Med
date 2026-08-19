@@ -1174,20 +1174,30 @@ export default function PaymentVoucherManager() {
               <div className="p-3.5 bg-slate-900/60 border border-slate-800 rounded-xl space-y-2">
                 <div className="flex items-center justify-between text-[10px] font-black uppercase text-slate-400">
                   <span>Double-Entry Proof</span>
-                  <span className="text-emerald-400">100% BALANCED</span>
+                  <span className={selectedCreditAccount ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                    {selectedCreditAccount ? "100% BALANCED" : "⚠️ AWAITING BANK SELECTION"}
+                  </span>
                 </div>
                 <div className="text-[11px] font-mono text-slate-300 space-y-1">
                   <div className="flex justify-between">
-                    <span>DR: Cost Centers (Total OPEX)</span>
+                    <span>DR: Departmental Cost Centers (OPEX)</span>
                     <span className="text-indigo-400">₵ {batchMetrics.totalGross.toFixed(2)}</span>
                   </div>
+                  {batchMetrics.totalWht > 0 && (
+                    <div className="flex justify-between">
+                      <span>CR: GRA WHT Liability (Account 2120)</span>
+                      <span className="text-amber-400">₵ {batchMetrics.totalWht.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
-                    <span>CR: GRA WHT Liability (Account 2120)</span>
-                    <span className="text-amber-400">₵ {batchMetrics.totalWht.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>CR: Bank Ledger ({selectedCreditAccount?.accountCode || '1001'})</span>
-                    <span className="text-emerald-400">₵ {batchMetrics.totalNet.toFixed(2)}</span>
+                    <span>
+                      CR: {selectedCreditAccount 
+                        ? `Bank Ledger (${selectedCreditAccount.accountCode} - ${selectedCreditAccount.name})` 
+                        : '⚠️ Funding Account Unselected'}
+                    </span>
+                    <span className={selectedCreditAccount ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                      ₵ {batchMetrics.totalNet.toFixed(2)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1228,7 +1238,7 @@ export default function PaymentVoucherManager() {
                       </div>
                     )}
                     <div className="flex justify-between text-slate-100 font-black border-t border-slate-800 pt-1">
-                      <span>CR {selectedCreditAccount?.accountCode || '1001'} - {selectedCreditAccount?.name || 'Bank Account'}</span>
+                      <span>CR {selectedCreditAccount ? `${selectedCreditAccount.accountCode} - ${selectedCreditAccount.name}` : '⚠️ Select Funding Account'}</span>
                       <span>GHS {netAmount.toFixed(2)}</span>
                     </div>
                   </>
@@ -1245,7 +1255,7 @@ export default function PaymentVoucherManager() {
                       </div>
                     )}
                     <div className="flex justify-between text-slate-100 font-black border-t border-slate-800 pt-1">
-                      <span>CR {selectedCreditAccount?.accountCode || '1001'} - {selectedCreditAccount?.name || 'Bank Funding Account'}</span>
+                      <span>CR {selectedCreditAccount ? `${selectedCreditAccount.accountCode} - ${selectedCreditAccount.name}` : '⚠️ Select Funding Account'}</span>
                       <span>GHS {batchMetrics.totalNet.toFixed(2)}</span>
                     </div>
                   </>
@@ -1258,13 +1268,22 @@ export default function PaymentVoucherManager() {
           <button
             type="button"
             onClick={handleAuthorizePayment}
-            disabled={processing || effectiveNet <= 0}
+            disabled={processing || effectiveNet <= 0 || !form.creditAccountId}
             className={`w-full py-4 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
-              isOverBudget ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'
+              !form.creditAccountId
+                ? 'bg-amber-600 hover:bg-amber-700'
+                : isOverBudget 
+                ? 'bg-rose-600 hover:bg-rose-700' 
+                : 'bg-emerald-600 hover:bg-emerald-700'
             }`}
           >
             {processing ? (
               <Loader2 className="w-4 h-4 animate-spin" />
+            ) : !form.creditAccountId ? (
+              <>
+                <AlertTriangle className="w-4 h-4" />
+                <span>SELECT BANK / FUNDING ACCOUNT (CREDIT)</span>
+              </>
             ) : isOverBudget ? (
               <>
                 <AlertTriangle className="w-4 h-4" />
