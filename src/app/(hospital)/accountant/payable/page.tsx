@@ -74,6 +74,44 @@ export default function AccountsPayablePage() {
   }, [firestore, hospitalId]);
   const { data: rawPayables, isLoading: arePayablesLoading } = useCollection<PayableItem>(payablesQuery);
 
+  // Helper to strictly identify statutory & payroll obligations
+  const isStatutoryItem = (p: any): boolean => {
+    const name = String(p.supplierName || p.vendorName || p.name || '').toLowerCase();
+    const cat = String(p.category || p.liabilityType || p.type || '').toUpperCase();
+    const code = String(p.accountCode || '').trim();
+
+    if (cat.includes('STATUTORY') || cat.includes('PAYROLL') || cat.includes('TAX') || cat.includes('PENSION')) return true;
+    if (code.startsWith('21')) return true;
+
+    const statutoryKeywords = [
+      'ssnit', 'gra', 'ghana revenue', 'revenue authority', 'salary', 'salaries', 'payroll',
+      'paye', 'withholding', 'wht', 'pension', 'provident', 'tier 1', 'tier 2', 'tier 3',
+      'staff net', 'trustees', 'income tax', 'vat withholding', 'staff payroll'
+    ];
+
+    return statutoryKeywords.some(kw => name.includes(kw));
+  };
+
+  // 1. Partition raw Firestore payables into Trade Payables vs Statutory Liabilities
+  const { tradePayableItems, rawStatutoryItems } = useMemo(() => {
+    if (!rawPayables || rawPayables.length === 0) {
+      return { tradePayableItems: [], rawStatutoryItems: [] };
+    }
+
+    const trade: PayableItem[] = [];
+    const stat: PayableItem[] = [];
+
+    rawPayables.forEach(item => {
+      if (isStatutoryItem(item)) {
+        stat.push(item);
+      } else {
+        trade.push(item);
+      }
+    });
+
+    return { tradePayableItems: trade, rawStatutoryItems: stat };
+  }, [rawPayables]);
+
   // Commercial Trade Payables Mock Data
   const mockTradePayables: VendorAgingRow[] = useMemo(() => [
     { vendorId: 'VND-001', vendorName: 'Ernest Chemists Ltd', category: 'PHARMACEUTICAL', current: 25000.00, days30: 15000.00, days60: 5000.00, days90Plus: 0.00, status: 'ACTIVE' },
@@ -85,83 +123,97 @@ export default function AccountsPayablePage() {
   ], []);
 
   // Statutory & Payroll Accrued Liabilities (Strict Regulatory Remittance Deadlines)
-  const statutoryLiabilities = useMemo(() => [
-    {
-      id: 'STAT-001',
-      obligationName: 'SSNIT Pension Fund (13.5% Tier 1 + 5% Tier 2)',
-      category: 'PENSION_STATUTORY',
-      beneficiary: 'Social Security and National Insurance Trust',
-      accruedAmount: 32488.39,
-      statutoryDeadline: '14th of Ensuing Month',
-      nextDueDate: '2026-09-14',
-      status: 'DUE_SOON',
-      penaltyRisk: 'HIGH_STATUTORY_FINE',
-      accountCode: '2110'
-    },
-    {
-      id: 'STAT-002',
-      obligationName: 'GRA Withholding Tax (3% WHT / 7.5% Services)',
-      category: 'TAX_STATUTORY',
-      beneficiary: 'Ghana Revenue Authority (Large Taxpayer Office)',
-      accruedAmount: 18950.45,
-      statutoryDeadline: '15th of Ensuing Month',
-      nextDueDate: '2026-09-15',
-      status: 'COMPLIANT',
-      penaltyRisk: 'MONTHLY_COMPOUND_INTEREST',
-      accountCode: '2120'
-    },
-    {
-      id: 'STAT-003',
-      obligationName: 'GRA PAYE (Pay-As-You-Earn Staff Income Tax)',
-      category: 'TAX_STATUTORY',
-      beneficiary: 'Ghana Revenue Authority (PAYE Division)',
-      accruedAmount: 45210.50,
-      statutoryDeadline: '15th of Ensuing Month',
-      nextDueDate: '2026-09-15',
-      status: 'DUE_SOON',
-      penaltyRisk: 'AUTOMATED_GRA_LEVY',
-      accountCode: '2125'
-    },
-    {
-      id: 'STAT-004',
-      obligationName: 'Staff Net Salaries Accrual (Clinical & Admin Payroll)',
-      category: 'PAYROLL_ACCRUAL',
-      beneficiary: 'GAM Med Clinical & Operational Staff (78 Personnel)',
-      accruedAmount: 205945.04,
-      statutoryDeadline: '28th of Current Month',
-      nextDueDate: '2026-08-28',
-      status: 'SCHEDULED_PAYROLL',
-      penaltyRisk: 'LABOR_DISPUTE_RISK',
-      accountCode: '2100'
-    },
-    {
-      id: 'STAT-005',
-      obligationName: 'Tier 3 Voluntary Provident Fund Trustees',
-      category: 'PENSION_STATUTORY',
-      beneficiary: 'Enterprise Trustees / Petra Trust (Tier 3 Master Trust)',
-      accruedAmount: 14500.00,
-      statutoryDeadline: '14th of Ensuing Month',
-      nextDueDate: '2026-09-14',
-      status: 'COMPLIANT',
-      penaltyRisk: 'TRUSTEE_SURCHARGE',
-      accountCode: '2115'
-    }
-  ], []);
+  const statutoryLiabilities = useMemo(() => {
+    const fallbackList = [
+      {
+        id: 'STAT-001',
+        obligationName: 'SSNIT Pension Fund (13.5% Tier 1 + 5% Tier 2)',
+        category: 'PENSION_STATUTORY',
+        beneficiary: 'Social Security and National Insurance Trust',
+        accruedAmount: 32488.39,
+        statutoryDeadline: '14th of Ensuing Month',
+        nextDueDate: '2026-09-14',
+        status: 'DUE_SOON',
+        penaltyRisk: 'HIGH_STATUTORY_FINE',
+        accountCode: '2110'
+      },
+      {
+        id: 'STAT-002',
+        obligationName: 'GRA Withholding Tax (3% WHT / 7.5% Services)',
+        category: 'TAX_STATUTORY',
+        beneficiary: 'Ghana Revenue Authority (Large Taxpayer Office)',
+        accruedAmount: 18950.45,
+        statutoryDeadline: '15th of Ensuing Month',
+        nextDueDate: '2026-09-15',
+        status: 'COMPLIANT',
+        penaltyRisk: 'MONTHLY_COMPOUND_INTEREST',
+        accountCode: '2120'
+      },
+      {
+        id: 'STAT-003',
+        obligationName: 'GRA PAYE (Pay-As-You-Earn Staff Income Tax)',
+        category: 'TAX_STATUTORY',
+        beneficiary: 'Ghana Revenue Authority (PAYE Division)',
+        accruedAmount: 45210.50,
+        statutoryDeadline: '15th of Ensuing Month',
+        nextDueDate: '2026-09-15',
+        status: 'DUE_SOON',
+        penaltyRisk: 'AUTOMATED_GRA_LEVY',
+        accountCode: '2125'
+      },
+      {
+        id: 'STAT-004',
+        obligationName: 'Staff Net Salaries Accrual (Clinical & Admin Payroll)',
+        category: 'PAYROLL_ACCRUAL',
+        beneficiary: 'GAM Med Clinical & Operational Staff (78 Personnel)',
+        accruedAmount: 205945.04,
+        statutoryDeadline: '28th of Current Month',
+        nextDueDate: '2026-08-28',
+        status: 'SCHEDULED_PAYROLL',
+        penaltyRisk: 'LABOR_DISPUTE_RISK',
+        accountCode: '2100'
+      },
+      {
+        id: 'STAT-005',
+        obligationName: 'Tier 3 Voluntary Provident Fund Trustees',
+        category: 'PENSION_STATUTORY',
+        beneficiary: 'Enterprise Trustees / Petra Trust (Tier 3 Master Trust)',
+        accruedAmount: 14500.00,
+        statutoryDeadline: '14th of Ensuing Month',
+        nextDueDate: '2026-09-14',
+        status: 'COMPLIANT',
+        penaltyRisk: 'TRUSTEE_SURCHARGE',
+        accountCode: '2115'
+      }
+    ];
 
-  // Aggregate Raw Payables into Vendor Aging Rows (Commercial Vendors only)
+    if (!rawStatutoryItems || rawStatutoryItems.length === 0) return fallbackList;
+
+    return rawStatutoryItems.map((p: any, idx: number) => ({
+      id: p.id || `STAT-00${idx + 1}`,
+      obligationName: p.supplierName || p.vendorName || 'Statutory Obligation',
+      category: 'STATUTORY_PAYROLL',
+      beneficiary: p.supplierName?.toLowerCase().includes('ssnit') ? 'Social Security and National Insurance Trust' : (p.supplierName?.toLowerCase().includes('gra') || p.supplierName?.toLowerCase().includes('revenue') ? 'Ghana Revenue Authority' : 'Hospital Payroll Clearing'),
+      accruedAmount: Number(p.amountOwed || 0),
+      statutoryDeadline: p.supplierName?.toLowerCase().includes('ssnit') ? '14th of Ensuing Month' : (p.supplierName?.toLowerCase().includes('gra') ? '15th of Ensuing Month' : '28th of Current Month'),
+      nextDueDate: p.dueDate || '2026-09-15',
+      status: 'DUE_SOON',
+      penaltyRisk: 'STATUTORY_INTEREST_AND_FINES',
+      accountCode: p.accountCode || (p.supplierName?.toLowerCase().includes('ssnit') ? '2110' : (p.supplierName?.toLowerCase().includes('gra') ? '2120' : '2100'))
+    }));
+  }, [rawStatutoryItems]);
+
+  // Aggregate Raw Payables into Vendor Aging Rows (Strict Commercial Vendors Only)
   const apData: VendorAgingRow[] = useMemo(() => {
-    if (!rawPayables || rawPayables.length === 0) return mockTradePayables;
+    if (tradePayableItems.length === 0 && (!rawPayables || rawPayables.length === 0)) {
+      return mockTradePayables;
+    }
 
     const map = new Map<string, VendorAgingRow>();
     const now = new Date('2026-08-14');
 
-    rawPayables.forEach((p: any) => {
+    tradePayableItems.forEach((p: any) => {
       const vName = p.supplierName || 'Unknown Supplier';
-      // Filter out statutory lines from trade payables matrix
-      if (vName.toLowerCase().includes('ssnit') || vName.toLowerCase().includes('gra') || vName.toLowerCase().includes('salary')) {
-        return;
-      }
-
       const vId = p.supplierId || `VND-${vName.replace(/\s+/g, '-').toUpperCase()}`;
 
       if (!map.has(vId)) {
@@ -193,7 +245,7 @@ export default function AccountsPayablePage() {
     });
 
     return Array.from(map.values());
-  }, [rawPayables, mockTradePayables]);
+  }, [tradePayableItems, rawPayables, mockTradePayables]);
 
   const filteredApData = useMemo(() => {
     if (!searchQuery.trim()) return apData;
@@ -201,7 +253,7 @@ export default function AccountsPayablePage() {
     return apData.filter(r => r.vendorName.toLowerCase().includes(q) || r.vendorId.toLowerCase().includes(q));
   }, [apData, searchQuery]);
 
-  // Header & Footer Totals for Trade Payables
+  // Header & Footer Totals for Commercial Trade Payables ONLY
   const totals = useMemo(() => {
     return apData.reduce((acc, row) => {
       const rowSum = row.current + row.days30 + row.days60 + row.days90Plus;
@@ -215,7 +267,7 @@ export default function AccountsPayablePage() {
     }, { current: 0, days30: 0, days60: 0, days90Plus: 0, total: 0 });
   }, [apData]);
 
-  // Total Statutory & Payroll Liabilities
+  // Total Statutory & Payroll Liabilities ONLY
   const totalStatutory = useMemo(() => {
     return statutoryLiabilities.reduce((sum, item) => sum + item.accruedAmount, 0);
   }, [statutoryLiabilities]);
@@ -640,23 +692,23 @@ export default function AccountsPayablePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-bold">
-              {rawPayables && rawPayables.length > 0 ? (
-                rawPayables.map((p) => (
+              {tradePayableItems && tradePayableItems.length > 0 ? (
+                tradePayableItems.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                     <td className="p-4 pl-6">
                       <p className="font-black text-slate-900 dark:text-slate-100 uppercase">{p.supplierName}</p>
                       <span className="text-[9px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
-                        REF: {p.grnNumber}
+                        REF: {p.grnNumber || `GRN-2026-${p.id.slice(-4).toUpperCase()}`}
                       </span>
                     </td>
                     <td className="p-4 font-mono text-slate-500">
                       {p.createdAt?.toDate ? format(p.createdAt.toDate(), 'PPP') : 'Recent'}
                     </td>
                     <td className="p-4 font-mono text-amber-600 font-bold">
-                      Active Bill
+                      Active Supplier Bill
                     </td>
                     <td className="p-4 text-right font-mono font-black text-rose-600 text-sm">
-                      ₵ {p.amountOwed.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      ₵ {p.amountOwed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="p-4 pr-6 text-center">
                       <div className="flex items-center justify-center gap-2">
@@ -670,14 +722,14 @@ export default function AccountsPayablePage() {
                               baseAmount: p.amountOwed / 1.189
                             });
                           }}
-                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-black text-[9px] uppercase rounded-lg border border-slate-700"
+                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-black text-[9px] uppercase rounded-lg border border-slate-700 cursor-pointer"
                         >
                           3-WAY MATCH
                         </button>
                         <button
                           type="button"
                           onClick={() => handleRaisePV(p.supplierName, 'ACTIVE', p.amountOwed)}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase rounded-lg shadow"
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase rounded-lg shadow cursor-pointer"
                         >
                           GENERATE PV
                         </button>
@@ -688,7 +740,7 @@ export default function AccountsPayablePage() {
               ) : (
                 <tr>
                   <td colSpan={5} className="p-16 text-center text-slate-400 italic">
-                    All supplier invoices are currently reconciled and synced to General Ledger.
+                    All commercial supplier invoices are currently reconciled and synced to General Ledger.
                   </td>
                 </tr>
               )}
