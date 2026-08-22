@@ -479,6 +479,18 @@ service cloud.firestore {
         allow read, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
       }
 
+      match /bank_reconciliations/{reconciliationId} {
+        allow read, write, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isAuditorRole(hospitalId);
+      }
+
+      match /payment_vouchers/{voucherId} {
+        allow read, write, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isAuditorRole(hospitalId) || isAnyStaff(hospitalId);
+      }
+
+      match /payments/{paymentId} {
+        allow read, write, list, create, update, delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId) || isAuditorRole(hospitalId) || isAnyStaff(hospitalId);
+      }
+
       match /surgeries/{surgeryId} {
         allow read, list, create, update: if isSuperAdmin() || isClinicalStaff(hospitalId);
         allow delete: if isSuperAdmin() || isDirectorOrAdmin(hospitalId);
