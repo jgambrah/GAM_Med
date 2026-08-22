@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, doc, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
 import { 
   Landmark, FileText, Printer, Loader2, ShieldAlert, ShieldCheck, 
   ChevronDown, ChevronRight, Trash2, Download, CheckCircle2, Building2,
   Calendar, Filter, Receipt, FileSpreadsheet, Lock, Mail, ExternalLink,
-  Sparkles, Check, X, Ban, ArrowRight, Eye, Layers
+  Sparkles, Check, X, Ban, ArrowRight, Eye, Layers, FileSearch, RefreshCw,
+  Info, AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -49,10 +50,13 @@ export default function InstitutionalSchedule() {
   const { toast } = useToast();
 
   const [selectedPayerId, setSelectedPayerId] = useState<string>('payer-glico');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  
+  // Smart Default Dates: Current Month Pre-Populated
+  const [startDate, setStartDate] = useState<string>(() => format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState<string>(() => format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  
   const [excludedClaimIds, setExcludedClaimIds] = useState<Set<string>>(new Set());
-  const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set(['James Gambrah_GLC-884920']));
+  const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set(['James Gambrah_GLC-884920', 'Prof. Kwabena Asante_KNUST-MED-0921']));
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   
   // Invoice Generated Modal
@@ -82,13 +86,25 @@ export default function InstitutionalSchedule() {
   }, [firestore, hospitalId]);
   const { data: rawPayers, isLoading: payersLoading } = useCollection(payersQuery);
 
+  // Comprehensive Institutional Payers Roster
   const demoPayers = useMemo(() => [
     { id: 'payer-glico', name: 'GLICO Healthcare Ltd', email: 'claims@glicohealthcare.com' },
-    { id: 'payer-acacia', name: 'Acacia Health Insurance', email: 'finance@acacia.com.gh' },
+    { id: 'payer-nhia', name: 'National Health Insurance Authority (NHIA)', email: 'provider.claims@nhia.gov.gh' },
+    { id: 'payer-knust', name: 'KNUST Staff Medical Scheme', email: 'medicalscheme@knust.edu.gh' },
+    { id: 'payer-acacia', name: 'Acacia Health Insurance Ltd', email: 'finance@acacia.com.gh' },
+    { id: 'payer-apex', name: 'Apex Health Mutual Scheme', email: 'provider.relations@apexhealth.com.gh' },
     { id: 'payer-enterprise', name: 'Enterprise Life Corporate', email: 'corporate.claims@enterprisegroup.com.gh' }
   ], []);
 
-  const payers = rawPayers && rawPayers.length > 0 ? rawPayers : demoPayers;
+  const payers = useMemo(() => {
+    if (!rawPayers || rawPayers.length === 0) return demoPayers;
+    const existingIds = new Set(rawPayers.map((p: any) => p.id));
+    const merged = [...rawPayers];
+    demoPayers.forEach(dp => {
+      if (!existingIds.has(dp.id)) merged.push(dp);
+    });
+    return merged;
+  }, [rawPayers, demoPayers]);
 
   // Fetch unpaid claims for the hospital (filtered in-memory to prevent composite index errors)
   const claimsQuery = useMemoFirebase(() => {
@@ -97,24 +113,62 @@ export default function InstitutionalSchedule() {
   }, [firestore, hospitalId]);
   const { data: rawClaims, isLoading: claimsLoading } = useCollection<ClaimItem>(claimsQuery);
 
-  // Demodata with enriched clinical line-items & itemization
+  // Comprehensive Multi-Payer Clinical Fallback Dataset
   const [localClaims, setLocalClaims] = useState<ClaimItem[]>([
+    // GLICO Claims
     { id: 'clm-001', payerId: 'payer-glico', patientName: 'James Gambrah', policyNumber: 'GLC-884920', department: 'Specialist OPD', serviceCode: 'MED-CNS-01', description: 'Internal Medicine Specialist Consultation', grossAmount: 350.00, copayAmount: 0.00, amount: 350.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-02') } },
     { id: 'clm-002', payerId: 'payer-glico', patientName: 'James Gambrah', policyNumber: 'GLC-884920', department: 'Laboratory & Diagnostics', serviceCode: 'LAB-FBC-09', description: 'Full Blood Count (FBC) & ICU Comprehensive Metabolic Panel', grossAmount: 450.00, copayAmount: 0.00, amount: 450.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-02') } },
     { id: 'clm-003', payerId: 'payer-glico', patientName: 'James Gambrah', policyNumber: 'GLC-884920', department: 'Central Pharmacy', serviceCode: 'PHM-IV-22', description: 'Ceftriaxone 1g IV Infusion & ICU Antibiotics Course', grossAmount: 450.00, copayAmount: 0.00, amount: 450.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-03') } },
     { id: 'clm-004', payerId: 'payer-glico', patientName: 'Abena Mensah', policyNumber: 'GLC-991204', department: 'Obstetrics & Gynaecology', serviceCode: 'OBS-ANC-04', description: 'Antenatal Ultrasound Doppler & Obstetric Consultation', grossAmount: 820.00, copayAmount: 0.00, amount: 820.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-05') } },
     { id: 'clm-005', payerId: 'payer-glico', patientName: 'Abena Mensah', policyNumber: 'GLC-991204', department: 'Laboratory & Diagnostics', serviceCode: 'LAB-OBS-12', description: 'Maternal Torch & Blood Group Screening Panel', grossAmount: 380.00, copayAmount: 0.00, amount: 380.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-05') } },
-    { id: 'clm-006', payerId: 'payer-glico', patientName: 'Kwame Nkrumah', policyNumber: 'GLC-771029', department: 'Main Surgical Theater', serviceCode: 'SUR-TH-01', description: 'Emergency Surgical Debridement & Sterile Dressing Pack', grossAmount: 1540.00, copayAmount: 0.00, amount: 1540.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-10') } }
+    { id: 'clm-006', payerId: 'payer-glico', patientName: 'Kwame Nkrumah', policyNumber: 'GLC-771029', department: 'Main Surgical Theater', serviceCode: 'SUR-TH-01', description: 'Emergency Surgical Debridement & Sterile Dressing Pack', grossAmount: 1540.00, copayAmount: 0.00, amount: 1540.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-10') } },
+    
+    // KNUST Staff Medical Scheme Claims
+    { id: 'clm-kn-01', payerId: 'payer-knust', patientName: 'Prof. Kwabena Asante', policyNumber: 'KNUST-MED-0921', department: 'Executive VIP Ward', serviceCode: 'EXE-VIP-01', description: 'VIP Inpatient Bed Care & Comprehensive Medical Workup', grossAmount: 4800.00, copayAmount: 0.00, amount: 4800.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-05') } },
+    { id: 'clm-kn-02', payerId: 'payer-knust', patientName: 'Prof. Kwabena Asante', policyNumber: 'KNUST-MED-0921', department: 'Cardiology Center', serviceCode: 'CRD-ECHO-02', description: 'Transthoracic Echocardiogram (2D Echo with Doppler)', grossAmount: 3700.00, copayAmount: 0.00, amount: 3700.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-06') } },
+    { id: 'clm-kn-03', payerId: 'payer-knust', patientName: 'Evelyn Addo', policyNumber: 'KNUST-MED-4481', department: 'Pharmacy & Infusion', serviceCode: 'PHM-INF-05', description: 'Chemotherapy Supportive Infusions & Central Pharmacy Dispense', grossAmount: 4200.00, copayAmount: 0.00, amount: 4200.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-08') } },
+
+    // NHIA Claims
+    { id: 'clm-nh-01', payerId: 'payer-nhia', patientName: 'Kwame Mensah', policyNumber: 'NHIS-84920194', department: 'Emergency & Triage', serviceCode: 'EMR-TRG-01', description: 'Emergency Triage, Resuscitation & Observation', grossAmount: 1850.00, copayAmount: 0.00, amount: 1850.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-04') } },
+    { id: 'clm-nh-02', payerId: 'payer-nhia', patientName: 'Abena Osei', policyNumber: 'NHIS-19402941', department: 'Maternity Ward', serviceCode: 'MAT-DEL-02', description: 'Spontaneous Vaginal Delivery & Postnatal Neonatal Care', grossAmount: 4200.00, copayAmount: 0.00, amount: 4200.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-07') } },
+
+    // APEX Health Claims
+    { id: 'clm-ap-01', payerId: 'payer-apex', patientName: 'Dr. Michael Taylor', policyNumber: 'APX-MUT-8842', department: 'Executive Health Check', serviceCode: 'EXE-SCR-01', description: 'Annual Executive Health Screening & Cardiac Stress Test', grossAmount: 3500.00, copayAmount: 350.00, amount: 3150.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-01') } },
+    { id: 'clm-ap-02', payerId: 'payer-apex', patientName: 'Esther Bruce', policyNumber: 'APX-MUT-3310', department: 'Orthopedic Surgery', serviceCode: 'ORT-SUR-04', description: 'Arthroscopic Knee Reconstruction & Post-Op Physical Rehab', grossAmount: 8500.00, copayAmount: 0.00, amount: 8500.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-09') } }
   ]);
 
+  // Active Payer Selection
+  const selectedPayerName = useMemo(() => {
+    const p = payers.find(p => p.id === selectedPayerId || p.name.toLowerCase().includes(selectedPayerId.replace('payer-', '')));
+    return p?.name || 'GLICO Healthcare Ltd';
+  }, [payers, selectedPayerId]);
+
+  // Combined Pool: Matches raw receivables or demo fallback matching selectedPayerId
   const claims = useMemo(() => {
     const pool = rawClaims && rawClaims.length > 0 ? rawClaims : localClaims;
-    return pool.filter(c => c.payerId === selectedPayerId);
-  }, [rawClaims, localClaims, selectedPayerId]);
+    return pool.filter(c => {
+      const matchPayer = c.payerId === selectedPayerId || 
+        (selectedPayerId.includes('knust') && (c.payerId?.includes('knust') || c.payerId?.includes('KNUST'))) ||
+        (selectedPayerId.includes('nhia') && (c.payerId?.includes('nhia') || c.payerId?.includes('NHIS') || c.payerId?.includes('NHIA'))) ||
+        (selectedPayerId.includes('glico') && (c.payerId?.includes('glico') || c.payerId?.includes('GLICO'))) ||
+        (selectedPayerId.includes('apex') && (c.payerId?.includes('apex') || c.payerId?.includes('APEX')));
 
-  const selectedPayerName = useMemo(() => {
-    return payers?.find(p => p.id === selectedPayerId)?.name || 'GLICO Healthcare Ltd';
-  }, [payers, selectedPayerId]);
+      if (!matchPayer) return false;
+      if (c.status !== 'UNPAID') return false;
+
+      // Date Filtering
+      if (startDate || endDate) {
+        let claimDate = new Date();
+        if (c.createdAt?.toDate) claimDate = c.createdAt.toDate();
+        else if (c.createdAt) claimDate = new Date(c.createdAt);
+
+        if (startDate && claimDate < new Date(`${startDate}T00:00:00`)) return false;
+        if (endDate && claimDate > new Date(`${endDate}T23:59:59`)) return false;
+      }
+
+      return true;
+    });
+  }, [rawClaims, localClaims, selectedPayerId, startDate, endDate]);
 
   // Active (included) claims
   const activeClaims = useMemo(() => {
@@ -182,10 +236,8 @@ export default function InstitutionalSchedule() {
     setExcludedClaimIds(prev => {
       const next = new Set(prev);
       if (areAllCurrentlyExcluded) {
-        // Re-include all
         allGroupClaimIds.forEach(id => next.delete(id));
       } else {
-        // Exclude all
         allGroupClaimIds.forEach(id => next.add(id));
       }
       return next;
@@ -201,7 +253,7 @@ export default function InstitutionalSchedule() {
     });
   };
 
-  const applyQuickDateFilter = (type: 'THIS_MONTH' | 'LAST_MONTH' | 'QUARTER') => {
+  const applyQuickDateFilter = (type: 'THIS_MONTH' | 'LAST_MONTH' | 'QUARTER' | 'ALL_TIME') => {
     const now = new Date();
     if (type === 'THIS_MONTH') {
       setStartDate(format(startOfMonth(now), 'yyyy-MM-dd'));
@@ -213,13 +265,20 @@ export default function InstitutionalSchedule() {
     } else if (type === 'QUARTER') {
       setStartDate(format(startOfQuarter(now), 'yyyy-MM-dd'));
       setEndDate(format(endOfQuarter(now), 'yyyy-MM-dd'));
+    } else if (type === 'ALL_TIME') {
+      setStartDate('');
+      setEndDate('');
     }
   };
 
   // Execute Rigorous State Machine & Generate Master Invoice
   const handleGenerateCorporateInvoice = async () => {
-    if (activeClaims.length === 0) {
-      toast({ variant: "destructive", title: "No Claims Selected", description: "All claims are currently excluded. Include at least 1 claim to generate an invoice." });
+    if (activeClaims.length === 0 || totalScheduleValue <= 0) {
+      toast({ 
+        variant: "destructive", 
+        title: "Defensive Check: Action Blocked", 
+        description: "Cannot generate an invoice with 0 active claims or ₵0.00 schedule value." 
+      });
       return;
     }
 
@@ -244,7 +303,7 @@ export default function InstitutionalSchedule() {
           billedBy: user?.uid || 'ACCOUNTANT',
           billedByName: userProfile?.fullName || 'Marcus Amosah Henaku',
           billedAt: serverTimestamp(),
-          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 Days Net Terms
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           period: format(new Date(), 'yyyy-MM')
         });
 
@@ -273,7 +332,7 @@ export default function InstitutionalSchedule() {
           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         }, { merge: true });
 
-        // 4. Post Double-Entry Journal Voucher (Debit AR 1200, Credit Unbilled Revenue 4050)
+        // 4. Post Double-Entry Journal Voucher
         const jvRef = doc(collection(firestore, `hospitals/${hospitalId}/journal_vouchers`));
         batch.set(jvRef, {
           jvNumber: `JV-${invoiceId}`,
@@ -281,7 +340,7 @@ export default function InstitutionalSchedule() {
           datePosted: serverTimestamp(),
           preparerId: user?.uid || 'ACCOUNTANT',
           preparerName: userProfile?.fullName || 'Marcus Amosah Henaku',
-          narration: `Corporate Master Invoice ${invoiceId} for ${selectedPayerName}. Total ${activeClaims.length} patient claims locked. Value: GHS ${totalScheduleValue.toFixed(2)}.`,
+          narration: `Corporate Master Invoice ${invoiceId} for ${selectedPayerName}. Total ${activeClaims.length} claims locked. Value: GHS ${totalScheduleValue.toFixed(2)}.`,
           status: 'POSTED',
           hospitalId,
           period: format(new Date(), 'yyyy-MM'),
@@ -294,12 +353,11 @@ export default function InstitutionalSchedule() {
         await batch.commit();
       }
 
-      // Update in-memory state so billed claims lock
+      // Update local state to mark claims BILLED
       setLocalClaims(prev => prev.map(c => 
-        !excludedClaimIds.has(c.id) ? { ...c, status: 'BILLED' as const } : c
+        !excludedClaimIds.has(c.id) && (c.payerId === selectedPayerId) ? { ...c, status: 'BILLED' as const } : c
       ));
 
-      // Trigger Confirmation Modal
       setGeneratedInvoiceModal({
         invoiceId,
         payerName: selectedPayerName,
@@ -322,8 +380,8 @@ export default function InstitutionalSchedule() {
   };
 
   const handleExportCSV = () => {
-    if (!groupedPatientClaims || groupedPatientClaims.length === 0) {
-      toast({ variant: "destructive", title: "No Data", description: "No corporate claims available to export." });
+    if (!groupedPatientClaims || groupedPatientClaims.length === 0 || activeClaims.length === 0) {
+      toast({ variant: "destructive", title: "Defensive Check", description: "No active corporate claims available to export." });
       return;
     }
 
@@ -388,6 +446,8 @@ export default function InstitutionalSchedule() {
   const pageIsLoading = isUserLoading || isProfileLoading;
   const userName = user?.displayName || userProfile?.name || 'MARCUS AMOSAH HENAKU';
   const userInitials = userName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || 'MH';
+
+  const hasZeroClaims = activeClaims.length === 0;
 
   if (pageIsLoading) {
     return (
@@ -463,7 +523,9 @@ export default function InstitutionalSchedule() {
             <div className="text-2xl font-black text-sky-400">
               {activeClaims.length} Claims
             </div>
-            <span className="text-[10px] font-bold text-emerald-400 mt-1 block">Ready for Corporate Billing</span>
+            <span className="text-[10px] font-bold text-emerald-400 mt-1 block">
+              {hasZeroClaims ? 'No Unbilled Claims' : 'Ready for Master Invoice'}
+            </span>
           </div>
 
           <div className="bg-slate-900 border border-rose-500/30 p-4 rounded-xl flex flex-col justify-between">
@@ -491,18 +553,25 @@ export default function InstitutionalSchedule() {
       {/* ========================================== */}
       <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="w-full md:w-72 space-y-1">
+          
+          {/* Payer Selector */}
+          <div className="w-full md:w-80 space-y-1">
             <label className="text-[10px] font-black uppercase text-slate-400 block">Select Corporate Insurer</label>
-            <Select onValueChange={setSelectedPayerId} defaultValue="payer-glico" disabled={payersLoading}>
+            <Select onValueChange={setSelectedPayerId} defaultValue={selectedPayerId} disabled={payersLoading}>
               <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-700 font-bold text-xs">
-                <SelectValue placeholder="Select Payer..." />
+                <SelectValue placeholder="Select Corporate Payer..." />
               </SelectTrigger>
               <SelectContent>
-                {payers?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                {payers.map(p => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
+          {/* Smart Pre-Populated Date Filter */}
           <div className="flex items-center gap-3">
             <div className="space-y-1">
               <label className="text-[10px] font-black uppercase text-slate-400 block">Start Date</label>
@@ -510,7 +579,7 @@ export default function InstitutionalSchedule() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+                className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 font-mono"
               />
             </div>
 
@@ -520,16 +589,21 @@ export default function InstitutionalSchedule() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+                className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 font-mono"
               />
             </div>
           </div>
 
-          <div className="flex items-center gap-2 pt-4 md:pt-0">
+          {/* Quick Date Presets */}
+          <div className="flex items-center gap-1.5 pt-4 md:pt-0">
             <button
               type="button"
               onClick={() => applyQuickDateFilter('THIS_MONTH')}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer ${
+                startDate === format(startOfMonth(new Date()), 'yyyy-MM-dd') && endDate === format(endOfMonth(new Date()), 'yyyy-MM-dd')
+                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow'
+                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+              }`}
             >
               This Month
             </button>
@@ -545,7 +619,14 @@ export default function InstitutionalSchedule() {
               onClick={() => applyQuickDateFilter('QUARTER')}
               className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer"
             >
-              Current Quarter
+              Quarter
+            </button>
+            <button
+              type="button"
+              onClick={() => applyQuickDateFilter('ALL_TIME')}
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer"
+            >
+              All Time
             </button>
           </div>
         </div>
@@ -565,19 +646,50 @@ export default function InstitutionalSchedule() {
             CORPORATE CLAIMS SCHEDULE & ITEMIZED CLINICAL SERVICES DOSSIER
           </p>
           <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-            GENERATED ON: {format(new Date(), 'dd MMMM yyyy - hh:mm a')} | FACILITY: GAM MED GENERAL HOSPITAL (ACC-092)
+            CYCLE: {startDate || 'START'} TO {endDate || 'END'} | GENERATED ON: {format(new Date(), 'dd MMMM yyyy - hh:mm a')} | FACILITY: GAM MED GENERAL HOSPITAL
           </p>
         </div>
 
         {claimsLoading ? (
           <div className="py-20 text-center">
             <Loader2 className="w-8 h-8 animate-spin mx-auto text-emerald-500 mb-2" />
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading corporate claims...</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading corporate claims schedule...</span>
           </div>
         ) : groupedPatientClaims.length === 0 ? (
-          <div className="p-16 text-center text-slate-400 italic">
-            No unbilled corporate claims found for {selectedPayerName}.
+          
+          /* Upgrade 3: Rich Guidance Empty State Card */
+          <div className="p-12 text-center bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 border border-emerald-200 dark:border-emerald-800/50 flex items-center justify-center mx-auto shadow-sm">
+              <FileSearch className="w-8 h-8" />
+            </div>
+            <div>
+              <h3 className="text-base font-black uppercase text-slate-900 dark:text-slate-100">
+                No Unbilled Claims Found for {selectedPayerName}
+              </h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
+                All patient visits for this corporate payer during the selected billing period (<strong>{startDate || 'All'}</strong> to <strong>{endDate || 'All'}</strong>) have either been locked into a Master Invoice or already cleared in the AR ledger.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => applyQuickDateFilter('ALL_TIME')}
+                className="rounded-xl text-xs font-bold uppercase"
+              >
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                Reset Date Filter to All Time
+              </Button>
+              <Button
+                onClick={() => router.push('/finance/receivables/ledger')}
+                className="bg-slate-900 text-white rounded-xl text-xs font-bold uppercase"
+              >
+                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                Inspect AR Aging Matrix
+              </Button>
+            </div>
           </div>
+
         ) : (
           <div className="space-y-4">
             {groupedPatientClaims.map(grp => {
@@ -630,7 +742,7 @@ export default function InstitutionalSchedule() {
                         ₵ {grp.totalPatientClaim.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
 
-                      {/* Upgrade 1: Direct Inclusion / Exclusion Toggle on Row */}
+                      {/* Direct Inclusion / Exclusion Toggle on Row */}
                       <div className="flex items-center gap-2 pl-3 border-l border-slate-200 dark:border-slate-700 print:hidden">
                         <label className="text-[10px] font-black uppercase text-slate-400 cursor-pointer">
                           {isEntireGroupExcluded ? 'Excluded' : 'Include'}
@@ -646,7 +758,7 @@ export default function InstitutionalSchedule() {
                     </div>
                   </div>
 
-                  {/* Upgrade 2: Itemized Clinical Services Drill-Down (Expanded View) */}
+                  {/* Itemized Clinical Services Drill-Down (Expanded View) */}
                   {isExpanded && (
                     <div className="border-t border-slate-200 dark:border-slate-800">
                       <table className="w-full text-xs text-left">
@@ -736,32 +848,41 @@ export default function InstitutionalSchedule() {
       </div>
 
       {/* ========================================== */}
-      {/* 4. FLOATING STICKY ACTION BAR              */}
+      {/* 4. DEFENSIVE FLOATING STICKY ACTION BAR    */}
       {/* ========================================== */}
       <div className="fixed bottom-6 right-6 left-6 md:left-auto md:w-auto z-40 bg-slate-950/90 backdrop-blur-md text-white p-4 rounded-2xl border border-slate-800 shadow-2xl flex flex-wrap items-center justify-end gap-3 print:hidden">
+        
+        {/* Defensive Export Button */}
         <button
           type="button"
           onClick={handleExportCSV}
-          className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer"
+          disabled={hasZeroClaims}
+          className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow"
+          title={hasZeroClaims ? 'No active claims to export' : 'Export schedule to Excel CSV'}
         >
           <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
           <span>Export to Excel (CSV)</span>
         </button>
 
+        {/* Defensive Print Button */}
         <button
           type="button"
           onClick={() => window.print()}
-          className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer"
+          disabled={hasZeroClaims}
+          className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow"
+          title={hasZeroClaims ? 'No active claims to print' : 'Print formal A4 schedule'}
         >
           <Printer className="w-4 h-4 text-sky-400" />
           <span>Print Schedule (A4)</span>
         </button>
 
+        {/* Defensive Master Invoice Generation Button */}
         <button
           type="button"
           onClick={handleGenerateCorporateInvoice}
-          disabled={isGeneratingInvoice || activeClaims.length === 0}
-          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-lg"
+          disabled={isGeneratingInvoice || hasZeroClaims || totalScheduleValue <= 0}
+          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-lg"
+          title={hasZeroClaims ? 'Cannot generate invoice with 0 claims' : 'Lock claims and generate Master AR invoice'}
         >
           {isGeneratingInvoice ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
           <span>GENERATE CORPORATE INVOICE</span>
