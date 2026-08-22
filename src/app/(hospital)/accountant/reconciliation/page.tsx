@@ -55,56 +55,56 @@ export default function BankReconciliation() {
   // 1. Fetch uncleared Payment Vouchers (Outflows)
   const pvQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
-    return query(
-      collection(firestore, `hospitals/${hospitalId}/payment_vouchers`),
-      where("reconciled", "!=", true)
-    );
+    return collection(firestore, `hospitals/${hospitalId}/payment_vouchers`);
   }, [firestore, hospitalId]);
-  const { data: unpaidPVs, isLoading: pvsLoading } = useCollection(pvQuery);
+  const { data: rawPVs, isLoading: pvsLoading } = useCollection(pvQuery);
 
   // 2. Fetch uncleared Patient Payments (Inflows)
   const paymentsQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
-    return query(
-      collection(firestore, `hospitals/${hospitalId}/payments`),
-      where("reconciled", "!=", true)
-    );
+    return collection(firestore, `hospitals/${hospitalId}/payments`);
   }, [firestore, hospitalId]);
   const { data: rawPayments, isLoading: paymentsLoading } = useCollection(paymentsQuery);
 
   const demoOutflows = useMemo(() => [
-    { id: 'pv-101', docType: 'OUTFLOW' as const, reference: 'PV-0045', name: 'Acorn Pharma Distributors', amount: -4500.00, date: new Date('2026-08-10') },
-    { id: 'pv-102', docType: 'OUTFLOW' as const, reference: 'PV-0048', name: 'Perkins Generator Service', amount: -1250.00, date: new Date('2026-08-11') },
+    { id: 'pv-101', firestoreId: 'pv-101', isDemo: true, docType: 'OUTFLOW' as const, reference: 'PV-0045', name: 'Acorn Pharma Distributors', amount: -4500.00, date: new Date('2026-08-10') },
+    { id: 'pv-102', firestoreId: 'pv-102', isDemo: true, docType: 'OUTFLOW' as const, reference: 'PV-0048', name: 'Perkins Generator Service', amount: -1250.00, date: new Date('2026-08-11') },
   ], []);
 
   const demoInflows = useMemo(() => [
-    { id: 'pay-201', docType: 'INFLOW' as const, reference: 'REC-1244', name: 'Patient Cashier Receipt #1244', amount: 2500.00, date: new Date('2026-08-12') },
-    { id: 'pay-202', docType: 'INFLOW' as const, reference: 'REC-1245', name: 'NHIS Direct Settlement Batch #99', amount: 18500.00, date: new Date('2026-08-12') },
+    { id: 'pay-201', firestoreId: 'pay-201', isDemo: true, docType: 'INFLOW' as const, reference: 'REC-1244', name: 'Patient Cashier Receipt #1244', amount: 2500.00, date: new Date('2026-08-12') },
+    { id: 'pay-202', firestoreId: 'pay-202', isDemo: true, docType: 'INFLOW' as const, reference: 'REC-1245', name: 'NHIS Direct Settlement Batch #99', amount: 18500.00, date: new Date('2026-08-12') },
   ], []);
 
-  // Parse cash outflows
+  // Parse live & uncleared cash outflows
   const unclearedOutflows = useMemo(() => {
-    if (!unpaidPVs || unpaidPVs.length === 0) return demoOutflows;
-    return unpaidPVs.filter(pv => ['AUTHORIZED', 'PAID'].includes(pv.status)).map(pv => ({
+    const liveUnreconciled = (rawPVs || []).filter(pv => pv.reconciled !== true && ['AUTHORIZED', 'PAID'].includes(pv.status));
+    if (liveUnreconciled.length === 0) return demoOutflows;
+    return liveUnreconciled.map(pv => ({
       id: pv.id,
+      firestoreId: pv.id,
+      isDemo: false,
       docType: 'OUTFLOW' as const,
       reference: pv.pvNumber || pv.id,
       name: pv.payee || 'Supplier Payout',
       amount: -Math.abs(pv.netAmount || 0),
-      date: pv.createdAt ? new Date(pv.createdAt.toDate()) : new Date(),
+      date: pv.createdAt ? new Date(pv.createdAt.toDate ? pv.createdAt.toDate() : pv.createdAt) : new Date(),
     }));
-  }, [unpaidPVs, demoOutflows]);
+  }, [rawPVs, demoOutflows]);
 
-  // Parse cash inflows
+  // Parse live & uncleared cash inflows
   const unclearedInflows = useMemo(() => {
-    if (!rawPayments || rawPayments.length === 0) return demoInflows;
-    return rawPayments.map(p => ({
+    const liveUnreconciled = (rawPayments || []).filter(p => p.reconciled !== true);
+    if (liveUnreconciled.length === 0) return demoInflows;
+    return liveUnreconciled.map(p => ({
       id: p.id,
+      firestoreId: p.id,
+      isDemo: false,
       docType: 'INFLOW' as const,
-      reference: p.paymentId || p.id,
+      reference: p.paymentId || p.receiptNumber || p.id,
       name: p.patientName || 'Patient Cashier Receipt',
-      amount: Math.abs(p.totalAmount || 0),
-      date: p.createdAt ? new Date(p.createdAt.toDate()) : new Date(),
+      amount: Math.abs(p.totalAmount || p.amountPaid || p.amount || 0),
+      date: p.createdAt ? new Date(p.createdAt.toDate ? p.createdAt.toDate() : p.createdAt) : new Date(),
     }));
   }, [rawPayments, demoInflows]);
 
@@ -276,39 +276,86 @@ export default function BankReconciliation() {
         setMatchedIds({});
         setCsvText('');
         setReconciling(false);
-      }, 1000);
+      }, 800);
       return;
     }
 
-    const batch = writeBatch(firestore);
-
     try {
+      const batch = writeBatch(firestore);
+      const reconciliationRunId = `REC-${selectedBankAccount.replace(/\s+/g, '-')}-${Date.now()}`;
+      const recHeaderRef = doc(firestore, `hospitals/${hospitalId}/bank_reconciliations`, reconciliationRunId);
+
+      const clearedLinesSummary: any[] = [];
+      let liveUpdatesCount = 0;
+
       entriesToReconcile.forEach(([bankRecordId, matchInfo]) => {
         const bankRecord = bankRecords.find(br => br.id === bankRecordId);
         const ledgerItem = ledgerTransactions.find(lt => lt.id === matchInfo.ledgerId);
 
         if (!bankRecord || !ledgerItem) return;
 
-        const collectionName = ledgerItem.docType === 'OUTFLOW' ? 'payment_vouchers' : 'payments';
-        const docRef = doc(firestore, `hospitals/${hospitalId}/${collectionName}`, ledgerItem.id);
-        
-        batch.update(docRef, {
-          reconciled: true,
-          reconciledAt: serverTimestamp(),
-          bankClearedDate: bankRecord.date,
+        clearedLinesSummary.push({
+          bankRecordId,
+          bankDate: bankRecord.date,
           bankDescription: bankRecord.description,
           bankReference: bankRecord.reference,
-          status: 'PAID',
+          bankAmount: bankRecord.amount,
+          ledgerId: ledgerItem.id,
+          ledgerReference: ledgerItem.reference,
+          ledgerName: ledgerItem.name,
+          ledgerDocType: ledgerItem.docType,
+          status: matchInfo.status
         });
+
+        // If it's a real live Firestore document, update its reconciled state
+        if (!ledgerItem.isDemo && ledgerItem.firestoreId && !ledgerItem.firestoreId.startsWith('jv-auto-')) {
+          const collectionName = ledgerItem.docType === 'OUTFLOW' ? 'payment_vouchers' : 'payments';
+          const docRef = doc(firestore, `hospitals/${hospitalId}/${collectionName}`, ledgerItem.firestoreId);
+          
+          batch.set(docRef, {
+            reconciled: true,
+            reconciledAt: serverTimestamp(),
+            reconciliationRunId,
+            bankClearedDate: bankRecord.date,
+            bankDescription: bankRecord.description,
+            bankReference: bankRecord.reference,
+            status: ledgerItem.docType === 'OUTFLOW' ? 'PAID' : 'COMPLETED',
+          }, { merge: true });
+
+          liveUpdatesCount++;
+        }
       });
 
+      // Save immutable IFRS Audit Reconciliation Run Document
+      batch.set(recHeaderRef, {
+        reconciliationId: reconciliationRunId,
+        bankAccount: selectedBankAccount,
+        period: "AUGUST 2026",
+        statementClosingBalance,
+        depositsInTransit: summaryTelemetry.depositsInTransit,
+        unpresentedCheques: summaryTelemetry.unpresentedCheques,
+        adjustedBankBalance: summaryTelemetry.adjustedBankBalance,
+        cashBookBalance: summaryTelemetry.cashBookBalance,
+        netVariance: summaryTelemetry.variance,
+        isBalanced: summaryTelemetry.isBalanced,
+        clearedCount: clearedLinesSummary.length,
+        clearedLines: clearedLinesSummary,
+        reconciledBy: userName,
+        reconciledAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      }, { merge: true });
+
       await batch.commit();
-      toast({ title: "Reconciliation Successful", description: `Reconciled and cleared ${entriesToReconcile.length} transactions at the bank.` });
+      toast({ 
+        title: "Reconciliation Run Committed", 
+        description: `Successfully cleared ${clearedLinesSummary.length} lines (${liveUpdatesCount} live documents synchronized).` 
+      });
       
       setBankRecords([]);
       setMatchedIds({});
       setCsvText('');
     } catch (e: any) {
+      console.error("Reconciliation commit error:", e);
       toast({ variant: "destructive", title: "Reconciliation Failed", description: e.message });
     } finally {
       setReconciling(false);
