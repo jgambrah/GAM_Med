@@ -8,7 +8,7 @@ import {
   ChevronDown, ChevronRight, Trash2, Download, CheckCircle2, Building2,
   Calendar, Filter, Receipt, FileSpreadsheet, Lock, Mail, ExternalLink,
   Sparkles, Check, X, Ban, ArrowRight, Eye, Layers, FileSearch, RefreshCw,
-  Info, AlertCircle
+  Info, AlertCircle, CheckSquare, Square
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +40,9 @@ export interface GroupedPatientClaims {
   policyNumber: string;
   claims: ClaimItem[];
   totalPatientClaim: number;
+  totalBilledClaim: number;
+  activeClaimsCount: number;
+  excludedClaimsCount: number;
   isEntirelyExcluded: boolean;
 }
 
@@ -115,7 +118,7 @@ export default function InstitutionalSchedule() {
 
   // Comprehensive Multi-Payer Clinical Fallback Dataset
   const [localClaims, setLocalClaims] = useState<ClaimItem[]>([
-    // GLICO Claims
+    // GLICO Claims (Total: ₵ 3,990.00 across 6 services)
     { id: 'clm-001', payerId: 'payer-glico', patientName: 'James Gambrah', policyNumber: 'GLC-884920', department: 'Specialist OPD', serviceCode: 'MED-CNS-01', description: 'Internal Medicine Specialist Consultation', grossAmount: 350.00, copayAmount: 0.00, amount: 350.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-02') } },
     { id: 'clm-002', payerId: 'payer-glico', patientName: 'James Gambrah', policyNumber: 'GLC-884920', department: 'Laboratory & Diagnostics', serviceCode: 'LAB-FBC-09', description: 'Full Blood Count (FBC) & ICU Comprehensive Metabolic Panel', grossAmount: 450.00, copayAmount: 0.00, amount: 450.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-02') } },
     { id: 'clm-003', payerId: 'payer-glico', patientName: 'James Gambrah', policyNumber: 'GLC-884920', department: 'Central Pharmacy', serviceCode: 'PHM-IV-22', description: 'Ceftriaxone 1g IV Infusion & ICU Antibiotics Course', grossAmount: 450.00, copayAmount: 0.00, amount: 450.00, status: 'UNPAID', createdAt: { toDate: () => new Date('2026-08-03') } },
@@ -143,7 +146,7 @@ export default function InstitutionalSchedule() {
     return p?.name || 'GLICO Healthcare Ltd';
   }, [payers, selectedPayerId]);
 
-  // Combined Pool: Matches raw receivables or demo fallback matching selectedPayerId
+  // Filter Claims for selected payer & date range
   const claims = useMemo(() => {
     const pool = rawClaims && rawClaims.length > 0 ? rawClaims : localClaims;
     return pool.filter(c => {
@@ -170,7 +173,7 @@ export default function InstitutionalSchedule() {
     });
   }, [rawClaims, localClaims, selectedPayerId, startDate, endDate]);
 
-  // Active (included) claims
+  // Active (included) claims in batch
   const activeClaims = useMemo(() => {
     return claims.filter(c => !excludedClaimIds.has(c.id));
   }, [claims, excludedClaimIds]);
@@ -180,6 +183,7 @@ export default function InstitutionalSchedule() {
     return claims.filter(c => excludedClaimIds.has(c.id));
   }, [claims, excludedClaimIds]);
 
+  // Net Schedule Value & Excluded Sums (Dynamically linked in real-time)
   const totalScheduleValue = useMemo(() => {
     return activeClaims.reduce((acc, c) => acc + Number(c.amount || c.totalAmount || 0), 0);
   }, [activeClaims]);
@@ -188,7 +192,7 @@ export default function InstitutionalSchedule() {
     return excludedClaims.reduce((acc, c) => acc + Number(c.amount || c.totalAmount || 0), 0);
   }, [excludedClaims]);
 
-  // Group Claims by Patient & Policy
+  // Dynamic Grouping of Claims by Patient & Policy with accurate subtotal recalculation
   const groupedPatientClaims = useMemo(() => {
     const map = new Map<string, GroupedPatientClaims>();
 
@@ -203,22 +207,55 @@ export default function InstitutionalSchedule() {
           policyNumber: pPolicy,
           claims: [],
           totalPatientClaim: 0,
+          totalBilledClaim: 0,
+          activeClaimsCount: 0,
+          excludedClaimsCount: 0,
           isEntirelyExcluded: true
         });
       }
 
       const grp = map.get(key)!;
       grp.claims.push(claim);
+      const claimVal = Number(claim.amount || claim.totalAmount || 0);
+      grp.totalBilledClaim += claimVal;
+
       if (!excludedClaimIds.has(claim.id)) {
-        grp.totalPatientClaim += Number(claim.amount || claim.totalAmount || 0);
+        grp.totalPatientClaim += claimVal;
+        grp.activeClaimsCount += 1;
         grp.isEntirelyExcluded = false;
+      } else {
+        grp.excludedClaimsCount += 1;
       }
     });
 
     return Array.from(map.values());
   }, [claims, excludedClaimIds]);
 
-  // Toggle single claim exclusion
+  // Master Bulk Select / Deselect All
+  const areAllClaimsSelected = useMemo(() => {
+    return claims.length > 0 && excludedClaimIds.size === 0;
+  }, [claims, excludedClaimIds]);
+
+  const handleMasterToggleAll = () => {
+    if (areAllClaimsSelected) {
+      // Exclude all
+      const allIds = new Set<string>(claims.map(c => c.id));
+      setExcludedClaimIds(allIds);
+      toast({
+        title: "All Claims Excluded",
+        description: `Held back all ${claims.length} claims for ${selectedPayerName}.`
+      });
+    } else {
+      // Select all
+      setExcludedClaimIds(new Set());
+      toast({
+        title: "All Claims Included",
+        description: `Included all ${claims.length} claims in the billing batch.`
+      });
+    }
+  };
+
+  // Toggle single claim exclusion (Live subtotal drop)
   const toggleExcludeClaim = (claimId: string) => {
     setExcludedClaimIds(prev => {
       const next = new Set(prev);
@@ -228,7 +265,7 @@ export default function InstitutionalSchedule() {
     });
   };
 
-  // Toggle entire patient group exclusion (e.g. Abena Mensah)
+  // Toggle entire patient group exclusion
   const toggleExcludePatientGroup = (grp: GroupedPatientClaims) => {
     const allGroupClaimIds = grp.claims.map(c => c.id);
     const areAllCurrentlyExcluded = allGroupClaimIds.every(id => excludedClaimIds.has(id));
@@ -473,7 +510,7 @@ export default function InstitutionalSchedule() {
   }
 
   return (
-    <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 max-w-7xl mx-auto space-y-6 pb-28">
+    <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 max-w-7xl mx-auto space-y-6 pb-48">
       
       {/* ========================================== */}
       {/* 1. SIGNATURE DARK HERO COMMAND BANNER      */}
@@ -637,17 +674,34 @@ export default function InstitutionalSchedule() {
       {/* ========================================== */}
       <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6 print:p-0 print:border-0 print:shadow-none">
         
-        {/* Printable Letterhead Header */}
-        <div className="text-center border-b-2 border-slate-900 dark:border-slate-100 pb-4">
-          <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-slate-100">
-            {selectedPayerName}
-          </h2>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-            CORPORATE CLAIMS SCHEDULE & ITEMIZED CLINICAL SERVICES DOSSIER
-          </p>
-          <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-            CYCLE: {startDate || 'START'} TO {endDate || 'END'} | GENERATED ON: {format(new Date(), 'dd MMMM yyyy - hh:mm a')} | FACILITY: GAM MED GENERAL HOSPITAL
-          </p>
+        {/* Header & Bulk Selection Control Bar */}
+        <div className="border-b-2 border-slate-900 dark:border-slate-100 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="text-left">
+            <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-slate-100">
+              {selectedPayerName}
+            </h2>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+              CORPORATE CLAIMS SCHEDULE & ITEMIZED CLINICAL SERVICES DOSSIER
+            </p>
+            <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+              CYCLE: {startDate || 'START'} TO {endDate || 'END'} | GENERATED ON: {format(new Date(), 'dd MMMM yyyy - hh:mm a')} | FACILITY: GAM MED GENERAL HOSPITAL
+            </p>
+          </div>
+
+          {/* Master Bulk Select / Exclude All Toggle */}
+          {claims.length > 0 && (
+            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 p-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 self-start md:self-auto print:hidden">
+              <label className="text-xs font-black uppercase text-slate-700 dark:text-slate-200 cursor-pointer flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={areAllClaimsSelected}
+                  onChange={handleMasterToggleAll}
+                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                />
+                <span>{areAllClaimsSelected ? `Exclude All (${claims.length} Claims)` : `Select All Batch (${claims.length} Claims)`}</span>
+              </label>
+            </div>
+          )}
         </div>
 
         {claimsLoading ? (
@@ -657,7 +711,7 @@ export default function InstitutionalSchedule() {
           </div>
         ) : groupedPatientClaims.length === 0 ? (
           
-          /* Upgrade 3: Rich Guidance Empty State Card */
+          /* Rich Guidance Empty State Card */
           <div className="p-12 text-center bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 space-y-4">
             <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 border border-emerald-200 dark:border-emerald-800/50 flex items-center justify-center mx-auto shadow-sm">
               <FileSearch className="w-8 h-8" />
@@ -720,11 +774,15 @@ export default function InstitutionalSchedule() {
                           <h4 className="text-sm font-black uppercase text-slate-900 dark:text-slate-100">
                             {grp.patientName}
                           </h4>
-                          {isEntireGroupExcluded && (
+                          {isEntireGroupExcluded ? (
                             <Badge variant="destructive" className="text-[9px] font-black uppercase bg-rose-600 text-white">
                               HELD BACK (DISPUTED)
                             </Badge>
-                          )}
+                          ) : grp.excludedClaimsCount > 0 ? (
+                            <Badge variant="outline" className="text-[9px] font-black uppercase text-amber-600 border-amber-300 bg-amber-50">
+                              {grp.excludedClaimsCount} Line Item Held Back
+                            </Badge>
+                          ) : null}
                         </div>
                         <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold block">
                           Policy ID: {grp.policyNumber}
@@ -734,10 +792,18 @@ export default function InstitutionalSchedule() {
 
                     {/* Right: Claims count, Amount, and Direct Exclusion Switch */}
                     <div className="flex items-center gap-6">
-                      <span className="text-xs font-bold text-slate-500">
-                        {grp.claims.length} {grp.claims.length === 1 ? 'Clinical Service' : 'Clinical Services'}
-                      </span>
+                      <div className="text-right">
+                        <span className="text-xs font-bold text-slate-500 block">
+                          {grp.activeClaimsCount} of {grp.claims.length} {grp.claims.length === 1 ? 'Service Active' : 'Services Active'}
+                        </span>
+                        {grp.excludedClaimsCount > 0 && (
+                          <span className="text-[10px] font-bold text-rose-500">
+                            (₵ {(grp.totalBilledClaim - grp.totalPatientClaim).toFixed(2)} Disputed)
+                          </span>
+                        )}
+                      </div>
                       
+                      {/* Dynamic Live Subtotal */}
                       <span className="text-base font-black font-mono text-slate-900 dark:text-slate-100">
                         ₵ {grp.totalPatientClaim.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
@@ -847,10 +913,10 @@ export default function InstitutionalSchedule() {
         </div>
       </div>
 
-      {/* ========================================== */}
-      {/* 4. DEFENSIVE FLOATING STICKY ACTION BAR    */}
-      {/* ========================================== */}
-      <div className="fixed bottom-6 right-6 left-6 md:left-auto md:w-auto z-40 bg-slate-950/90 backdrop-blur-md text-white p-4 rounded-2xl border border-slate-800 shadow-2xl flex flex-wrap items-center justify-end gap-3 print:hidden">
+      {/* ========================================================================= */}
+      {/* 4. DEFENSIVE DOCKED ACTION BAR (NON-OBSTRUCTIVE WITH AMPLE SCROLL CLEAR)  */}
+      {/* ========================================================================= */}
+      <div className="fixed bottom-6 right-6 left-6 md:left-auto md:w-auto z-40 bg-slate-950/95 backdrop-blur-md text-white p-4 rounded-2xl border border-slate-800 shadow-2xl flex flex-wrap items-center justify-end gap-3 print:hidden">
         
         {/* Defensive Export Button */}
         <button
