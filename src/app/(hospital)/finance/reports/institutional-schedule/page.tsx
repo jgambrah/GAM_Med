@@ -90,16 +90,11 @@ export default function InstitutionalSchedule() {
 
   const payers = rawPayers && rawPayers.length > 0 ? rawPayers : demoPayers;
 
-  // Fetch unpaid claims for the selected corporate payer
+  // Fetch unpaid claims for the hospital (filtered in-memory to prevent composite index errors)
   const claimsQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId || !selectedPayerId) return null;
-    return query(
-      collection(firestore, `hospitals/${hospitalId}/receivables`), 
-      where("payerId", "==", selectedPayerId),
-      where("status", "==", "UNPAID"),
-      orderBy("createdAt", "asc")
-    );
-  }, [firestore, hospitalId, selectedPayerId]);
+    if (!firestore || !hospitalId) return null;
+    return collection(firestore, `hospitals/${hospitalId}/receivables`);
+  }, [firestore, hospitalId]);
   const { data: rawClaims, isLoading: claimsLoading } = useCollection<ClaimItem>(claimsQuery);
 
   // Demodata with enriched clinical line-items & itemization

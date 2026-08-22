@@ -79,13 +79,10 @@ export default function ARAgingReport() {
   const userRole = userProfile?.role || 'ACCOUNTANT';
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'SUPER_ADMIN', 'FINANCE_CONTROLLER'].includes(userRole);
 
-  // Firestore Receivables Query
+  // Firestore Receivables Query (in-memory filtered)
   const receivablesQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
-    return query(
-      collection(firestore, `hospitals/${hospitalId}/receivables`),
-      where("status", "==", "UNPAID")
-    );
+    return collection(firestore, `hospitals/${hospitalId}/receivables`);
   }, [firestore, hospitalId]);
   const { data: rawReceivables, isLoading: areReceivablesLoading } = useCollection(receivablesQuery);
 
