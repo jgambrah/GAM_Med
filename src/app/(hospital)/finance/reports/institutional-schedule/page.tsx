@@ -510,7 +510,7 @@ export default function InstitutionalSchedule() {
   }
 
   return (
-    <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 max-w-7xl mx-auto space-y-6 pb-48">
+    <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 max-w-7xl mx-auto space-y-6 pb-16">
       
       {/* ========================================== */}
       {/* 1. SIGNATURE DARK HERO COMMAND BANNER      */}
@@ -914,45 +914,58 @@ export default function InstitutionalSchedule() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 4. DEFENSIVE DOCKED ACTION BAR (NON-OBSTRUCTIVE WITH AMPLE SCROLL CLEAR)  */}
+      {/* 4. DEDICATED STATIC BILLING ACTION DOCK (NATURAL FLOW BELOW SCHEDULE)    */}
       {/* ========================================================================= */}
-      <div className="fixed bottom-6 right-6 left-6 md:left-auto md:w-auto z-40 bg-slate-950/95 backdrop-blur-md text-white p-4 rounded-2xl border border-slate-800 shadow-2xl flex flex-wrap items-center justify-end gap-3 print:hidden">
-        
-        {/* Defensive Export Button */}
-        <button
-          type="button"
-          onClick={handleExportCSV}
-          disabled={hasZeroClaims}
-          className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow"
-          title={hasZeroClaims ? 'No active claims to export' : 'Export schedule to Excel CSV'}
-        >
-          <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-          <span>Export to Excel (CSV)</span>
-        </button>
+      <div className="bg-slate-950 text-white p-5 rounded-3xl border border-slate-800 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 print:hidden">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30">
+            <Landmark className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[10px] font-black uppercase text-slate-400 block">Corporate Batch Status</span>
+            <span className="text-xs font-bold text-white">
+              {activeClaims.length} Claims Active • Net Value: <strong className="text-emerald-400 font-mono">₵ {totalScheduleValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+            </span>
+          </div>
+        </div>
 
-        {/* Defensive Print Button */}
-        <button
-          type="button"
-          onClick={() => window.print()}
-          disabled={hasZeroClaims}
-          className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow"
-          title={hasZeroClaims ? 'No active claims to print' : 'Print formal A4 schedule'}
-        >
-          <Printer className="w-4 h-4 text-sky-400" />
-          <span>Print Schedule (A4)</span>
-        </button>
+        <div className="flex flex-wrap items-center justify-end gap-3 w-full sm:w-auto">
+          {/* Defensive Export Button */}
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            disabled={hasZeroClaims}
+            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow"
+            title={hasZeroClaims ? 'No active claims to export' : 'Export schedule to Excel CSV'}
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            <span>Export to Excel (CSV)</span>
+          </button>
 
-        {/* Defensive Master Invoice Generation Button */}
-        <button
-          type="button"
-          onClick={handleGenerateCorporateInvoice}
-          disabled={isGeneratingInvoice || hasZeroClaims || totalScheduleValue <= 0}
-          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-lg"
-          title={hasZeroClaims ? 'Cannot generate invoice with 0 claims' : 'Lock claims and generate Master AR invoice'}
-        >
-          {isGeneratingInvoice ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-          <span>GENERATE CORPORATE INVOICE</span>
-        </button>
+          {/* Defensive Print Button */}
+          <button
+            type="button"
+            onClick={() => window.print()}
+            disabled={hasZeroClaims}
+            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow"
+            title={hasZeroClaims ? 'No active claims to print' : 'Print formal A4 schedule'}
+          >
+            <Printer className="w-4 h-4 text-sky-400" />
+            <span>Print Schedule (A4)</span>
+          </button>
+
+          {/* Defensive Master Invoice Generation Button */}
+          <button
+            type="button"
+            onClick={handleGenerateCorporateInvoice}
+            disabled={isGeneratingInvoice || hasZeroClaims || totalScheduleValue <= 0}
+            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-lg"
+            title={hasZeroClaims ? 'Cannot generate invoice with 0 claims' : 'Lock claims and generate Master AR invoice'}
+          >
+            {isGeneratingInvoice ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+            <span>GENERATE CORPORATE INVOICE</span>
+          </button>
+        </div>
       </div>
 
       {/* ========================================================================= */}
