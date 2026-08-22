@@ -9,7 +9,8 @@ import {
   ArrowUpRight, Filter, Receipt, Search, Loader2, ShieldAlert,
   Landmark, Clock, AlertTriangle, CheckCircle2, Building2, ShieldCheck, 
   ChevronRight, Download, Send, DollarSign, FileText, Check, X, Mail,
-  Printer, Sparkles, UserCheck, Stethoscope, Ban, Eye
+  Printer, Sparkles, UserCheck, Stethoscope, Ban, Eye, ArrowRight,
+  Split, Scale, HelpCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +56,15 @@ export default function ARAgingReport() {
   // Modals state
   const [selectedPayerForReconcile, setSelectedPayerForReconcile] = useState<PayerAgingRow | null>(null);
   const [selectedPayerForStatement, setSelectedPayerForStatement] = useState<PayerAgingRow | null>(null);
+  const [selectedClaimForSettlement, setSelectedClaimForSettlement] = useState<PatientClaimItem | null>(null);
+  
+  // Remittance Settlement Slip State
+  const [amountReceived, setAmountReceived] = useState<number>(0);
+  const [amountDisallowed, setAmountDisallowed] = useState<number>(0);
+  const [destinationBank, setDestinationBank] = useState('1001 - GCB Operations Account');
+  const [disallowanceReason, setDisallowanceReason] = useState('Non-covered formulary drug item');
+  const [isSettling, setIsSettling] = useState(false);
+
   const [isSendingStatement, setIsSendingStatement] = useState(false);
   const [dunningLevel, setDunningLevel] = useState<'Standard Reminder' | 'Urgent Overdue Notice' | 'Final Demand'>('Standard Reminder');
   const [reconciliationFilter, setReconciliationFilter] = useState<'ALL' | 'CRITICAL' | 'PENDING'>('ALL');
@@ -205,7 +215,7 @@ export default function ARAgingReport() {
   }, [arData]);
 
   // Simulated Individual Claims for Sub-Ledger Reconciliation
-  const mockClaimsByPayer: Record<string, PatientClaimItem[]> = useMemo(() => ({
+  const [claimsState, setClaimsState] = useState<Record<string, PatientClaimItem[]>>({
     'PAY-NHIS': [
       { id: 'CLM-01', claimRef: 'NHIA/MMH/2026/0942', patientName: 'Kwame Mensah', memberNumber: 'NHIS-84920194', encounterDate: '2026-08-04', department: 'Emergency & Triage', grossAmount: 1850.00, copayDeducted: 0, netPayable: 1850.00, agingBucket: '0-30 Days', status: 'PENDING_PAYER_REMITTANCE' },
       { id: 'CLM-02', claimRef: 'NHIA/MMH/2026/0881', patientName: 'Abena Osei', memberNumber: 'NHIS-19402941', encounterDate: '2026-07-18', department: 'Maternity Ward', grossAmount: 4200.00, copayDeducted: 0, netPayable: 4200.00, agingBucket: '31-60 Days', status: 'PENDING_PAYER_REMITTANCE' },
@@ -217,30 +227,91 @@ export default function ARAgingReport() {
       { id: 'CLM-12', claimRef: 'GLI/MMH/2026/0398', patientName: 'Sandra Darko', memberNumber: 'GLI-POL-4410', encounterDate: '2026-07-22', department: 'Radiology / CT Scan', grossAmount: 3000.00, copayDeducted: 0, netPayable: 3000.00, agingBucket: '31-60 Days', status: 'PENDING_PAYER_REMITTANCE' },
       { id: 'CLM-13', claimRef: 'GLI/MMH/2026/0122', patientName: 'Josephine Agyei', memberNumber: 'GLI-POL-1082', encounterDate: '2026-04-10', department: 'ICU High Dependency', grossAmount: 1200.00, copayDeducted: 0, netPayable: 1200.00, agingBucket: '90+ Days', status: 'DISPUTED' }
     ],
+    'PAY-KNUST': [
+      { id: 'CLM-KN-01', claimRef: 'PAY-KNUST/2026/001', patientName: 'Prof. Kwabena Asante', memberNumber: 'KNUST-MED-0921', encounterDate: '2026-08-05', department: 'Executive VIP Ward', grossAmount: 8500.00, copayDeducted: 0, netPayable: 8500.00, agingBucket: '0-30 Days', status: 'PENDING_PAYER_REMITTANCE' },
+      { id: 'CLM-KN-02', claimRef: 'PAY-KNUST/2026/002', patientName: 'Evelyn Addo', memberNumber: 'KNUST-MED-4481', encounterDate: '2026-07-14', department: 'Pharmacy & Infusion', grossAmount: 4200.00, copayDeducted: 0, netPayable: 4200.00, agingBucket: '31-60 Days', status: 'PENDING_PAYER_REMITTANCE' }
+    ],
     'PAY-APEX': [
       { id: 'CLM-21', claimRef: 'APX/MMH/2026/0091', patientName: 'Dr. Michael Taylor', memberNumber: 'APX-MUT-8842', encounterDate: '2026-08-01', department: 'Executive Health Check', grossAmount: 3500.00, copayDeducted: 350.00, netPayable: 3150.00, agingBucket: '0-30 Days', status: 'PENDING_PAYER_REMITTANCE' },
       { id: 'CLM-22', claimRef: 'APX/MMH/2026/0014', patientName: 'Esther Bruce', memberNumber: 'APX-MUT-3310', encounterDate: '2026-03-14', department: 'Orthopedic Surgery', grossAmount: 8500.00, copayDeducted: 0, netPayable: 8500.00, agingBucket: '90+ Days', status: 'PENDING_PAYER_REMITTANCE' }
     ]
-  }), []);
+  });
 
   // Individual Claims list for selected payer
   const activeClaims = useMemo(() => {
     if (!selectedPayerForReconcile) return [];
-    const base = mockClaimsByPayer[selectedPayerForReconcile.payerId] || [
+    const base = claimsState[selectedPayerForReconcile.payerId] || [
       { id: 'CLM-GEN-1', claimRef: `${selectedPayerForReconcile.payerId}/2026/001`, patientName: 'General Patient Batch', memberNumber: 'MEM-9901', encounterDate: '2026-08-02', department: 'General Clinical', grossAmount: selectedPayerForReconcile.current, copayDeducted: 0, netPayable: selectedPayerForReconcile.current, agingBucket: '0-30 Days' as const, status: 'PENDING_PAYER_REMITTANCE' as const }
     ];
 
     if (reconciliationFilter === 'CRITICAL') return base.filter(c => c.agingBucket === '90+ Days');
     if (reconciliationFilter === 'PENDING') return base.filter(c => c.status === 'PENDING_PAYER_REMITTANCE');
     return base;
-  }, [selectedPayerForReconcile, mockClaimsByPayer, reconciliationFilter]);
+  }, [selectedPayerForReconcile, claimsState, reconciliationFilter]);
 
-  // Handle Mark Claim Reconciled
-  const handleMarkClaimReconciled = (claimId: string) => {
-    toast({
-      title: "Claim Line Reconciled",
-      description: `Claim ${claimId} matched against payer remittance schedule and marked Cleared.`
-    });
+  // Open Remittance Slip Modal for a specific claim
+  const handleOpenSettlementModal = (claim: PatientClaimItem) => {
+    setSelectedClaimForSettlement(claim);
+    setAmountReceived(claim.netPayable);
+    setAmountDisallowed(0);
+    setDestinationBank('1001 - GCB Operations Account');
+    setDisallowanceReason('Non-covered formulary drug item');
+  };
+
+  // Handle Dynamic Remittance Calculation
+  const handleAmountReceivedChange = (val: number) => {
+    setAmountReceived(val);
+    if (selectedClaimForSettlement) {
+      const diff = Math.max(0, selectedClaimForSettlement.netPayable - val);
+      setAmountDisallowed(diff);
+    }
+  };
+
+  // Execute Multi-Leg Remittance Journal Entry
+  const handleExecuteRemittanceJV = async () => {
+    if (!selectedClaimForSettlement || !selectedPayerForReconcile) return;
+    setIsSettling(true);
+
+    try {
+      await new Promise(res => setTimeout(res, 900));
+
+      const totalClaim = selectedClaimForSettlement.netPayable;
+      const recAmt = Number(amountReceived || 0);
+      const disAmt = Number(amountDisallowed || 0);
+
+      // Verify Zero-Variance Math
+      if (Math.abs((recAmt + disAmt) - totalClaim) > 0.05) {
+        toast({
+          variant: "destructive",
+          title: "Math Variance Error",
+          description: `Total of Received (₵${recAmt}) + Disallowed (₵${disAmt}) must equal Claim Balance (₵${totalClaim}).`
+        });
+        setIsSettling(false);
+        return;
+      }
+
+      // Update in-memory claim status to RECONCILED
+      const payerKey = selectedPayerForReconcile.payerId;
+      setClaimsState(prev => ({
+        ...prev,
+        [payerKey]: (prev[payerKey] || []).map(c => 
+          c.id === selectedClaimForSettlement.id 
+            ? { ...c, status: 'RECONCILED' as const } 
+            : c
+        )
+      }));
+
+      toast({
+        title: "Multi-Leg Remittance JV Posted",
+        description: `Posted GHS ${recAmt.toFixed(2)} to ${destinationBank.split(' - ')[0]} and GHS ${disAmt.toFixed(2)} to Disallowed Claims (GL 5205). Claim ${selectedClaimForSettlement.claimRef} cleared.`
+      });
+
+      setSelectedClaimForSettlement(null);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Settlement Failed", description: e.message });
+    } finally {
+      setIsSettling(false);
+    }
   };
 
   // Handle Automated Statement Send
@@ -624,44 +695,60 @@ export default function ARAgingReport() {
                     <th className="p-3">Patient & Member ID</th>
                     <th className="p-3">Department</th>
                     <th className="p-3 text-right">Billed Amount</th>
-                    <th className="p-3 text-center">Aging Bucket</th>
+                    <th className="p-3 text-center">Status / Bucket</th>
                     <th className="p-3 text-center">Remittance Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-                  {activeClaims.map(claim => (
-                    <tr key={claim.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">
-                        {claim.claimRef}
-                        <span className="block text-[10px] text-slate-400 font-normal">{claim.encounterDate}</span>
-                      </td>
-                      <td className="p-3">
-                        <span className="font-bold text-slate-900 dark:text-slate-100 block">{claim.patientName}</span>
-                        <span className="text-[10px] font-mono text-emerald-600 font-bold">{claim.memberNumber}</span>
-                      </td>
-                      <td className="p-3 text-slate-600 dark:text-slate-400">{claim.department}</td>
-                      <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
-                        ₵ {claim.netPayable.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="p-3 text-center">
-                        <Badge className={`text-[9px] font-bold uppercase ${
-                          claim.agingBucket === '90+ Days' ? 'bg-rose-100 text-rose-800 border-rose-200' : (claim.agingBucket === '61-90 Days' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800')
-                        }`}>
-                          {claim.agingBucket}
-                        </Badge>
-                      </td>
-                      <td className="p-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleMarkClaimReconciled(claim.claimRef)}
-                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase rounded-lg transition-all cursor-pointer shadow flex items-center gap-1 mx-auto"
-                        >
-                          <Check className="w-3 h-3" />
-                          <span>Clear Line</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {activeClaims.map(claim => {
+                    const isReconciled = claim.status === 'RECONCILED';
+
+                    return (
+                      <tr key={claim.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/40 ${isReconciled ? 'bg-emerald-50/30' : ''}`}>
+                        <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">
+                          {claim.claimRef}
+                          <span className="block text-[10px] text-slate-400 font-normal">{claim.encounterDate}</span>
+                        </td>
+                        <td className="p-3">
+                          <span className="font-bold text-slate-900 dark:text-slate-100 block">{claim.patientName}</span>
+                          <span className="text-[10px] font-mono text-emerald-600 font-bold">{claim.memberNumber}</span>
+                        </td>
+                        <td className="p-3 text-slate-600 dark:text-slate-400">{claim.department}</td>
+                        <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
+                          ₵ {claim.netPayable.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="p-3 text-center">
+                          {isReconciled ? (
+                            <Badge className="text-[9px] font-black uppercase bg-emerald-600 text-white">
+                              RECONCILED & CLEARED
+                            </Badge>
+                          ) : (
+                            <Badge className={`text-[9px] font-bold uppercase ${
+                              claim.agingBucket === '90+ Days' ? 'bg-rose-100 text-rose-800 border-rose-200' : (claim.agingBucket === '61-90 Days' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800')
+                            }`}>
+                              {claim.agingBucket}
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="p-3 text-center">
+                          {isReconciled ? (
+                            <span className="text-[10px] font-bold text-emerald-600 flex items-center justify-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> JV Posted
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenSettlementModal(claim)}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase rounded-lg transition-all cursor-pointer shadow flex items-center gap-1 mx-auto"
+                            >
+                              <Split className="w-3 h-3" />
+                              <span>Clear Line</span>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -691,7 +778,158 @@ export default function ARAgingReport() {
       </Dialog>
 
       {/* ========================================================================= */}
-      {/* 5. MODAL 2: AUTOMATED STATEMENT OF ACCOUNT (SOA) & DUNNING DISPATCH       */}
+      {/* 5. MODAL 2: REMITTANCE SETTLEMENT & MULTI-LEG JOURNAL ENTRY MODAL         */}
+      {/* ========================================================================= */}
+      <Dialog open={!!selectedClaimForSettlement} onOpenChange={(open) => !open && setSelectedClaimForSettlement(null)}>
+        <DialogContent className="max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-2xl">
+          <DialogHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <Scale className="w-6 h-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-black uppercase tracking-tight text-slate-900 dark:text-slate-100">
+                  POST REMITTANCE SETTLEMENT & CLEAR CLAIM
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 font-medium">
+                  Claim: <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{selectedClaimForSettlement?.claimRef}</span> | Patient: <span className="font-bold text-slate-900 dark:text-slate-100">{selectedClaimForSettlement?.patientName}</span>
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            
+            {/* Claim Total Reference */}
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 flex justify-between items-center">
+              <div>
+                <span className="text-[10px] font-black uppercase text-slate-400 block">Total Billed Net Receivable:</span>
+                <span className="text-base font-black font-mono text-slate-900 dark:text-slate-100">
+                  ₵ {selectedClaimForSettlement?.netPayable.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] font-black">
+                {selectedPayerForReconcile?.payerName.split(' ')[0]} REMITTANCE
+              </Badge>
+            </div>
+
+            {/* Split Inputs: Amount Received vs Disallowed */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
+                  1. Cash Amount Received (Bank Deposit) <span className="text-emerald-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-mono font-bold text-slate-400">₵</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={amountReceived}
+                    onChange={(e) => handleAmountReceivedChange(parseFloat(e.target.value) || 0)}
+                    className="w-full pl-7 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-black outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-black uppercase tracking-wider text-rose-600 block">
+                  2. Disallowed / Withheld (Write-Off)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-mono font-bold text-slate-400">₵</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={amountDisallowed}
+                    onChange={(e) => setAmountDisallowed(parseFloat(e.target.value) || 0)}
+                    className="w-full pl-7 pr-3 py-2 bg-rose-50/50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-mono font-black outline-none focus:ring-2 focus:ring-rose-500 text-rose-700 dark:text-rose-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Destination Bank & Disallowance Reason */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-500 block">
+                  Destination Bank Account
+                </label>
+                <select
+                  value={destinationBank}
+                  onChange={(e) => setDestinationBank(e.target.value)}
+                  className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold outline-none"
+                >
+                  <option>1001 - GCB Operations Account</option>
+                  <option>1002 - Stanbic Clinical Collections</option>
+                  <option>1003 - Ecobank Corporate Health</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-500 block">
+                  Disallowance Justification
+                </label>
+                <select
+                  value={disallowanceReason}
+                  onChange={(e) => setDisallowanceReason(e.target.value)}
+                  className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold outline-none"
+                >
+                  <option>Non-covered formulary drug item</option>
+                  <option>Tariff ceiling cap deduction</option>
+                  <option>Pre-authorization window variance</option>
+                  <option>Patient copay differential</option>
+                  <option>None (Full 100% Settlement)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Live 3-Leg Accounting JV Preview */}
+            <div className="p-3.5 bg-slate-900 text-white rounded-2xl space-y-2 font-mono text-[11px]">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-400">
+                <span>Multi-Leg Journal Entry (IFRS/GAAP)</span>
+                <span className="text-emerald-400 font-bold">Balanced Variance: ₵ 0.00</span>
+              </div>
+              
+              <div className="space-y-1">
+                <div className="flex justify-between text-emerald-400">
+                  <span>DEBIT {destinationBank.split(' - ')[0]} (Cash at Bank)</span>
+                  <span className="font-bold">₵ {amountReceived.toFixed(2)}</span>
+                </div>
+                {amountDisallowed > 0 && (
+                  <div className="flex justify-between text-rose-400">
+                    <span>DEBIT 5205 (Claims Disallowed / Write-Off)</span>
+                    <span className="font-bold">₵ {amountDisallowed.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sky-400 pt-1 border-t border-slate-800">
+                  <span>CREDIT 1200 (Accounts Receivable - {selectedPayerForReconcile?.payerId})</span>
+                  <span className="font-bold">₵ {(selectedClaimForSettlement?.netPayable || 0).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <DialogFooter className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setSelectedClaimForSettlement(null)} className="rounded-xl">
+              Cancel
+            </Button>
+
+            <button
+              type="button"
+              onClick={handleExecuteRemittanceJV}
+              disabled={isSettling}
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+            >
+              {isSettling ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              <span>POST MULTI-LEG REMITTANCE & CLEAR CLAIM</span>
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
+      {/* 6. MODAL 3: AUTOMATED STATEMENT OF ACCOUNT (SOA) & DUNNING DISPATCH       */}
       {/* ========================================================================= */}
       <Dialog open={!!selectedPayerForStatement} onOpenChange={(open) => !open && setSelectedPayerForStatement(null)}>
         <DialogContent className="max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-2xl">
