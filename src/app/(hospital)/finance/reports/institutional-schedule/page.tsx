@@ -323,80 +323,36 @@ export default function InstitutionalSchedule() {
     const invoiceId = `INV-${selectedPayerName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 5).toUpperCase()}-${format(new Date(), 'yyyy-MM')}`;
 
     try {
-      if (firestore && hospitalId) {
-        const batch = writeBatch(firestore);
-
-        // 1. Create Corporate Master Invoice
-        const masterRef = doc(firestore, `hospitals/${hospitalId}/corporate_invoices`, invoiceId);
-        batch.set(masterRef, {
-          invoiceId,
+      // 1. Call Secure Server-Side Firebase Admin Endpoint
+      const res = await fetch('/api/finance/billing/generate-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hospitalId: hospitalId || 'GAM-GAR-7578',
           payerId: selectedPayerId,
           payerName: selectedPayerName,
           totalAmount: totalScheduleValue,
           claimCount: activeClaims.length,
           excludedCount: excludedClaimIds.size,
           excludedAmount: totalExcludedValue,
-          status: 'BILLED',
-          billedBy: user?.uid || 'ACCOUNTANT',
-          billedByName: userProfile?.fullName || 'Marcus Amosah Henaku',
-          billedAt: serverTimestamp(),
-          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          period: format(new Date(), 'yyyy-MM')
-        });
+          activeClaims,
+          userName: userProfile?.fullName || user?.displayName || 'Marcus Amosah Henaku',
+          userUid: user?.uid || 'ACCOUNTANT'
+        })
+      });
 
-        // 2. Lock active claims to BILLED status
-        activeClaims.forEach(claim => {
-          const claimRef = doc(firestore, `hospitals/${hospitalId}/receivables`, claim.id);
-          batch.set(claimRef, {
-            status: 'BILLED',
-            masterInvoiceId: invoiceId,
-            billedAt: serverTimestamp()
-          }, { merge: true });
-        });
-
-        // 3. Push to AR Aging Matrix (Current 0-30 Days Bucket)
-        const arRef = doc(firestore, `hospitals/${hospitalId}/receivables`, invoiceId);
-        batch.set(arRef, {
-          id: invoiceId,
-          payerId: selectedPayerId,
-          payerName: selectedPayerName,
-          invoiceNumber: invoiceId,
-          amount: totalScheduleValue,
-          netAmount: totalScheduleValue,
-          agingBucket: '0-30 Days',
-          status: 'UNPAID',
-          createdAt: serverTimestamp(),
-          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        }, { merge: true });
-
-        // 4. Post Double-Entry Journal Voucher
-        const jvRef = doc(collection(firestore, `hospitals/${hospitalId}/journal_vouchers`));
-        batch.set(jvRef, {
-          jvNumber: `JV-${invoiceId}`,
-          source: 'CORPORATE_BILLING',
-          datePosted: serverTimestamp(),
-          preparerId: user?.uid || 'ACCOUNTANT',
-          preparerName: userProfile?.fullName || 'Marcus Amosah Henaku',
-          narration: `Corporate Master Invoice ${invoiceId} for ${selectedPayerName}. Total ${activeClaims.length} claims locked. Value: GHS ${totalScheduleValue.toFixed(2)}.`,
-          status: 'POSTED',
-          hospitalId,
-          period: format(new Date(), 'yyyy-MM'),
-          entries: [
-            { accountCode: '1200', accountName: `Accounts Receivable - ${selectedPayerName}`, debit: totalScheduleValue, credit: 0 },
-            { accountCode: '4050', accountName: 'Unbilled Corporate Revenue Clearing', debit: 0, credit: totalScheduleValue }
-          ]
-        });
-
-        await batch.commit();
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to generate corporate invoice on server');
       }
 
-      // Update local state to mark claims BILLED
+      // 2. Update local state to mark claims BILLED
       setLocalClaims(prev => prev.map(c => 
         !excludedClaimIds.has(c.id) && (c.payerId === selectedPayerId) ? { ...c, status: 'BILLED' as const } : c
       ));
 
       setGeneratedInvoiceModal({
-        invoiceId,
+        invoiceId: data.invoiceId || invoiceId,
         payerName: selectedPayerName,
         totalAmount: totalScheduleValue,
         claimCount: activeClaims.length,
@@ -406,7 +362,7 @@ export default function InstitutionalSchedule() {
 
       toast({
         title: "Master Invoice Generated & Locked",
-        description: `Created ${invoiceId} for GHS ${totalScheduleValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}. Pushed to AR Aging Matrix.`
+        description: `Created ${data.invoiceId || invoiceId} for GHS ${totalScheduleValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}. Pushed to AR Aging Matrix.`
       });
 
     } catch (e: any) {
