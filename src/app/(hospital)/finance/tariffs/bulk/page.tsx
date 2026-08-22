@@ -38,7 +38,7 @@ export default function BulkPriceUpdater() {
   const router = useRouter();
   const { toast } = useToast();
 
-  // Stage 1: Parameters
+  // Stage 1: Parameters (Defaulting Category to 'ALL' to guarantee instant preview)
   const [department, setDepartment] = useState<string>('PHARMACY');
   const [category, setCategory] = useState<string>('ALL');
   const [payerTier, setPayerTier] = useState<PayerTierTarget>('CASH_OUT_OF_POCKET');
@@ -72,25 +72,89 @@ export default function BulkPriceUpdater() {
   }, [firestore, hospitalId]);
   const { data: rawCatalog, isLoading: isCatalogLoading } = useCollection<TariffItem>(catalogQuery);
 
-  // Comprehensive Demo Catalog with Clinical & Pharmacy Master Data
+  // Comprehensive Demo Catalog with Clinical, Pharmacy & OPD Master Data
   const demoCatalog: TariffItem[] = useMemo(() => [
+    // PHARMACY
     { id: 't-001', itemCode: 'DRG-AMX-500', itemName: 'Amoxicillin 500mg Capsules (Box 100)', department: 'PHARMACY', category: 'ANTIBIOTICS', baseCashPrice: 45.00, nhisCapPrice: 28.00, corporatePrice: 50.00 },
     { id: 't-002', itemCode: 'DRG-CIP-500', itemName: 'Ciprofloxacin 500mg Tablets (Box 100)', department: 'PHARMACY', category: 'ANTIBIOTICS', baseCashPrice: 65.00, nhisCapPrice: 38.00, corporatePrice: 72.00 },
     { id: 't-003', itemCode: 'DRG-PAR-500', itemName: 'Paracetamol 500mg Extra Strength', department: 'PHARMACY', category: 'ANALGESICS', baseCashPrice: 15.00, nhisCapPrice: 8.00, corporatePrice: 18.00 },
     { id: 't-004', itemCode: 'DRG-NUG-001', itemName: 'NUGEL-O Antacid Suspension 200ml', department: 'PHARMACY', category: 'GASTRO', baseCashPrice: 38.50, nhisCapPrice: 20.00, corporatePrice: 42.00 },
     { id: 't-005', itemCode: 'DRG-VIT-C01', itemName: 'Vitamin C 1000mg Effervescent (Tube 20)', department: 'PHARMACY', category: 'SUPPLEMENTS', baseCashPrice: 8.80, nhisCapPrice: 4.50, corporatePrice: 10.00 },
     { id: 't-006', itemCode: 'DRG-CEF-1GM', itemName: 'Ceftriaxone 1g IV Infusion Vial', department: 'PHARMACY', category: 'ANTIBIOTICS', baseCashPrice: 75.00, nhisCapPrice: 35.00, corporatePrice: 85.00 },
-    { id: 't-007', itemCode: 'LAB-FBC-AUT', itemName: 'Full Blood Count Automated Panel', department: 'LABORATORY', category: 'HEMATOLOGY', baseCashPrice: 120.00, nhisCapPrice: 45.00, corporatePrice: 135.00 },
+    
+    // OPD CONSULTATIONS
+    { id: 't-011', itemCode: 'CON-OPD-GEN', itemName: 'General OPD Medical Officer Consultation', department: 'CONSULTATION', category: 'GENERAL_OPD', baseCashPrice: 80.00, nhisCapPrice: 45.00, corporatePrice: 95.00 },
+    { id: 't-012', itemCode: 'CON-OPD-SPE', itemName: 'Specialist Physician / Consultant Consultation', department: 'CONSULTATION', category: 'CONSULTATIONS', baseCashPrice: 150.00, nhisCapPrice: 80.00, corporatePrice: 180.00 },
+    { id: 't-013', itemCode: 'CON-OPD-PED', itemName: 'Pediatric Specialist Clinical Review', department: 'CONSULTATION', category: 'CONSULTATIONS', baseCashPrice: 160.00, nhisCapPrice: 85.00, corporatePrice: 190.00 },
+    { id: 't-014', itemCode: 'CON-OPD-EMG', itemName: 'Emergency Acute Resuscitation & Triage Fee', department: 'CONSULTATION', category: 'EMERGENCY', baseCashPrice: 120.00, nhisCapPrice: 60.00, corporatePrice: 140.00 },
+
+    // LABORATORY
+    { id: 't-007', itemCode: 'LAB-FBC-AUT', itemName: 'Full Blood Count Automated 5-Part Diff', department: 'LABORATORY', category: 'HEMATOLOGY', baseCashPrice: 120.00, nhisCapPrice: 45.00, corporatePrice: 135.00 },
     { id: 't-008', itemCode: 'LAB-LIP-PRO', itemName: 'Lipid Profile Full Biochemical Panel', department: 'LABORATORY', category: 'BIOCHEMISTRY', baseCashPrice: 180.00, nhisCapPrice: 70.00, corporatePrice: 200.00 },
-    { id: 't-009', itemCode: 'RAD-ULT-ABD', itemName: 'Abdominal & Pelvic Ultrasound Scan', department: 'RADIOLOGY', category: 'ULTRASOUND', baseCashPrice: 250.00, nhisCapPrice: 120.00, corporatePrice: 280.00 },
+    { id: 't-015', itemCode: 'LAB-LFT-KFT', itemName: 'Comprehensive Liver & Kidney Function Tests', department: 'LABORATORY', category: 'BIOCHEMISTRY', baseCashPrice: 240.00, nhisCapPrice: 95.00, corporatePrice: 270.00 },
+    
+    // RADIOLOGY
+    { id: 't-009', itemCode: 'RAD-ULT-ABD', itemName: 'Abdominal & Pelvic Ultrasound Doppler', department: 'RADIOLOGY', category: 'ULTRASOUND', baseCashPrice: 250.00, nhisCapPrice: 120.00, corporatePrice: 280.00 },
     { id: 't-010', itemCode: 'RAD-XRY-CHS', itemName: 'Chest X-Ray Digital View (PA/AP)', department: 'RADIOLOGY', category: 'X-RAY', baseCashPrice: 180.00, nhisCapPrice: 85.00, corporatePrice: 200.00 },
-    { id: 't-011', itemCode: 'CON-OPD-SPE', itemName: 'Specialist OPD Consultation Fee', department: 'CONSULTATION', category: 'CONSULTATIONS', baseCashPrice: 150.00, nhisCapPrice: 80.00, corporatePrice: 180.00 },
-    { id: 't-012', itemCode: 'SUR-MAJ-THE', itemName: 'Major Surgical Theater Operating Fee', department: 'THEATER', category: 'SURGERY', baseCashPrice: 1540.00, nhisCapPrice: 650.00, corporatePrice: 1800.00 }
+    { id: 't-016', itemCode: 'RAD-OBS-USS', itemName: 'Obstetric 4D Anomaly Fetal Scan', department: 'RADIOLOGY', category: 'ULTRASOUND', baseCashPrice: 320.00, nhisCapPrice: 140.00, corporatePrice: 360.00 },
+
+    // THEATER
+    { id: 't-017', itemCode: 'SUR-MAJ-THE', itemName: 'Major Surgical Theater Operating Fee', department: 'THEATER', category: 'SURGERY', baseCashPrice: 1540.00, nhisCapPrice: 650.00, corporatePrice: 1800.00 },
+    { id: 't-018', itemCode: 'SUR-MIN-THE', itemName: 'Minor Day-Case Surgery & Suture Facility', department: 'THEATER', category: 'SURGERY', baseCashPrice: 450.00, nhisCapPrice: 200.00, corporatePrice: 520.00 }
   ], []);
 
   const catalog = useMemo(() => {
     return rawCatalog && rawCatalog.length > 0 ? rawCatalog : demoCatalog;
   }, [rawCatalog, demoCatalog]);
+
+  // Dynamic Department Categories Mapping
+  const departmentCategoriesMap: Record<string, { label: string; value: string }[]> = {
+    ALL: [
+      { label: 'ALL CATEGORIES', value: 'ALL' },
+      { label: 'Antibiotics & Anti-Infectives', value: 'ANTIBIOTICS' },
+      { label: 'Analgesics & Pain Relief', value: 'ANALGESICS' },
+      { label: 'Clinical Consultations', value: 'CONSULTATIONS' },
+      { label: 'General OPD', value: 'GENERAL_OPD' },
+      { label: 'Diagnostic Ultrasound', value: 'ULTRASOUND' },
+      { label: 'Digital X-Ray', value: 'X-RAY' },
+      { label: 'Hematology & Blood', value: 'HEMATOLOGY' },
+      { label: 'Biochemistry Panels', value: 'BIOCHEMISTRY' },
+      { label: 'Surgical Procedures', value: 'SURGERY' },
+    ],
+    PHARMACY: [
+      { label: 'ALL PHARMACY CATEGORIES', value: 'ALL' },
+      { label: 'Antibiotics & Anti-Infectives', value: 'ANTIBIOTICS' },
+      { label: 'Analgesics & Pain Relief', value: 'ANALGESICS' },
+      { label: 'Gastroenterology Suspensions', value: 'GASTRO' },
+      { label: 'Vitamins & Supplements', value: 'SUPPLEMENTS' },
+    ],
+    CONSULTATION: [
+      { label: 'ALL CONSULTATIONS', value: 'ALL' },
+      { label: 'General OPD Consultations', value: 'GENERAL_OPD' },
+      { label: 'Specialist & Consultant Triage', value: 'CONSULTATIONS' },
+      { label: 'Emergency Acute Care', value: 'EMERGENCY' },
+    ],
+    LABORATORY: [
+      { label: 'ALL LABORATORY PANELS', value: 'ALL' },
+      { label: 'Hematology & Blood Bank', value: 'HEMATOLOGY' },
+      { label: 'Biochemistry Function Panels', value: 'BIOCHEMISTRY' },
+    ],
+    RADIOLOGY: [
+      { label: 'ALL RADIOLOGY & IMAGING', value: 'ALL' },
+      { label: 'Diagnostic Ultrasound Doppler', value: 'ULTRASOUND' },
+      { label: 'Digital X-Ray Views', value: 'X-RAY' },
+    ],
+    THEATER: [
+      { label: 'ALL SURGICAL THEATER', value: 'ALL' },
+      { label: 'Major & Minor Surgeries', value: 'SURGERY' },
+    ],
+  };
+
+  // Safe Department Switcher with Auto-Category Reset
+  const handleDepartmentChange = (newDept: string) => {
+    setDepartment(newDept);
+    setCategory('ALL'); // Guarantees matching items are immediately populated!
+  };
 
   // Rounding Logic
   const applyRounding = (price: number, rule: RoundingRule): number => {
@@ -117,10 +181,13 @@ export default function BulkPriceUpdater() {
 
     let filtered = catalog;
     if (department !== 'ALL') {
-      filtered = filtered.filter(item => (item.department || 'PHARMACY') === department);
+      filtered = filtered.filter(item => {
+        const d = (item.department || '').toUpperCase();
+        return d === department || (department === 'CONSULTATION' && (d === 'OPD' || d === 'CONSULTATIONS'));
+      });
     }
     if (category !== 'ALL') {
-      filtered = filtered.filter(item => (item.category || 'ANTIBIOTICS') === category);
+      filtered = filtered.filter(item => (item.category || '').toUpperCase() === category.toUpperCase());
     }
 
     return filtered.map(item => {
@@ -367,24 +434,24 @@ export default function BulkPriceUpdater() {
             </h2>
           </div>
 
-          {/* Department Selector */}
+          {/* Department Selector with Auto-Reset */}
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase text-slate-400 block">Department Scope</label>
             <select
               value={department}
-              onChange={(e) => setDepartment(e.target.value)}
+              onChange={(e) => handleDepartmentChange(e.target.value)}
               className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold"
             >
               <option value="ALL">ALL HOSPITAL DEPARTMENTS (4,120 Items)</option>
               <option value="PHARMACY">Pharmacy & Dispensary</option>
+              <option value="CONSULTATION">OPD Consultations (General & Specialist)</option>
               <option value="LABORATORY">Diagnostic Laboratory</option>
-              <option value="RADIOLOGY">Radiology & Imaging</option>
-              <option value="CONSULTATION">OPD Consultations</option>
-              <option value="THEATER">Operating Theater</option>
+              <option value="RADIOLOGY">Radiology & Imaging (Ultrasound/X-Ray)</option>
+              <option value="THEATER">Operating Theater & Surgery</option>
             </select>
           </div>
 
-          {/* Category Selector */}
+          {/* Department-Specific Dynamic Category Selector */}
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase text-slate-400 block">Category Sub-Filter</label>
             <select
@@ -392,17 +459,15 @@ export default function BulkPriceUpdater() {
               onChange={(e) => setCategory(e.target.value)}
               className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold"
             >
-              <option value="ALL">ALL CATEGORIES</option>
-              <option value="ANTIBIOTICS">Antibiotics & Anti-Infectives</option>
-              <option value="ANALGESICS">Analgesics & Pain Management</option>
-              <option value="GASTRO">Gastroenterology Suspensions</option>
-              <option value="SUPPLEMENTS">Vitamins & Nutrition</option>
-              <option value="HEMATOLOGY">Hematology Panels</option>
-              <option value="ULTRASOUND">Ultrasound Procedures</option>
+              {(departmentCategoriesMap[department] || departmentCategoriesMap.ALL).map(cat => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
+                </option>
+              ))}
             </select>
           </div>
 
-          {/* Upgrade 2: Payer Tier Targeting */}
+          {/* Payer Tier Targeting */}
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase text-emerald-600 block flex items-center justify-between">
               <span>Target Payer Tier</span>
@@ -420,7 +485,7 @@ export default function BulkPriceUpdater() {
             </select>
           </div>
 
-          {/* Upgrade 1: Price Rounding Controls */}
+          {/* Price Rounding Controls */}
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase text-sky-600 block">
               Price Rounding Rule (Cashier Change Optimization)
@@ -496,7 +561,7 @@ export default function BulkPriceUpdater() {
               </h2>
             </div>
             
-            {/* Upgrade 3: Preview Search & Capped Indicator */}
+            {/* Preview Search & Capped Indicator */}
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-black uppercase">
                 Previewing {previewData.length} of {allImpactedItems.length} Items
@@ -514,47 +579,65 @@ export default function BulkPriceUpdater() {
             </div>
           </div>
 
-          {/* Preview Table */}
-          <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden max-h-[360px] overflow-y-auto">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-900 text-white uppercase text-[9px] tracking-widest sticky top-0 z-10">
-                <tr>
-                  <th className="p-3">Item Code</th>
-                  <th className="p-3">Product / Service Title</th>
-                  <th className="p-3 text-right">Current Tariff (₵)</th>
-                  <th className="p-3 text-right text-emerald-400">Revised Tariff (₵)</th>
-                  <th className="p-3 text-right">Variance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-bold">
-                {previewData.map(item => (
-                  <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                    <td className="p-3 font-mono font-bold text-sky-600 dark:text-sky-400 text-[11px]">
-                      {item.itemCode || item.sku}
-                    </td>
-                    <td className="p-3 text-slate-900 dark:text-slate-100 text-xs">
-                      {item.itemName || item.name}
-                    </td>
-                    <td className="p-3 text-right font-mono text-slate-500">
-                      ₵ {item.currentPrice.toFixed(2)}
-                    </td>
-                    <td className="p-3 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm">
-                      ₵ {item.newPrice.toFixed(2)}
-                    </td>
-                    <td className="p-3 text-right font-mono font-bold">
-                      <span className={`px-2 py-0.5 rounded text-[10px] ${
-                        item.variance >= 0 
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                          : 'bg-rose-50 text-rose-700 border border-rose-200'
-                      }`}>
-                        {item.variance >= 0 ? `+₵ ${item.variance.toFixed(2)}` : `-₵ ${Math.abs(item.variance).toFixed(2)}`}
-                      </span>
-                    </td>
+          {/* Preview Table or Defensive Guidance State */}
+          {allImpactedItems.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 space-y-3">
+              <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
+              <p className="text-xs font-black uppercase text-slate-800 dark:text-slate-200">
+                No matching items found for {department} with category filter "{category}".
+              </p>
+              <p className="text-xs text-slate-500">
+                Reset your category filter to view all available services in {department}.
+              </p>
+              <Button 
+                onClick={() => setCategory('ALL')} 
+                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold uppercase"
+              >
+                Preview All {department} Items
+              </Button>
+            </div>
+          ) : (
+            <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden max-h-[360px] overflow-y-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-900 text-white uppercase text-[9px] tracking-widest sticky top-0 z-10">
+                  <tr>
+                    <th className="p-3">Item Code</th>
+                    <th className="p-3">Product / Service Title</th>
+                    <th className="p-3 text-right">Current Tariff (₵)</th>
+                    <th className="p-3 text-right text-emerald-400">Revised Tariff (₵)</th>
+                    <th className="p-3 text-right">Variance</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-bold">
+                  {previewData.map(item => (
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                      <td className="p-3 font-mono font-bold text-sky-600 dark:text-sky-400 text-[11px]">
+                        {item.itemCode || item.sku}
+                      </td>
+                      <td className="p-3 text-slate-900 dark:text-slate-100 text-xs">
+                        {item.itemName || item.name}
+                      </td>
+                      <td className="p-3 text-right font-mono text-slate-500">
+                        ₵ {item.currentPrice.toFixed(2)}
+                      </td>
+                      <td className="p-3 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm">
+                        ₵ {item.newPrice.toFixed(2)}
+                      </td>
+                      <td className="p-3 text-right font-mono font-bold">
+                        <span className={`px-2 py-0.5 rounded text-[10px] ${
+                          item.variance >= 0 
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                            : 'bg-rose-50 text-rose-700 border border-rose-200'
+                        }`}>
+                          {item.variance >= 0 ? `+₵ ${item.variance.toFixed(2)}` : `-₵ ${Math.abs(item.variance).toFixed(2)}`}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* ========================================================= */}
           {/* STAGE 3: DEFENSIVE STRING VERIFICATION & HARD-LOCK GUARD  */}
