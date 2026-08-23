@@ -1,1 +1,1 @@
-export { default } from '@/app/(hospital)/supply-chain/reorder/page';
+export { default } from '@/app/(hospital)/stores/expiry-tracking/page';
