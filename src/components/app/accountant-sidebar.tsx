@@ -62,14 +62,13 @@ const menuGroups = [
   {
     title: "5. Payroll & Compensation",
     items: [
-      { name: "Run Monthly Payroll", href: "/hr/payroll/run", icon: Calculator },
-      { name: "Payroll Archives", href: "/hr/payroll/archives", icon: History },
-      { name: "Remittance Schedules", href: "/hr/payroll/schedules", icon: Landmark },
-      { name: "Salary Grades & Scales", href: "/hr/payroll/grades", icon: Layers },
-      { name: "Payroll Items & Allowances", href: "/hr/payroll/items", icon: ListChecks },
-      { name: "Statutory Payroll Config", href: "/hr/payroll/config", icon: Settings },
-      { name: "Locum Tracker", href: "/hr/locum-tracker", icon: UserCheck },
-      { name: "Staff Payroll Profiles", href: "/staff", icon: Users },
+      { name: "Run Monthly Payroll", href: "/accountant/payroll/run", icon: Calculator },
+      { name: "Payroll Archives", href: "/accountant/payroll/archives", icon: History },
+      { name: "Remittance Schedules", href: "/accountant/payroll/schedules", icon: Landmark },
+      { name: "Salary Grades & Scales", href: "/accountant/payroll/grades", icon: Layers },
+      { name: "Payroll Items & Allowances", href: "/accountant/payroll/items", icon: ListChecks },
+      { name: "Statutory Payroll Config", href: "/accountant/payroll/config", icon: Settings },
+      { name: "Locum Tracker", href: "/accountant/payroll/locum-tracker", icon: UserCheck },
     ]
   },
   {

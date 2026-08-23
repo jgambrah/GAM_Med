@@ -24,7 +24,7 @@ export default function AccountantLayout({
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
   
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT'].includes(userRole);
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'FINANCE_DIRECTOR', 'FINANCE_CONTROLLER', 'SUPER_ADMIN'].includes(userRole);
 
   const isLoading = isUserLoading || isProfileLoading;
 

@@ -519,7 +519,7 @@ export default function AccountantConsoleHub() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => router.push('/hr/payroll/run')}
+                  onClick={() => router.push('/accountant/payroll/run')}
                   className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow flex items-center gap-1 cursor-pointer"
                 >
                   <Calculator className="w-3.5 h-3.5" /> RUN PAYROLL
@@ -529,7 +529,7 @@ export default function AccountantConsoleHub() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => router.push('/hr/payroll/schedules')}
+                  onClick={() => router.push('/accountant/payroll/schedules')}
                   className="p-3 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 rounded-xl text-left transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -542,7 +542,7 @@ export default function AccountantConsoleHub() {
 
                 <button
                   type="button"
-                  onClick={() => router.push('/hr/payroll/archives')}
+                  onClick={() => router.push('/accountant/payroll/archives')}
                   className="p-3 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 rounded-xl text-left transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -555,7 +555,7 @@ export default function AccountantConsoleHub() {
 
                 <button
                   type="button"
-                  onClick={() => router.push('/hr/payroll/grades')}
+                  onClick={() => router.push('/accountant/payroll/grades')}
                   className="p-3 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 rounded-xl text-left transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -568,7 +568,7 @@ export default function AccountantConsoleHub() {
 
                 <button
                   type="button"
-                  onClick={() => router.push('/hr/locum-tracker')}
+                  onClick={() => router.push('/accountant/payroll/locum-tracker')}
                   className="p-3 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 rounded-xl text-left transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between mb-1">
