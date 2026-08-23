@@ -5,6 +5,7 @@ import { PharmacySidebar } from "@/components/app/pharmacy-sidebar";
 import { DoctorSidebar } from "@/components/app/doctor-sidebar";
 import { NurseSidebar } from "@/components/app/nurse-sidebar";
 import { CashierSidebar } from "@/components/app/cashier-sidebar";
+import { ProcurementSidebar } from "@/components/app/procurement-sidebar";
 import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
@@ -53,6 +54,7 @@ export default function HospitalLayout({
   }
 
   // Specialized department route checks
+  const isProcurementRoute = pathname.startsWith('/procurement');
   const isSupplyChainRoute = pathname.startsWith('/supply-chain');
   const isAccountantRoute = pathname.startsWith('/accountant');
   const isFinanceRoute = pathname.startsWith('/finance');
@@ -65,7 +67,7 @@ export default function HospitalLayout({
   const isMortuaryRoute = pathname.startsWith('/mortuary');
 
   // If user is a Pharmacist navigating across shared non-pharmacy routes, retain PharmacySidebar
-  if (userProfile?.role === 'PHARMACIST' && !isPharmacyRoute && !isSupplyChainRoute && !isAccountantRoute && !isFinanceRoute && !isHrRoute && !isAuditorRoute && !isRadiologyRoute && !isLabRoute && !isReceptionRoute && !isMortuaryRoute) {
+  if (userProfile?.role === 'PHARMACIST' && !isPharmacyRoute && !isProcurementRoute && !isSupplyChainRoute && !isAccountantRoute && !isFinanceRoute && !isHrRoute && !isAuditorRoute && !isRadiologyRoute && !isLabRoute && !isReceptionRoute && !isMortuaryRoute) {
     return (
       <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
         <PharmacySidebar />
@@ -77,8 +79,8 @@ export default function HospitalLayout({
     );
   }
 
-  // If the path matches a specialized layout (e.g. /pharmacy, /hr, /accountant), render children directly within container (the nested layout itself provides the single sidebar)
-  if (isSupplyChainRoute || isAccountantRoute || isFinanceRoute || isHrRoute || isAuditorRoute || isPharmacyRoute || isRadiologyRoute || isLabRoute || isReceptionRoute || isMortuaryRoute) {
+  // If the path matches a specialized layout (e.g. /procurement, /pharmacy, /hr, /accountant), render children directly within container (the nested layout itself provides the single sidebar)
+  if (isProcurementRoute || isSupplyChainRoute || isAccountantRoute || isFinanceRoute || isHrRoute || isAuditorRoute || isPharmacyRoute || isRadiologyRoute || isLabRoute || isReceptionRoute || isMortuaryRoute) {
     return (
       <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
         {children}
@@ -87,11 +89,12 @@ export default function HospitalLayout({
     );
   }
 
-  // Default layout for Director, Doctor, Nurse, Cashier, etc.
+  // Default layout for Director, Doctor, Nurse, Cashier, Procurement, etc.
   const activeSidebar = 
     userProfile?.role === 'DOCTOR' ? <DoctorSidebar /> :
     userProfile?.role === 'NURSE' ? <NurseSidebar /> :
     userProfile?.role === 'CASHIER' ? <CashierSidebar /> :
+    userProfile?.role === 'PROCUREMENT_OFFICER' || userProfile?.role === 'STORE_MANAGER' ? <ProcurementSidebar /> :
     <DirectorSidebar userProfile={userProfile} />;
 
   return (
