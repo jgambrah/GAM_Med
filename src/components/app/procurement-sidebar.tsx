@@ -168,14 +168,14 @@ export function ProcurementSidebar() {
       <div className="p-4 border-t border-slate-800 bg-slate-950 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-black text-white">
-            {user?.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'PO'}
+            {(userProfile?.name || user?.displayName || 'PO').slice(0, 2).toUpperCase()}
           </div>
           <div>
             <div className="text-xs font-bold text-white leading-none mb-1 truncate max-w-[110px]">
-              {user?.displayName || 'Procurement Officer'}
+              {userProfile?.name || user?.displayName || 'Richard Kyei'}
             </div>
             <div className="text-[9px] font-black text-sky-400 uppercase tracking-wider leading-none">
-              SUPPLY CHAIN
+              {userProfile?.role ? userProfile.role.replace(/_/g, ' ') : 'SUPPLY CHAIN'}
             </div>
           </div>
         </div>
