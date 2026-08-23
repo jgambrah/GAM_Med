@@ -24,7 +24,7 @@ export default function HRLayout({
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'HR_MANAGER'].includes(userRole);
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'HR_MANAGER', 'ACCOUNTANT', 'FINANCE_DIRECTOR', 'FINANCE_CONTROLLER', 'SUPER_ADMIN'].includes(userRole);
 
   const isLoading = isUserLoading || isProfileLoading;
 

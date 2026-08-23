@@ -8,7 +8,8 @@ import {
   Building2, ArrowUpRight, ArrowDownRight, Scale, 
   FileText, Plus, Landmark, CreditCard, ShieldAlert, 
   Wallet, Activity, ArrowRightLeft, CalendarDays, 
-  Loader2, CheckCircle2, Coins, Banknote
+  Loader2, CheckCircle2, Coins, Banknote, Calculator,
+  History, Layers, UserCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -494,6 +495,91 @@ export default function AccountantConsoleHub() {
               </button>
             </div>
 
+          </div>
+
+          {/* Payroll & Compensation Command Operations */}
+          <div className="bg-slate-950 rounded-2xl border border-slate-800 shadow-xl overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calculator className="w-5 h-5 text-amber-400" />
+                <h2 className="text-xs font-black uppercase tracking-widest text-white">
+                  PAYROLL & COMPENSATION
+                </h2>
+              </div>
+              <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                FULL ACCESS
+              </span>
+            </div>
+
+            <div className="p-5 space-y-3">
+              <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase text-slate-400 block">Monthly Payroll Engine</span>
+                  <span className="text-xs font-bold text-white">August 2026 Pay Register</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push('/hr/payroll/run')}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow flex items-center gap-1 cursor-pointer"
+                >
+                  <Calculator className="w-3.5 h-3.5" /> RUN PAYROLL
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => router.push('/hr/payroll/schedules')}
+                  className="p-3 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 rounded-xl text-left transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <Landmark className="w-4 h-4 text-emerald-400" />
+                    <ArrowUpRight className="w-3 h-3 text-slate-500 group-hover:text-emerald-400 transition-colors" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase text-slate-400 block">Statutory</span>
+                  <span className="text-xs font-bold text-white">SSNIT & GRA</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push('/hr/payroll/archives')}
+                  className="p-3 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 rounded-xl text-left transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <History className="w-4 h-4 text-sky-400" />
+                    <ArrowUpRight className="w-3 h-3 text-slate-500 group-hover:text-sky-400 transition-colors" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase text-slate-400 block">Historical</span>
+                  <span className="text-xs font-bold text-white">Pay Archives</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push('/hr/payroll/grades')}
+                  className="p-3 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 rounded-xl text-left transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <Layers className="w-4 h-4 text-amber-400" />
+                    <ArrowUpRight className="w-3 h-3 text-slate-500 group-hover:text-amber-400 transition-colors" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase text-slate-400 block">Structure</span>
+                  <span className="text-xs font-bold text-white">Salary Grades</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push('/hr/locum-tracker')}
+                  className="p-3 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 rounded-xl text-left transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <UserCheck className="w-4 h-4 text-purple-400" />
+                    <ArrowUpRight className="w-3 h-3 text-slate-500 group-hover:text-purple-400 transition-colors" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase text-slate-400 block">Clinical</span>
+                  <span className="text-xs font-bold text-white">Locum Tracker</span>
+                </button>
+              </div>
+            </div>
           </div>
 
         </div>

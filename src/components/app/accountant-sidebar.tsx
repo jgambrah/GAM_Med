@@ -9,7 +9,8 @@ import {
   Settings, LogOut, ChevronRight, Calculator, ArrowLeftRight, 
   BarChart3, Tag, Zap, UserCheck, History, AlertCircle, 
   Calendar, Lock, TrendingDown, CheckCircle2, FileSearch, 
-  Library, Clock, GraduationCap, Award, Scale, Coins, Receipt
+  Library, Clock, GraduationCap, Award, Scale, Coins, Receipt,
+  Users, ListChecks, Layers
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -59,7 +60,20 @@ const menuGroups = [
     ]
   },
   {
-    title: "5. Fixed Assets & Capex",
+    title: "5. Payroll & Compensation",
+    items: [
+      { name: "Run Monthly Payroll", href: "/hr/payroll/run", icon: Calculator },
+      { name: "Payroll Archives", href: "/hr/payroll/archives", icon: History },
+      { name: "Remittance Schedules", href: "/hr/payroll/schedules", icon: Landmark },
+      { name: "Salary Grades & Scales", href: "/hr/payroll/grades", icon: Layers },
+      { name: "Payroll Items & Allowances", href: "/hr/payroll/items", icon: ListChecks },
+      { name: "Statutory Payroll Config", href: "/hr/payroll/config", icon: Settings },
+      { name: "Locum Tracker", href: "/hr/locum-tracker", icon: UserCheck },
+      { name: "Staff Payroll Profiles", href: "/staff", icon: Users },
+    ]
+  },
+  {
+    title: "6. Fixed Assets & Capex",
     items: [
       { name: "Fixed Assets", href: "/accountant/assets", icon: Building2 },
       { name: "Asset Schedule", href: "/accountant/assets/schedule", icon: Calendar },
@@ -67,7 +81,7 @@ const menuGroups = [
     ]
   },
   {
-    title: "6. Financial Settings & Master Data",
+    title: "7. Financial Settings & Master Data",
     items: [
       { name: "Tariff Master", href: "/finance/tariffs", icon: Tag },
       { name: "Payer Registry", href: "/finance/receivables", icon: Building2 },
@@ -92,7 +106,7 @@ export function AccountantSidebar() {
   const isLocum = userProfile?.contractType === 'LOCUM';
 
   const myPortalMenu = {
-    title: "7. My Portal (HR & Self-Service)",
+    title: "8. My Portal (HR & Self-Service)",
     items: [
        { name: "Request Leave", href: "/staff/request-leave", icon: Calendar },
        { name: "Clock In / Out", href: "/staff/clock-in", icon: Clock },
