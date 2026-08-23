@@ -9,7 +9,7 @@ import {
   Trash2, ArrowRight, Download, Printer, Search, 
   Filter, Building2, Package, Warehouse, MapPin, 
   Loader2, ShieldAlert, ArrowRightLeft, AlertCircle,
-  FileCheck2, DollarSign, Calendar
+  FileCheck2, DollarSign, Calendar, Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
