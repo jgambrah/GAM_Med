@@ -34,9 +34,17 @@ export default function ReceiveDeliveryGRNPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  const userDocRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userProfile } = useDoc(userDocRef);
+
+  const activeUserName = userProfile?.name || user?.displayName || 'Richard Kyei';
+  const activeUserRole = userProfile?.role ? userProfile.role.replace(/_/g, ' ') : 'Supply Chain';
+
   const [selectedPOId, setSelectedPOId] = useState('PO-2026-0049');
   const [vendorInvoiceNo, setVendorInvoiceNo] = useState('INV-TP-4901');
-  const [receiverName, setReceiverName] = useState('Kofi Mensah (Store Manager)');
   const [deliveryNoteNo, setDeliveryNoteNo] = useState('DN-99042');
   const [scannedWaybill, setScannedWaybill] = useState<string | null>('waybill_signed_driver_scan.pdf');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -178,7 +186,9 @@ export default function ReceiveDeliveryGRNPage() {
 
           <div className="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 text-right self-start md:self-auto">
             <span className="text-[9px] font-black uppercase text-slate-400 block font-sans">Receiving Officer</span>
-            <span className="text-xs font-bold text-slate-200">{receiverName}</span>
+            <span className="text-xs font-bold text-white">
+              {activeUserName} <span className="text-emerald-400 font-medium">({activeUserRole})</span>
+            </span>
           </div>
         </div>
       </div>
