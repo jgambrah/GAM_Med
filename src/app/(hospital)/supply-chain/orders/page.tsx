@@ -48,7 +48,7 @@ export default function PurchaseOrderPage() {
   
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'].includes(userRole);
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PROCUREMENT_OFFICER', 'PHARMACIST'].includes(userRole);
 
   // Data fetching
   const purchaseOrdersQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/purchase_orders`), where('poType', '==', 'GOODS'), orderBy('orderedAt', 'desc')) : null, [firestore, hospitalId]);

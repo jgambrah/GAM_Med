@@ -116,8 +116,8 @@ service cloud.firestore {
     function isSupplyChainStaff(hospitalId) {
       let userData = getCallingUserData();
       let token = request.auth.token;
-      let hasRoleInToken = token != null && 'role' in token && token.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
-      let hasRoleInDb = userData != null && 'role' in userData && userData.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
+      let hasRoleInToken = token != null && 'role' in token && token.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PROCUREMENT_OFFICER', 'PHARMACIST'];
+      let hasRoleInDb = userData != null && 'role' in userData && userData.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PROCUREMENT_OFFICER', 'PHARMACIST'];
 
       let hasHospitalInToken = token != null && 'hospitalId' in token && token.hospitalId == hospitalId;
       let hasHospitalInDb = userData != null && 'hospitalId' in userData && userData.hospitalId == hospitalId;

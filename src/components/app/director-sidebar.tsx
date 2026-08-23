@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Users, HeartPulse, CreditCard, 
-  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, Archive, Droplets, FileSignature, Lock, FileSearch, Library, ListChecks, UserPlus, LayoutGrid, FileUp, Trash2, Video, Inbox, Stethoscope, Smartphone
+  Settings, LogOut, ChevronRight, Hospital, Package, ClipboardList, Beaker, Camera, BedDouble, Scissors, Baby, Tag, BarChart3, Clock, FileText, Truck, UserCheck, Wallet, FolderTree, ArrowLeftRight, Building2, Landmark, HardDrive, Zap, AlertTriangle, Skull, CheckCircle2, Plus, ArrowUpRight, Calculator, TrendingUp, GraduationCap, Gavel, Calendar, Award, MessageSquare, CalendarDays, Activity, ShieldCheck, Layers, History, Archive, Droplets, FileSignature, Lock, FileSearch, Library, ListChecks, UserPlus, LayoutGrid, FileUp, Trash2, Video, Inbox, Stethoscope, Smartphone,
+  Warehouse, DollarSign, FileCheck2, ShoppingCart
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -74,6 +75,18 @@ const allMenuGroups = [
       { name: "New Requisition", href: "/requisitions/new", icon: ArrowUpRight, roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST'] },
       { name: "My Requisitions", href: "/pharmacy/requisitions", icon: ClipboardList, roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST'] },
       { name: "Disposal Archive", href: "/supply-chain/disposal/logs", icon: Archive, roles: ['DIRECTOR', 'ADMIN', 'PHARMACIST', 'AUDITOR'] },
+    ]
+  },
+  {
+    title: "Procurement & Stores",
+    roles: ['DIRECTOR', 'ADMIN', 'PROCUREMENT_OFFICER', 'STORE_MANAGER'],
+    items: [
+      { name: "Procurement Command", href: "/procurement", icon: Truck },
+      { name: "Purchase Orders (POs)", href: "/procurement/orders", icon: ShoppingCart },
+      { name: "Goods Receipts (GRN)", href: "/procurement/grn", icon: FileCheck2 },
+      { name: "Stock Counts & Bins", href: "/procurement/inventory", icon: Warehouse },
+      { name: "Vendor Registry", href: "/procurement/vendors", icon: Building2 },
+      { name: "Inventory Valuation", href: "/procurement/valuation", icon: DollarSign },
     ]
   },
   {

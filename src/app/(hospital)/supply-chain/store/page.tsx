@@ -20,7 +20,7 @@ export default function StoreKeeperDashboard() {
 
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'].includes(userRole);
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PROCUREMENT_OFFICER', 'PHARMACIST'].includes(userRole);
 
   // Data Fetching
   const catalogQuery = useMemoFirebase(() => hospitalId ? query(collection(firestore, `hospitals/${hospitalId}/product_catalog`)) : null, [firestore, hospitalId]);

@@ -41,7 +41,7 @@ export default function SupplierDirectoryPage() {
 
   const hospitalId = userProfile?.hospitalId;
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'].includes(userRole);
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PROCUREMENT_OFFICER', 'PHARMACIST'].includes(userRole);
 
   const suppliersQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId) return null;
