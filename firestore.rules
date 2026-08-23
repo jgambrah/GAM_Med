@@ -129,6 +129,38 @@ service cloud.firestore {
       );
     }
 
+    function isProcurementOfficer(hospitalId) {
+      let userData = getCallingUserData();
+      let token = request.auth.token;
+      let hasRoleInToken = token != null && 'role' in token && token.role in ['DIRECTOR', 'ADMIN', 'PROCUREMENT_OFFICER'];
+      let hasRoleInDb = userData != null && 'role' in userData && userData.role in ['DIRECTOR', 'ADMIN', 'PROCUREMENT_OFFICER'];
+
+      let hasHospitalInToken = token != null && 'hospitalId' in token && token.hospitalId == hospitalId;
+      let hasHospitalInDb = userData != null && 'hospitalId' in userData && userData.hospitalId == hospitalId;
+
+      return isSuperAdmin() || (
+        isSignedIn()
+          && (hasHospitalInToken || hasHospitalInDb)
+          && (hasRoleInToken || hasRoleInDb)
+      );
+    }
+
+    function isStoreManager(hospitalId) {
+      let userData = getCallingUserData();
+      let token = request.auth.token;
+      let hasRoleInToken = token != null && 'role' in token && token.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
+      let hasRoleInDb = userData != null && 'role' in userData && userData.role in ['DIRECTOR', 'ADMIN', 'STORE_MANAGER', 'PHARMACIST'];
+
+      let hasHospitalInToken = token != null && 'hospitalId' in token && token.hospitalId == hospitalId;
+      let hasHospitalInDb = userData != null && 'hospitalId' in userData && userData.hospitalId == hospitalId;
+
+      return isSuperAdmin() || (
+        isSignedIn()
+          && (hasHospitalInToken || hasHospitalInDb)
+          && (hasRoleInToken || hasRoleInDb)
+      );
+    }
+
     function isMortuaryStaff(hospitalId) {
       let userData = getCallingUserData();
       let token = request.auth.token;
@@ -844,16 +876,19 @@ service cloud.firestore {
       }
 
       match /suppliers/{supplierId} {
-        allow get, create, update, delete, list: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        allow get, list: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || isProcurementOfficer(hospitalId);
       }
 
       match /purchase_orders/{orderId} {
-        allow get, create, update, delete, list: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        allow get, list: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        allow create, update, delete: if isSuperAdmin() || isProcurementOfficer(hospitalId);
       }
 
       match /grn_logs/{grnId} {
-        allow create, get, list: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
-        allow update, delete: if false;
+        allow create: if isSuperAdmin() || isStoreManager(hospitalId);
+        allow get, list: if isSuperAdmin() || isSupplyChainStaff(hospitalId);
+        allow update, delete: if false; // Immutable warehouse intake audit trail
       }
 
       match /lab_menu/{testId} {
