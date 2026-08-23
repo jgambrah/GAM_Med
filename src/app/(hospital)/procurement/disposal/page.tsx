@@ -1,1 +1,1 @@
-export { default } from '@/app/(hospital)/supply-chain/disposal/page';
+export { default } from '@/app/(hospital)/stores/disposal/page';
