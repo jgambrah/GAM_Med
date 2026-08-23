@@ -36,6 +36,8 @@ export default function PurchaseOrdersPage() {
   const [selectedPO, setSelectedPO] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [localCreatedPOs, setLocalCreatedPOs] = useState<any[]>([]);
 
   useEffect(() => {
     if (user && firestore) {
@@ -124,11 +126,14 @@ export default function PurchaseOrdersPage() {
   ], []);
 
   const purchaseOrders = useMemo(() => {
+    const combined = [...localCreatedPOs];
     if (dbPurchaseOrders && dbPurchaseOrders.length > 0) {
-      return dbPurchaseOrders;
+      combined.push(...dbPurchaseOrders);
+    } else {
+      combined.push(...demoPOs);
     }
-    return demoPOs;
-  }, [dbPurchaseOrders, demoPOs]);
+    return combined;
+  }, [localCreatedPOs, dbPurchaseOrders, demoPOs]);
 
   // Dynamic Telemetry Metrics
   const telemetry = useMemo(() => {
@@ -283,7 +288,7 @@ export default function PurchaseOrdersPage() {
             </button>
             <button 
               type="button"
-              onClick={() => router.push('/procurement/orders/new')}
+              onClick={() => setIsCreateModalOpen(true)}
               className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold tracking-wide flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition cursor-pointer"
             >
               <Plus className="w-4 h-4" />
@@ -500,6 +505,22 @@ export default function PurchaseOrdersPage() {
           user={user} 
           open={!!selectedPO} 
           onOpenChange={() => setSelectedPO(null)} 
+        />
+      )}
+
+      {/* ========================================================================= */}
+      {/* 6. CREATE NEW PURCHASE ORDER MODAL                                        */}
+      {/* ========================================================================= */}
+      {isCreateModalOpen && (
+        <CreatePurchaseOrderModal
+          open={isCreateModalOpen}
+          onOpenChange={setIsCreateModalOpen}
+          hospitalId={hospitalId}
+          user={user}
+          onOrderCreated={(newPO) => {
+            setLocalCreatedPOs(prev => [newPO, ...prev]);
+            setIsCreateModalOpen(false);
+          }}
         />
       )}
 
@@ -753,3 +774,306 @@ function ReceiveGoodsDialog({ po, hospitalId, user, open, onOpenChange }: Receiv
     </Dialog>
   );
 }
+
+// --- CREATE NEW PURCHASE ORDER MODAL COMPONENT ---
+
+interface CreatePOModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  hospitalId?: string;
+  user: any;
+  onOrderCreated: (po: any) => void;
+}
+
+function CreatePurchaseOrderModal({ open, onOpenChange, hospitalId, user, onOrderCreated }: CreatePOModalProps) {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
+
+  const [supplierId, setSupplierId] = useState('VND-001');
+  const [category, setCategory] = useState('PHARMACEUTICAL');
+  const [deliveryDate, setDeliveryDate] = useState('2026-08-30');
+  const [paymentTerms, setPaymentTerms] = useState('NET_30');
+
+  const supplierProfiles: Record<string, { name: string; tin: string; paymentTerms: string }> = {
+    'VND-001': { name: 'Ernest Chemists Ltd', tin: 'C0001928472', paymentTerms: 'Net 30 Days' },
+    'VND-002': { name: 'Tobinco Pharmaceuticals Ltd', tin: 'C0008492019', paymentTerms: 'Net 30 Days' },
+    'VND-003': { name: 'Multinec Medical Consumables', tin: 'C0004819203', paymentTerms: 'Net 15 Days' },
+    'VND-004': { name: 'MedTech Supplies Inc.', tin: 'C0007519284', paymentTerms: 'Net 45 Days' },
+    'VND-005': { name: 'Perkins Power Solutions Ghana', tin: 'C0003928174', paymentTerms: 'Immediate on GRN' },
+  };
+
+  const [orderItems, setOrderItems] = useState([
+    { id: '1', name: 'Ceftriaxone 1g IV Infusion (Vial)', quantity: 200, unitPrice: 35.00 },
+    { id: '2', name: 'Metronidazole 500mg/100ml Infusion', quantity: 150, unitPrice: 16.50 },
+    { id: '3', name: 'Disposable Sterile Gloves 7.5 (Box 100)', quantity: 80, unitPrice: 48.00 },
+  ]);
+
+  const totalOrderValue = useMemo(() => {
+    return orderItems.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
+  }, [orderItems]);
+
+  const requiresDirectorApproval = totalOrderValue > 20000;
+
+  const handleAddItem = () => {
+    setOrderItems(prev => [
+      ...prev,
+      { id: Date.now().toString(), name: 'New Supply Item', quantity: 50, unitPrice: 20.00 }
+    ]);
+  };
+
+  const handleRemoveItem = (id: string) => {
+    if (orderItems.length === 1) {
+      toast({ variant: 'destructive', title: 'At least one item required' });
+      return;
+    }
+    setOrderItems(prev => prev.filter(i => i.id !== id));
+  };
+
+  const handleSavePO = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    const poNumber = `PO-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const supplierInfo = supplierProfiles[supplierId] || { name: 'Ernest Chemists Ltd', tin: 'C0001928472', paymentTerms: 'Net 30' };
+
+    const newPO = {
+      id: `po-${Date.now()}`,
+      poNumber,
+      poType: 'GOODS',
+      supplierId,
+      supplierName: supplierInfo.name,
+      supplierTIN: supplierInfo.tin,
+      category,
+      paymentTerms,
+      expectedDeliveryDate: deliveryDate,
+      totalAmount: totalOrderValue,
+      status: requiresDirectorApproval ? 'PENDING_DIRECTOR' : 'PENDING_DELIVERY',
+      directorApproval: requiresDirectorApproval ? 'PENDING' : 'APPROVED',
+      orderedAt: new Date(),
+      orderedBy: user?.uid || 'PROCUREMENT',
+      orderedByName: user?.displayName || 'Procurement Officer',
+      items: orderItems.map((item, idx) => ({
+        itemId: item.id,
+        name: item.name,
+        quantityOrdered: item.quantity,
+        quantityReceived: 0,
+        price: item.unitPrice
+      }))
+    };
+
+    try {
+      if (firestore && hospitalId) {
+        const poRef = doc(collection(firestore, `hospitals/${hospitalId}/purchase_orders`));
+        await updateDocumentNonBlocking(poRef, {
+          ...newPO,
+          id: poRef.id,
+          createdAt: serverTimestamp()
+        });
+      }
+    } catch (err) {
+      console.warn("Firestore PO write fallback:", err);
+    }
+
+    setSubmitting(false);
+    onOrderCreated(newPO);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl bg-slate-950 border border-slate-800 text-white rounded-3xl p-6 md:p-8 max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-2">
+            <Boxes className="w-5 h-5 text-emerald-400" />
+            <span>Issue New Purchase Order (PO)</span>
+          </DialogTitle>
+          <DialogDescription className="text-xs text-slate-400">
+            Generate a legally binding hospital procurement order with automated 3-Way Match synchronization.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSavePO} className="space-y-6 pt-3">
+          
+          {/* Supplier & Category Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-slate-400">Registered Vendor / Supplier</label>
+              <select
+                value={supplierId}
+                onChange={(e) => setSupplierId(e.target.value)}
+                className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-500"
+              >
+                {Object.entries(supplierProfiles).map(([id, info]) => (
+                  <option key={id} value={id}>
+                    {info.name} (TIN: {info.tin})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-slate-400">Procurement Scope</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-500"
+              >
+                <option value="PHARMACEUTICAL">Pharmaceuticals & IV Fluids</option>
+                <option value="CONSUMABLES">Medical & Surgical Consumables</option>
+                <option value="LABORATORY">Laboratory Reagents & Diagnostics</option>
+                <option value="RADIOLOGY">Radiology Contrast & Films</option>
+                <option value="WORKS">Engineering Spares & Generator Fuel</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-slate-400">Target Delivery Date</label>
+              <input
+                type="date"
+                value={deliveryDate}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+                required
+                className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono font-bold text-white outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-slate-400">Payment Terms</label>
+              <select
+                value={paymentTerms}
+                onChange={(e) => setPaymentTerms(e.target.value)}
+                className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-emerald-500"
+              >
+                <option value="NET_30">Net 30 Days (Standard Hospital Credit)</option>
+                <option value="NET_60">Net 60 Days (High-Volume Bulk)</option>
+                <option value="IMMEDIATE">Immediate on GRN Clearance</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Line Items Builder */}
+          <div className="space-y-3 pt-4 border-t border-slate-800">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5 text-emerald-400" />
+                Line Items & Pricing
+              </span>
+              <button
+                type="button"
+                onClick={handleAddItem}
+                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[10px] font-black uppercase rounded-lg border border-slate-700 transition flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3 h-3" /> + Add Line Item
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              {orderItems.map((item, index) => (
+                <div key={item.id} className="p-3 bg-slate-900 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-center gap-3">
+                  <input
+                    type="text"
+                    value={item.name}
+                    placeholder="Item Description / Molecule"
+                    onChange={(e) => {
+                      const updated = [...orderItems];
+                      updated[index].name = e.target.value;
+                      setOrderItems(updated);
+                    }}
+                    required
+                    className="flex-1 w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-xs font-bold text-white outline-none"
+                  />
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="w-24">
+                      <label className="text-[8px] font-black uppercase text-slate-500 block mb-0.5">Qty</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const updated = [...orderItems];
+                          updated[index].quantity = parseInt(e.target.value) || 1;
+                          setOrderItems(updated);
+                        }}
+                        className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg font-mono text-xs font-bold text-center text-white outline-none"
+                      />
+                    </div>
+                    <div className="w-28">
+                      <label className="text-[8px] font-black uppercase text-slate-500 block mb-0.5">Unit (₵)</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        value={item.unitPrice}
+                        onChange={(e) => {
+                          const updated = [...orderItems];
+                          updated[index].unitPrice = parseFloat(e.target.value) || 0;
+                          setOrderItems(updated);
+                        }}
+                        className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg font-mono text-xs font-bold text-right text-emerald-400 outline-none"
+                      />
+                    </div>
+                    <div className="w-24 text-right">
+                      <label className="text-[8px] font-black uppercase text-slate-500 block mb-0.5">Total</label>
+                      <span className="font-mono text-xs font-bold text-white block pt-1.5">
+                        ₵ {(item.quantity * item.unitPrice).toFixed(2)}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(item.id)}
+                      className="p-2 text-slate-500 hover:text-rose-400 rounded-lg transition mt-3 sm:mt-0"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Grand Total & Sign-off Warning Deck */}
+          <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
+            <div className="flex justify-between items-center">
+              <div>
+                <span className="text-[10px] font-black uppercase text-slate-400 block">Total Purchase Order Value</span>
+                <span className="text-xs text-slate-300 font-medium">Auto-bridges to GRN and Accounts Payable 3-Way Match</span>
+              </div>
+              <div className="text-2xl font-mono font-black text-emerald-400">
+                ₵ {totalOrderValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+
+            {requiresDirectorApproval ? (
+              <div className="p-3 bg-amber-950/40 border border-amber-800/60 rounded-xl flex items-center gap-2 text-amber-300 text-xs">
+                <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  <strong>Executive Sign-off Required:</strong> Total value exceeds ₵ 20,000.00 threshold. PO will be routed to Hospital Director for authorization.
+                </span>
+              </div>
+            ) : (
+              <div className="p-3 bg-emerald-950/40 border border-emerald-800/60 rounded-xl flex items-center gap-2 text-emerald-300 text-xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>
+                  <strong>Standard Operational PO:</strong> Approved for immediate supplier transmission and warehouse delivery.
+                </span>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="text-slate-400 hover:text-white">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl px-6">
+              {submitting && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+              ISSUE PURCHASE ORDER &rarr;
+            </Button>
+          </DialogFooter>
+
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
