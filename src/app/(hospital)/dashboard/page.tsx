@@ -244,7 +244,7 @@ export default function ExecutiveDashboard() {
                 </span>
               </div>
               <div className="text-2xl md:text-3xl font-black font-mono text-slate-900 dark:text-slate-100 mt-2">
-                ₵ {dashboardData.financials.grossRevenue.toLocaleString('en-GH', { minimumFractionDigits: 2 })}
+                ₵ {(dashboardData.financials.grossRevenue || 0).toLocaleString('en-GH', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
@@ -255,7 +255,7 @@ export default function ExecutiveDashboard() {
                   ₵ 142.5k Peak
                 </span>
               </div>
-              <MiniSparkline data={dashboardData.financials.revenue7Day} color="#10b981" />
+              <MiniSparkline data={dashboardData.financials.revenue7Day || []} color="#10b981" />
             </div>
           </div>
 
@@ -271,7 +271,7 @@ export default function ExecutiveDashboard() {
                 </span>
               </div>
               <div className="text-2xl md:text-3xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-2">
-                ₵ {dashboardData.financials.cashCollected.toLocaleString('en-GH', { minimumFractionDigits: 2 })}
+                ₵ {(dashboardData.financials.cashCollected || 0).toLocaleString('en-GH', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
@@ -281,7 +281,7 @@ export default function ExecutiveDashboard() {
               </div>
               <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
                 <span>In Vault & Bank Accounts</span>
-                <MiniSparkline data={dashboardData.financials.cash7Day} color="#0ea5e9" />
+                <MiniSparkline data={dashboardData.financials.cash7Day || []} color="#0ea5e9" />
               </div>
             </div>
           </div>
@@ -298,7 +298,7 @@ export default function ExecutiveDashboard() {
                 </span>
               </div>
               <div className="text-2xl md:text-3xl font-black font-mono text-slate-900 dark:text-slate-100 mt-2">
-                ₵ {(dashboardData.financials.receivablesNHIS + dashboardData.financials.receivablesCorporate).toLocaleString('en-GH', { minimumFractionDigits: 2 })}
+                ₵ {((dashboardData.financials.receivablesNHIS || 0) + (dashboardData.financials.receivablesCorporate || 0)).toLocaleString('en-GH', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
@@ -307,12 +307,12 @@ export default function ExecutiveDashboard() {
               <div className="flex justify-between">
                 <span className="text-slate-400 font-sans">Current (&lt;90d):</span>
                 <span className="font-bold text-slate-700 dark:text-slate-300">
-                  ₵ {dashboardData.financials.arCurrent.toLocaleString('en-GH', { minimumFractionDigits: 2 })}
+                  ₵ {(dashboardData.financials.arCurrent || 0).toLocaleString('en-GH', { minimumFractionDigits: 2 })}
                 </span>
               </div>
               <div className="flex justify-between text-rose-600 dark:text-rose-400 font-bold">
                 <span className="font-sans">⚠️ Aging &gt; 90 Days (At Risk):</span>
-                <span>₵ {dashboardData.financials.arOver90Days.toLocaleString('en-GH', { minimumFractionDigits: 2 })}</span>
+                <span>₵ {(dashboardData.financials.arOver90Days || 0).toLocaleString('en-GH', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>
@@ -329,7 +329,7 @@ export default function ExecutiveDashboard() {
                 </span>
               </div>
               <div className="text-2xl md:text-3xl font-black font-mono text-indigo-600 dark:text-indigo-400 mt-2">
-                ₵ {dashboardData.financials.pendingRemittances.toLocaleString('en-GH', { minimumFractionDigits: 2 })}
+                ₵ {(dashboardData.financials.pendingPayables || 0).toLocaleString('en-GH', { minimumFractionDigits: 2 })}
               </div>
             </div>
 
