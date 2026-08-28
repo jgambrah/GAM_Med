@@ -189,6 +189,67 @@ const initialEnterpriseMenu: MenuScanItem[] = [
   }
 ];
 
+
+// Smart Clinical Inference Helpers for Legacy and Unspecified Scans
+export const inferOrganRegion = (name: string, modality: string, existingRegion?: string): string => {
+  const text = ((name || '') + ' ' + (modality || '')).toUpperCase();
+  if (text.includes('CHEST') || text.includes('LUNG') || text.includes('THORAX') || text.includes('CXR') || text.includes('RIB') || text.includes('CLAVICLE')) {
+    return 'CHEST_THORAX';
+  }
+  if (text.includes('OBSTETRIC') || text.includes('PREGNAN') || text.includes('FETAL') || text.includes('FOETAL') || text.includes('GYNAE') || text.includes('UTERUS') || text.includes('OVARY')) {
+    return 'OB_GYN';
+  }
+  if (text.includes('BRAIN') || text.includes('HEAD') || text.includes('CRANIAL') || text.includes('SKULL') || text.includes('NEURO')) {
+    return 'HEAD_NEURO';
+  }
+  if (text.includes('SPINE') || text.includes('LUMBAR') || text.includes('CERVICAL') || text.includes('LUMBOSACRAL')) {
+    return 'SPINE';
+  }
+  if (text.includes('KNEE') || text.includes('FEMUR') || text.includes('TIBIA') || text.includes('JOINT') || text.includes('SHOULDER') || text.includes('ANKLE') || text.includes('WRIST') || text.includes('HAND') || text.includes('FOOT') || text.includes('BONE')) {
+    return 'MUSCULOSKELETAL';
+  }
+  if (text.includes('ECHO') || text.includes('CARDIO') || text.includes('HEART') || text.includes('ECG')) {
+    return 'CARDIO';
+  }
+  return existingRegion || 'ABDOMEN_PELVIS';
+};
+
+export const inferPrepProtocol = (name: string, modality: string, existingProtocol?: string, existingInstructions?: string): { protocol: string; instructions: string } => {
+  if (existingProtocol && existingProtocol !== 'NONE') {
+    return { protocol: existingProtocol, instructions: existingInstructions || 'Standard clinical protocol applies.' };
+  }
+
+  const text = ((name || '') + ' ' + (modality || '')).toUpperCase();
+  if (text.includes('OBSTETRIC') || text.includes('PELVIC') || text.includes('PELVIS') || text.includes('PREGNAN') || text.includes('BLADDER') || text.includes('KUB')) {
+    return {
+      protocol: 'FULL_BLADDER',
+      instructions: existingInstructions || 'Drink 1 Liter of plain water 1 hour prior to scan. Do not empty bladder until scan is completed.'
+    };
+  }
+  if (text.includes('ABDOMEN') || text.includes('ABDOMINAL') || text.includes('LIVER') || text.includes('GALLBLADDER')) {
+    return {
+      protocol: 'FASTING_4HR',
+      instructions: existingInstructions || 'Fasting 4 to 6 hours prior to scan (nil by mouth except light sips of water).'
+    };
+  }
+  if (text.includes('MRI')) {
+    return {
+      protocol: 'NO_METAL',
+      instructions: existingInstructions || 'Strict MRI Safety Check. No metallic implants, pacemakers, surgical clips, or magnetic foreign bodies.'
+    };
+  }
+  if (text.includes('CONTRAST') || text.includes('IVU') || text.includes('CTA')) {
+    return {
+      protocol: 'CONTRAST_CREATININE',
+      instructions: existingInstructions || 'Recent Serum Creatinine (eGFR) within 30 days required. Fasting 4 hours prior to IV contrast.'
+    };
+  }
+  return {
+    protocol: existingProtocol || 'NONE',
+    instructions: existingInstructions || 'Walk-in ready. Remove metallic jewelry and accessories from scanned anatomical region.'
+  };
+};
+
 export default function RadiologySetupPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
@@ -233,22 +294,28 @@ export default function RadiologySetupPage() {
 
   const menuScans = useMemo(() => {
     if (dbScans && dbScans.length > 0) {
-      return dbScans.map(s => ({
-        id: s.id,
-        code: s.code || `GHS-RAD-${s.id.substring(0, 4).toUpperCase()}`,
-        name: s.name,
-        alias: s.alias || '',
-        modality: s.modality ? s.modality.toUpperCase() : 'X-RAY',
-        organRegion: s.organRegion || 'ABDOMEN_PELVIS',
-        tatMinutes: Number(s.tatMinutes || 30),
-        cashPrice: Number(s.cashPrice || s.price || 0),
-        nhisPrice: Number(s.nhisPrice || (s.price ? s.price * 0.75 : 0)),
-        isNhisCovered: s.isNhisCovered !== false,
-        corporatePrice: Number(s.corporatePrice || (s.price ? s.price * 1.3 : 0)),
-        prepProtocol: s.prepProtocol || 'NONE',
-        prepInstructions: s.prepInstructions || 'Standard procedure protocol applies.',
-        status: s.status || 'ACTIVE',
-      })) as MenuScanItem[];
+      return dbScans.map(s => {
+        const mod = s.modality ? s.modality.toUpperCase() : 'X-RAY';
+        const region = inferOrganRegion(s.name, mod, s.organRegion);
+        const prep = inferPrepProtocol(s.name, mod, s.prepProtocol, s.prepInstructions);
+
+        return {
+          id: s.id,
+          code: s.code || `GHS-RAD-${s.id.substring(0, 4).toUpperCase()}`,
+          name: s.name,
+          alias: s.alias || '',
+          modality: mod,
+          organRegion: region,
+          tatMinutes: Number(s.tatMinutes || 30),
+          cashPrice: Number(s.cashPrice || s.price || 0),
+          nhisPrice: Number(s.nhisPrice !== undefined ? s.nhisPrice : (s.price ? s.price * 0.75 : 0)),
+          isNhisCovered: s.isNhisCovered !== false,
+          corporatePrice: Number(s.corporatePrice !== undefined ? s.corporatePrice : (s.price ? s.price * 1.3 : 0)),
+          prepProtocol: prep.protocol,
+          prepInstructions: prep.instructions,
+          status: s.status || 'ACTIVE',
+        };
+      }) as MenuScanItem[];
     }
     return initialEnterpriseMenu;
   }, [dbScans]);
