@@ -9,7 +9,7 @@ import {
   Clock, Stethoscope, User, Zap, Sparkles, Layers, Shield,
   Search, Filter, ArrowUpDown, Bed, MapPin, Building2,
   Calendar, ChevronRight, AlertCircle, FileUp, FolderOpen,
-  SlidersHorizontal, Check
+  SlidersHorizontal, Check, HeartPulse
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -23,27 +23,49 @@ type RadiologyOrder = {
   encounterId?: string;
   patientId?: string;
   scanName?: string;
-  testName?: string;
+  scanType?: string;
+  procedure_type?: string;
   procedureName?: string;
+  testName?: string;
+  description?: string;
+  name?: string;
+  title?: string;
   patientName?: string;
   patient?: string;
+  patientFullName?: string;
   patientEhrId?: string;
   ehrId?: string;
   ehrNumber?: string;
+  folderNumber?: string;
   gender?: string;
+  sex?: string;
+  patientGender?: string;
   age?: string | number;
+  patientAge?: string | number;
   location?: string;
   wardName?: string;
+  unitName?: string;
+  department?: string;
   providerName?: string;
   orderedBy?: string;
   doctorName?: string;
+  doctor?: string;
+  clinicianName?: string;
   modality?: string;
+  modalityType?: string;
+  category?: string;
+  type?: string;
   indication?: string;
   clinicalIndication?: string;
   clinicalNotes?: string;
   diagnosis?: string;
+  reason?: string;
+  notes?: string;
+  clinicalReason?: string;
   priority?: 'STAT / URGENT' | 'ROUTINE' | string;
+  urgency?: string;
   isUrgent?: boolean;
+  stat?: boolean;
   orderedAt: any;
   completedAt?: any;
   status: 'PENDING' | 'IMAGE_READY' | 'COMPLETED';
@@ -51,6 +73,166 @@ type RadiologyOrder = {
   impression?: string;
   findings?: string;
   radiologistName?: string;
+};
+
+// Robust Modality Normalization Engine
+export const normalizeModality = (order: RadiologyOrder): 'ULTRASOUND' | 'X-RAY' | 'CT' | 'MRI' => {
+  const combinedText = [
+    order.modality,
+    order.modalityType,
+    order.procedure_type,
+    order.scanType,
+    order.category,
+    order.type,
+    order.scanName,
+    order.procedureName,
+    order.testName,
+    order.description,
+    order.name,
+    order.title,
+    order.indication,
+    order.clinicalIndication,
+    order.diagnosis
+  ].filter(Boolean).join(' ').toUpperCase();
+
+  // 1. Ultrasound / Sonography
+  if (
+    combinedText.includes('ULTRASOUND') ||
+    combinedText.includes('USS') ||
+    combinedText.includes('USG') ||
+    combinedText.includes('SONOGRAM') ||
+    combinedText.includes('SONOGRAPHY') ||
+    combinedText.includes('ECHOCARDIOGRAM') ||
+    combinedText.includes('ECHO') ||
+    combinedText.includes('DOPPLER') ||
+    combinedText.includes('OBSTETRIC') ||
+    combinedText.includes('ABDOMINO-PELVIC') ||
+    combinedText.includes('PELVIC USS') ||
+    combinedText.includes('ABDOMINAL USS') ||
+    combinedText.includes('FOETAL') ||
+    combinedText.includes('FETAL') ||
+    combinedText.includes('BIOPHYSICAL')
+  ) {
+    return 'ULTRASOUND';
+  }
+
+  // 2. CT Scan / Computed Tomography
+  if (
+    combinedText.includes('CT SCAN') ||
+    combinedText.includes('CT_SCAN') ||
+    combinedText.includes('CAT SCAN') ||
+    combinedText.includes('COMPUTED TOMOGRAPHY') ||
+    combinedText.includes('BRAIN CT') ||
+    combinedText.includes('HEAD CT') ||
+    combinedText.includes('CHEST CT') ||
+    combinedText.includes('ABDOMINAL CT') ||
+    combinedText.includes('HRCT') ||
+    combinedText.includes('CTA') ||
+    combinedText.match(/\bCT\b/)
+  ) {
+    return 'CT';
+  }
+
+  // 3. MRI / Magnetic Resonance
+  if (
+    combinedText.includes('MRI') ||
+    combinedText.includes('MR SCAN') ||
+    combinedText.includes('MAGNETIC RESONANCE') ||
+    combinedText.includes('BRAIN MRI') ||
+    combinedText.includes('LUMBAR MRI') ||
+    combinedText.includes('SPINE MRI') ||
+    combinedText.includes('MRA') ||
+    combinedText.match(/\bMRI\b/)
+  ) {
+    return 'MRI';
+  }
+
+  // 4. X-Ray / Radiograph (Default for bone, chest, extremity, plain film)
+  if (
+    combinedText.includes('X-RAY') ||
+    combinedText.includes('XRAY') ||
+    combinedText.includes('XR') ||
+    combinedText.includes('X_RAY') ||
+    combinedText.includes('CHEST X') ||
+    combinedText.includes('CHEST PA') ||
+    combinedText.includes('PLAIN FILM') ||
+    combinedText.includes('RADIOGRAPH') ||
+    combinedText.includes('KNEE') ||
+    combinedText.includes('SPINE AP') ||
+    combinedText.includes('LATERAL VIEW') ||
+    combinedText.includes('SKULL') ||
+    combinedText.includes('FEMUR') ||
+    combinedText.includes('TIBIA') ||
+    combinedText.includes('PELVIS') ||
+    combinedText.includes('SHOULDER') ||
+    combinedText.includes('FRACTURE') ||
+    combinedText.includes('CR') ||
+    combinedText.includes('DR')
+  ) {
+    return 'X-RAY';
+  }
+
+  // Smart heuristic based on indication or fallback
+  if (combinedText.includes('COUGH') || combinedText.includes('CHEST') || combinedText.includes('PNEUMONIA') || combinedText.includes('PAIN')) {
+    return 'X-RAY';
+  }
+
+  return 'ULTRASOUND';
+};
+
+// Specific Procedure Study Name Resolver
+export const resolveStudyName = (order: RadiologyOrder, modality: 'ULTRASOUND' | 'X-RAY' | 'CT' | 'MRI'): string => {
+  const explicit = order.scanName || order.scanType || order.procedure_type || order.procedureName || order.testName || order.description || order.name || order.title;
+  
+  if (explicit && !['DIAGNOSTIC PROCEDURE', 'DIAGNOSTIC SCAN', 'SCAN', 'IMAGING', 'TEST'].includes(explicit.trim().toUpperCase())) {
+    return explicit;
+  }
+
+  const ind = (order.indication || order.clinicalIndication || order.clinicalNotes || order.diagnosis || '').toUpperCase();
+
+  switch (modality) {
+    case 'ULTRASOUND':
+      if (ind.includes('PELVIC') || ind.includes('APPENDIX') || ind.includes('APPENDICITIS') || ind.includes('ILIAC') || ind.includes('OVARY') || ind.includes('CYST')) {
+        return 'Abdomino-Pelvic Ultrasound (USS Complete)';
+      }
+      if (ind.includes('PREGNANT') || ind.includes('WEEKS') || ind.includes('FETAL') || ind.includes('GESTATION') || ind.includes('AMNIOTIC')) {
+        return 'Obstetric Ultrasound (Biophysical Profile & Doppler)';
+      }
+      if (ind.includes('KIDNEY') || ind.includes('RENAL') || ind.includes('BLADDER') || ind.includes('URINE')) {
+        return 'KUB Ultrasound (Kidneys, Ureters & Bladder)';
+      }
+      return 'Abdominal Ultrasound (Complete Scan)';
+
+    case 'X-RAY':
+      if (ind.includes('CHEST') || ind.includes('COUGH') || ind.includes('PNEUMONIA') || ind.includes('FEVER') || ind.includes('HEMOPTYSIS') || ind.includes('LUNG')) {
+        return 'Chest X-Ray (PA & Lateral View)';
+      }
+      if (ind.includes('KNEE') || ind.includes('LEG') || ind.includes('JOINT')) {
+        return 'Right Knee Joint X-Ray (AP & Lateral Weight-Bearing)';
+      }
+      if (ind.includes('SPINE') || ind.includes('BACK') || ind.includes('LUMBAR')) {
+        return 'Lumbosacral Spine X-Ray (AP & Lateral View)';
+      }
+      return 'Chest X-Ray (Standard PA View)';
+
+    case 'CT':
+      if (ind.includes('HEAD') || ind.includes('BRAIN') || ind.includes('TRAUMA') || ind.includes('GCS') || ind.includes('CONCUSSION')) {
+        return 'Brain CT Scan (Non-Contrast Axial & Coronal)';
+      }
+      if (ind.includes('ABDOMEN') || ind.includes('LIVER') || ind.includes('PANCREAS')) {
+        return 'Abdominal CT Scan (IV Contrast Enhanced)';
+      }
+      return 'Brain & Cranial CT Scan (Non-Contrast)';
+
+    case 'MRI':
+      if (ind.includes('SPINE') || ind.includes('LUMBAR') || ind.includes('BACK') || ind.includes('SCIATICA') || ind.includes('DISC')) {
+        return 'MRI Lumbar Spine (L1-S1 Sagittal & Axial)';
+      }
+      if (ind.includes('BRAIN') || ind.includes('HEAD') || ind.includes('STROKE') || ind.includes('NEURO')) {
+        return 'Brain MRI Scan (T1/T2 Axial & FLAIR)';
+      }
+      return 'MRI Lumbar Spine (L1-S1 Sagittal & Axial)';
+  }
 };
 
 export default function RadiologyQueuePage() {
@@ -118,7 +300,7 @@ export default function RadiologyQueuePage() {
   const getOrderPaymentStatus = (order: RadiologyOrder) => {
     if (paymentPolicy === 'NONE') return 'PAID';
     if (!unpaidBillingItems) return 'LOADING';
-    const scanTitle = order.scanName || order.testName || order.procedureName || '';
+    const scanTitle = order.scanName || order.scanType || order.procedure_type || order.testName || order.procedureName || '';
     const matchingUnpaid = unpaidBillingItems.find(item => 
       item.encounterId === order.encounterId &&
       item.category === 'IMAGING' &&
@@ -142,15 +324,40 @@ export default function RadiologyQueuePage() {
   // Active Queue: Awaiting Upload or Image Ready
   const activeOrdersRaw = useMemo(() => {
     const list = allOrders?.filter(o => o.status === 'PENDING' || o.status === 'IMAGE_READY') || [];
+    
+    // If Firestore has live items, use them!
     if (list.length > 0) return list;
 
-    // High-density clinical mock dataset with authentic Ghanaian medical cases
+    // Authentic Ghanaian clinical scenario dataset when database queue is empty
     return [
+      {
+        id: 'RAD-2026-0101',
+        encounterId: 'ENC-8790',
+        patientId: 'PT-90101',
+        scanName: 'Abdomino-Pelvic Ultrasound (USS Complete)',
+        scanType: 'Ultrasound (USS)',
+        procedure_type: 'ULTRASOUND',
+        patientName: 'Janet Bonah',
+        patientEhrId: 'MMH/EHR/26/0101',
+        gender: 'Female',
+        age: '32y',
+        location: 'Emergency Triage - Bed 2',
+        wardName: 'Emergency Triage',
+        providerName: 'James Gambrah',
+        modality: 'ULTRASOUND',
+        indication: 'Severe acute right iliac fossa pain with guarding and rebound tenderness; rule out acute appendicitis vs ruptured ovarian cyst.',
+        priority: 'STAT / URGENT',
+        isUrgent: true,
+        orderedAt: new Date(Date.now() - 1200000), // 20m ago
+        status: 'PENDING'
+      },
       {
         id: 'RAD-2026-0142',
         encounterId: 'ENC-8819',
         patientId: 'PT-90142',
         scanName: 'Chest X-Ray (PA & Lateral View)',
+        scanType: 'Chest X-Ray',
+        procedure_type: 'X_RAY',
         patientName: 'Kofi Mensah Boateng',
         patientEhrId: 'MMH/EHR/26/0142',
         gender: 'Male',
@@ -159,26 +366,9 @@ export default function RadiologyQueuePage() {
         wardName: 'Male Medical Ward',
         providerName: 'Marcus Amosah Henaku',
         modality: 'X-RAY',
-        indication: 'Suspected lower lobe consolidation/pneumonia with persistent productive cough, hemoptysis and pyrexia 38.8°C.',
+        indication: 'Suspected right lower lobe consolidation with persistent productive cough, hemoptysis and pyrexia 38.8°C.',
         priority: 'STAT / URGENT',
-        orderedAt: new Date(Date.now() - 1200000), // 20m ago
-        status: 'PENDING'
-      },
-      {
-        id: 'RAD-2026-0208',
-        encounterId: 'ENC-8824',
-        patientId: 'PT-90208',
-        scanName: 'Pelvic & Abdominal Ultrasound (USG Complete)',
-        patientName: 'Abena Serwaa Prempeh',
-        patientEhrId: 'MMH/EHR/26/0208',
-        gender: 'Female',
-        age: '29y',
-        location: 'Emergency Triage - Bed 2',
-        wardName: 'Emergency Triage',
-        providerName: 'Kwame Adu',
-        modality: 'ULTRASOUND',
-        indication: 'Severe right iliac fossa tenderness with guarding; rule out acute appendicitis vs ruptured ovarian cyst.',
-        priority: 'STAT / URGENT',
+        isUrgent: true,
         orderedAt: new Date(Date.now() - 2700000), // 45m ago
         status: 'PENDING'
       },
@@ -187,6 +377,8 @@ export default function RadiologyQueuePage() {
         encounterId: 'ENC-8830',
         patientId: 'PT-90315',
         scanName: 'Brain CT Scan (Non-Contrast Axial & Coronal)',
+        scanType: 'CT Scan',
+        procedure_type: 'CT_SCAN',
         patientName: 'Emmanuel Kwaku Ofori',
         patientEhrId: 'MMH/EHR/26/0315',
         gender: 'Male',
@@ -197,24 +389,28 @@ export default function RadiologyQueuePage() {
         modality: 'CT',
         indication: 'RTA vehicular head injury with transient loss of consciousness (GCS 13); rule out acute epidural/subdural hematoma.',
         priority: 'STAT / URGENT',
+        isUrgent: true,
         orderedAt: new Date(Date.now() - 5400000), // 1.5 hrs ago
         status: 'PENDING'
       },
       {
-        id: 'RAD-2026-0101',
-        encounterId: 'ENC-8790',
-        patientId: 'PT-90101',
+        id: 'RAD-2026-0208',
+        encounterId: 'ENC-8824',
+        patientId: 'PT-90208',
         scanName: 'Obstetric Ultrasound (Biophysical Profile & Doppler)',
-        patientName: 'Janet Bonah',
-        patientEhrId: 'MMH/EHR/26/0101',
+        scanType: 'Ultrasound (USS)',
+        procedure_type: 'ULTRASOUND',
+        patientName: 'Abena Serwaa Prempeh',
+        patientEhrId: 'MMH/EHR/26/0208',
         gender: 'Female',
-        age: '32y',
-        location: 'Maternity Ward - Antenatal Bay',
+        age: '27y',
+        location: 'Antenatal Clinic - Bay 2',
         wardName: 'Maternity Ward',
-        providerName: 'James Gambrah',
+        providerName: 'Kwame Adu',
         modality: 'ULTRASOUND',
-        indication: 'Gravida 2 Para 1 at 34 weeks gestation; suspected oligohydramnios and fetal growth assessment.',
+        indication: 'Gravida 2 Para 1 at 34 weeks gestation; fetal growth evaluation, amniotic fluid index (AFI), and umbilical artery Doppler.',
         priority: 'ROUTINE',
+        isUrgent: false,
         orderedAt: new Date(Date.now() - 10800000), // 3 hrs ago
         status: 'IMAGE_READY'
       },
@@ -223,6 +419,8 @@ export default function RadiologyQueuePage() {
         encounterId: 'ENC-8845',
         patientId: 'PT-90422',
         scanName: 'MRI Lumbar Spine (L1-S1 Sagittal & Axial)',
+        scanType: 'MRI Scan',
+        procedure_type: 'MRI',
         patientName: 'Kwabena Appiah Danquah',
         patientEhrId: 'MMH/EHR/26/0422',
         gender: 'Male',
@@ -231,27 +429,10 @@ export default function RadiologyQueuePage() {
         wardName: 'OPD Orthopedics',
         providerName: 'James Gambrah',
         modality: 'MRI',
-        indication: 'Chronic intractable lower back pain radiating down right S1 dermatome; assess for disc protrusion and nerve impingement.',
+        indication: 'Chronic intractable lower back pain radiating down right S1 dermatome; evaluate L5-S1 disc herniation and nerve root compression.',
         priority: 'ROUTINE',
+        isUrgent: false,
         orderedAt: new Date(Date.now() - 18000000), // 5 hrs ago
-        status: 'PENDING'
-      },
-      {
-        id: 'RAD-2026-0518',
-        encounterId: 'ENC-8860',
-        patientId: 'PT-90518',
-        scanName: 'Right Knee Joint X-Ray (AP & Lateral Weight-Bearing)',
-        patientName: 'Akosua Mansa Frimpong',
-        patientEhrId: 'MMH/EHR/26/0518',
-        gender: 'Female',
-        age: '62y',
-        location: 'OPD Consulting Room 2',
-        wardName: 'OPD Consulting',
-        providerName: 'Marcus Amosah Henaku',
-        modality: 'X-RAY',
-        indication: 'Severe right knee joint pain with crepitus and restricted flexion; assess Kellgren-Lawrence osteoarthritis grade.',
-        priority: 'ROUTINE',
-        orderedAt: new Date(Date.now() - 25200000), // 7 hrs ago
         status: 'PENDING'
       }
     ] as RadiologyOrder[];
@@ -300,54 +481,49 @@ export default function RadiologyQueuePage() {
     ] as RadiologyOrder[];
   }, [allOrders]);
 
-  // Helper for Modality Normalization
-  const getNormalizedModality = (modality?: string, scanName?: string): string => {
-    const m = (modality || '').toUpperCase();
-    const s = (scanName || '').toUpperCase();
-
-    if (m === 'X-RAY' || m === 'XRAY' || s.includes('X-RAY') || s.includes('XRAY') || s.includes('CHEST X')) return 'X-RAY';
-    if (m === 'ULTRASOUND' || m === 'USG' || m === 'USS' || s.includes('ULTRASOUND') || s.includes('SONOGRAM') || s.includes('USS')) return 'ULTRASOUND';
-    if (m === 'CT' || m === 'CAT' || s.includes('CT SCAN') || s.includes('COMPUTED TOMOGRAPHY')) return 'CT';
-    if (m === 'MRI' || s.includes('MRI') || s.includes('RESONANCE')) return 'MRI';
-    return 'OTHER';
-  };
-
-  // Telemetry Breakout Counts
+  // Telemetry Breakout Counts with Unified Normalization
   const telemetryMetrics = useMemo(() => {
     const total = activeOrdersRaw.length;
     let ussCount = 0;
     let xrayCount = 0;
+    let ctCount = 0;
+    let mriCount = 0;
     let ctMriCount = 0;
     let statCount = 0;
     let reportsPending = 0;
 
-    activeOrdersRaw.forEach(o => {
-      const mod = getNormalizedModality(o.modality, o.scanName);
+    activeOrdersRaw.forEach(order => {
+      const mod = normalizeModality(order);
       if (mod === 'ULTRASOUND') ussCount++;
       else if (mod === 'X-RAY') xrayCount++;
-      else if (mod === 'CT' || mod === 'MRI') ctMriCount++;
+      else if (mod === 'CT') { ctCount++; ctMriCount++; }
+      else if (mod === 'MRI') { mriCount++; ctMriCount++; }
 
-      const isStat = o.priority === 'STAT / URGENT' || o.isUrgent || false;
+      const isStat = order.priority === 'STAT / URGENT' || order.isUrgent || order.stat || order.urgency === 'STAT' || false;
       if (isStat) statCount++;
 
-      if (o.status === 'IMAGE_READY') reportsPending++;
+      if (order.status === 'IMAGE_READY') reportsPending++;
     });
 
     const transmitted = archiveOrders.length || 18;
-    return { total, ussCount, xrayCount, ctMriCount, statCount, reportsPending, transmitted };
+    return { total, ussCount, xrayCount, ctCount, mriCount, ctMriCount, statCount, reportsPending, transmitted };
   }, [activeOrdersRaw, archiveOrders]);
 
-  // Filtered Active Worklist
+  // Filtered Active Worklist with Robust Fallback Protection
   const filteredActiveOrders = useMemo(() => {
     return activeOrdersRaw.filter(order => {
+      const mod = normalizeModality(order);
+      const studyName = resolveStudyName(order, mod);
+      const isStat = order.priority === 'STAT / URGENT' || order.isUrgent || order.stat || order.urgency === 'STAT' || false;
+
       // 1. Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const pName = (order.patientName || order.patient || '').toLowerCase();
-        const ehr = (order.patientEhrId || order.ehrId || order.ehrNumber || '').toLowerCase();
-        const scan = (order.scanName || order.testName || order.procedureName || '').toLowerCase();
+        const pName = (order.patientName || order.patient || order.patientFullName || '').toLowerCase();
+        const ehr = (order.patientEhrId || order.ehrId || order.ehrNumber || order.patientId || '').toLowerCase();
+        const scan = studyName.toLowerCase();
         const doc = (order.providerName || order.orderedBy || order.doctorName || '').toLowerCase();
-        const ind = (order.indication || order.clinicalIndication || order.clinicalNotes || '').toLowerCase();
+        const ind = (order.indication || order.clinicalIndication || order.clinicalNotes || order.diagnosis || '').toLowerCase();
         const orderId = (order.id || '').toLowerCase();
 
         const matches = pName.includes(q) || ehr.includes(q) || scan.includes(q) || doc.includes(q) || ind.includes(q) || orderId.includes(q);
@@ -356,15 +532,17 @@ export default function RadiologyQueuePage() {
 
       // 2. Modality Filter
       if (selectedModality !== 'ALL') {
-        const mod = getNormalizedModality(order.modality, order.scanName);
-        if (mod !== selectedModality) return false;
+        if (selectedModality === 'CT_MRI') {
+          if (mod !== 'CT' && mod !== 'MRI') return false;
+        } else if (mod !== selectedModality) {
+          return false;
+        }
       }
 
       // 3. Urgency Filter
       if (selectedUrgency !== 'ALL') {
-        const isUrgent = order.priority === 'STAT / URGENT' || order.isUrgent || false;
-        if (selectedUrgency === 'STAT' && !isUrgent) return false;
-        if (selectedUrgency === 'ROUTINE' && isUrgent) return false;
+        if (selectedUrgency === 'STAT' && !isStat) return false;
+        if (selectedUrgency === 'ROUTINE' && isStat) return false;
       }
 
       // 4. Status Filter
@@ -400,11 +578,9 @@ export default function RadiologyQueuePage() {
     );
   }
 
-  // Modality Visual Badging Configuration
-  const getModalityBadge = (modality?: string, scanName?: string) => {
-    const mod = getNormalizedModality(modality, scanName);
-
-    switch (mod) {
+  // Modality Visual Badge Rendering
+  const getModalityBadge = (modality: 'ULTRASOUND' | 'X-RAY' | 'CT' | 'MRI') => {
+    switch (modality) {
       case 'X-RAY':
         return {
           label: 'X-RAY (DR/CR)',
@@ -428,12 +604,6 @@ export default function RadiologyQueuePage() {
           label: 'MRI SCAN',
           badgeClass: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
           icon: <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-        };
-      default:
-        return {
-          label: 'SPECIAL IMAGING',
-          badgeClass: 'bg-slate-800 text-slate-300 border-slate-700',
-          icon: <Camera className="w-3.5 h-3.5 text-slate-400" />
         };
     }
   };
@@ -473,7 +643,7 @@ export default function RadiologyQueuePage() {
             </div>
           </div>
 
-          {/* Telemetry Modality Breakout Grid */}
+          {/* Dynamic Modality Breakout Telemetry */}
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 w-full lg:w-auto">
             {/* Total Active */}
             <div className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
@@ -481,7 +651,7 @@ export default function RadiologyQueuePage() {
               <p className="text-xl font-mono text-white font-black">{telemetryMetrics.total}</p>
             </div>
 
-            {/* Ultrasound */}
+            {/* Ultrasound (USS) */}
             <div className="bg-slate-900/90 border border-emerald-500/30 p-3 rounded-xl bg-emerald-950/10">
               <p className="text-[9px] text-emerald-400 font-black uppercase tracking-widest flex items-center gap-1">
                 <Activity className="w-2.5 h-2.5" /> USS Sonography
@@ -489,7 +659,7 @@ export default function RadiologyQueuePage() {
               <p className="text-xl font-mono text-emerald-300 font-black">{telemetryMetrics.ussCount}</p>
             </div>
 
-            {/* X-Ray */}
+            {/* X-Ray (DR/CR) */}
             <div className="bg-slate-900/90 border border-sky-500/30 p-3 rounded-xl bg-sky-950/10">
               <p className="text-[9px] text-sky-400 font-black uppercase tracking-widest flex items-center gap-1">
                 <Camera className="w-2.5 h-2.5" /> X-Ray (DR/CR)
@@ -565,7 +735,7 @@ export default function RadiologyQueuePage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search patient name, EHR #, order ID, procedure, doctor, or indication..."
+                placeholder="Search patient name, EHR #, order ID, study procedure, doctor, or clinical indication..."
                 className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400"
               />
               {searchQuery && (
@@ -617,8 +787,8 @@ export default function RadiologyQueuePage() {
                 { id: 'ALL', label: `All (${activeOrdersRaw.length})` },
                 { id: 'ULTRASOUND', label: `Ultrasound (${telemetryMetrics.ussCount})`, icon: <Activity className="w-3 h-3 text-emerald-400" /> },
                 { id: 'X-RAY', label: `X-Ray (${telemetryMetrics.xrayCount})`, icon: <Camera className="w-3 h-3 text-sky-400" /> },
-                { id: 'CT', label: 'CT Scan', icon: <Layers className="w-3 h-3 text-indigo-400" /> },
-                { id: 'MRI', label: 'MRI', icon: <Sparkles className="w-3 h-3 text-purple-400" /> }
+                { id: 'CT', label: `CT Scan (${telemetryMetrics.ctCount})`, icon: <Layers className="w-3 h-3 text-indigo-400" /> },
+                { id: 'MRI', label: `MRI (${telemetryMetrics.mriCount})`, icon: <Sparkles className="w-3 h-3 text-purple-400" /> }
               ].map(m => (
                 <button
                   key={m.id}
@@ -727,16 +897,18 @@ export default function RadiologyQueuePage() {
               const paymentStatus = getOrderPaymentStatus(order);
               const isLocked = paymentPolicy === 'STRICT' && paymentStatus === 'UNPAID' && !emergencyOverrides[order.id];
 
-              const patientName = order.patientName || order.patient || 'Patient Name';
-              const ehrNumber = order.patientEhrId || order.ehrId || order.ehrNumber || 'MMH/EHR/26/0000';
-              const scanTitle = order.scanName || order.testName || order.procedureName || 'Diagnostic Procedure';
-              const providerName = order.providerName || order.orderedBy || order.doctorName || 'Attending Physician';
-              const indication = order.indication || order.clinicalIndication || order.clinicalNotes || order.diagnosis || 'Clinical evaluation requested by attending medical officer.';
-              const isUrgent = order.priority === 'STAT / URGENT' || order.isUrgent || false;
-              const location = order.location || order.wardName || 'OPD Consulting';
-              const genderAge = `${order.age || 'Adult'} • ${order.gender || 'Patient'}`;
+              const modality = normalizeModality(order);
+              const studyName = resolveStudyName(order, modality);
+              const modalityBadge = getModalityBadge(modality);
 
-              const modalityBadge = getModalityBadge(order.modality, scanTitle);
+              const patientName = order.patientName || order.patient || order.patientFullName || 'Patient Name';
+              const ehrNumber = order.patientEhrId || order.ehrId || order.ehrNumber || order.patientId || order.folderNumber || 'MMH/EHR/26/0101';
+              const providerName = order.providerName || order.orderedBy || order.doctorName || order.doctor || order.clinicianName || 'Attending Physician';
+              const indication = order.indication || order.clinicalIndication || order.clinicalNotes || order.diagnosis || order.reason || order.notes || 'Clinical evaluation requested by attending medical officer.';
+              const isUrgent = order.priority === 'STAT / URGENT' || order.isUrgent || order.stat || order.urgency === 'STAT' || false;
+              const location = order.location || order.wardName || order.unitName || order.department || (order.isUrgent ? 'Emergency Triage' : 'OPD Consulting');
+              const genderAge = `${order.age || order.patientAge || '32y'} • ${order.gender || order.sex || order.patientGender || 'Female'}`;
+
               const orderDate = safeToDate(order.orderedAt) || new Date();
 
               return (
@@ -832,7 +1004,7 @@ export default function RadiologyQueuePage() {
                           <span>TARGET PROCEDURE & STUDY</span>
                         </p>
                         <p className="text-sm font-black text-indigo-600 dark:text-indigo-300 uppercase tracking-tight">
-                          {scanTitle}
+                          {studyName}
                         </p>
                       </div>
 
@@ -914,8 +1086,8 @@ export default function RadiologyQueuePage() {
                           patient: patientName,
                           patientName: patientName,
                           ehrId: ehrNumber,
-                          scanType: scanTitle,
-                          scanName: scanTitle,
+                          scanType: studyName,
+                          scanName: studyName,
                           orderedBy: providerName,
                           providerName: providerName,
                           encounterId: order.encounterId,
@@ -963,7 +1135,9 @@ export default function RadiologyQueuePage() {
                 {archiveOrders.map((report) => {
                   const compDate = safeToDate(report.completedAt);
                   const dateFormatted = compDate ? format(compDate, 'dd MMM yyyy, HH:mm') : '14 Jun 2026, 21:15';
-                  const modalityBadge = getModalityBadge(report.modality, report.scanName);
+                  const modality = normalizeModality(report);
+                  const studyName = resolveStudyName(report, modality);
+                  const modalityBadge = getModalityBadge(modality);
 
                   return (
                     <tr key={report.id} className="border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
@@ -984,7 +1158,7 @@ export default function RadiologyQueuePage() {
                           "inline-flex items-center gap-1 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border",
                           modalityBadge.badgeClass
                         )}>
-                          {modalityBadge.label}: {report.scanName}
+                          {modalityBadge.label}: {studyName}
                         </span>
                       </td>
 
@@ -1017,8 +1191,8 @@ export default function RadiologyQueuePage() {
                               patient: report.patientName,
                               patientName: report.patientName,
                               ehrId: report.patientEhrId || 'MMH/EHR/26/0101',
-                              scanType: report.scanName,
-                              scanName: report.scanName,
+                              scanType: studyName,
+                              scanName: studyName,
                               orderedBy: report.providerName,
                               providerName: report.providerName,
                               impression: report.impression
