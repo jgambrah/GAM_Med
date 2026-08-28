@@ -909,7 +909,10 @@ export default function RadiologyQueuePage() {
               const location = order.location || order.wardName || order.unitName || order.department || (order.isUrgent ? 'Emergency Triage' : 'OPD Consulting');
               const genderAge = `${order.age || order.patientAge || '32y'} • ${order.gender || order.sex || order.patientGender || 'Female'}`;
 
-              const orderDate = safeToDate(order.orderedAt) || new Date();
+              const rawId = order.id || '';
+              const formattedOrderId = order.orderNumber || (rawId.startsWith('RAD-') || rawId.startsWith('ORD-') 
+                ? rawId 
+                : `ORD-26-${rawId.substring(0, 6).toUpperCase()}`);
 
               return (
                 <div 
@@ -935,7 +938,7 @@ export default function RadiologyQueuePage() {
                         </span>
 
                         <span className="text-[10px] font-mono text-slate-400 font-bold">
-                          {order.id}
+                          {formattedOrderId}
                         </span>
                       </div>
 
@@ -1138,12 +1141,14 @@ export default function RadiologyQueuePage() {
                   const modality = normalizeModality(report);
                   const studyName = resolveStudyName(report, modality);
                   const modalityBadge = getModalityBadge(modality);
+                  const rawReportId = report.id || '';
+                  const formattedReportId = (report as any).reportNumber || (rawReportId.startsWith('REP-') ? rawReportId : `REP-26-${rawReportId.substring(0, 6).toUpperCase()}`);
 
                   return (
                     <tr key={report.id} className="border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
                       {/* Transmission Data */}
                       <td className="p-4 align-top">
-                        <p className="font-mono text-xs font-black text-slate-800 dark:text-slate-200">{report.id}</p>
+                        <p className="font-mono text-xs font-black text-slate-800 dark:text-slate-200">{formattedReportId}</p>
                         <p className="text-[10px] font-bold text-slate-400 mt-1 flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                           {dateFormatted}
