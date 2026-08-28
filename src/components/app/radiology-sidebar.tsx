@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   LayoutDashboard, Camera, Settings,
   LogOut, ChevronRight,
@@ -16,6 +16,8 @@ import { autoClockOutIfNeeded } from '@/lib/attendance';
 
 export function RadiologySidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams?.get('tab');
   const auth = useAuth();
   const { user } = useUser();
   const router = useRouter();
@@ -30,21 +32,22 @@ export function RadiologySidebar() {
 
   const navSections = [
     {
-      title: "MY PORTAL",
+      title: "RADIOLOGY & DIAGNOSTICS",
       links: [
-        { name: "Request Leave", href: "/staff/request-leave", icon: Calendar },
-        { name: "Clock In / Out", href: "/staff/clock-in", icon: Clock },
-        isLocum ? { name: "My Locum Claims", href: "/doctor/my-claims", icon: Wallet } : { name: "My Payslips", href: "/staff/payslips", icon: Wallet },
-        { name: "My CPD", href: "/staff/my-cpd", icon: GraduationCap },
-        { name: "My Performance", href: "/staff/my-performance", icon: Award },
+        { name: "Imaging Queue", href: "/radiology/queue", icon: LayoutDashboard },
+        { name: "Patient Directory", href: "/patients", icon: Users },
+        { name: "Scan Archive & Releases", href: "/radiology/queue?tab=archive", icon: Camera },
+        { name: "Modality / Imaging Menu", href: "/radiology/setup", icon: Settings },
       ]
     },
     {
-      title: "RADIOLOGY",
+      title: "MY WORKSPACE",
       links: [
-        { name: "Imaging Queue", href: "/radiology/queue", icon: LayoutDashboard },
-        { name: "Patients Directory", href: "/patients", icon: Users },
-        { name: "Imaging Menu", href: "/radiology/setup", icon: Settings },
+        { name: "Clock In / Out", href: "/staff/clock-in", icon: Clock },
+        { name: "Request Leave", href: "/staff/request-leave", icon: Calendar },
+        isLocum ? { name: "My Locum Claims", href: "/doctor/my-claims", icon: Wallet } : { name: "My Payslips", href: "/staff/payslips", icon: Wallet },
+        { name: "My CPD & Training", href: "/staff/my-cpd", icon: GraduationCap },
+        { name: "My Performance", href: "/staff/my-performance", icon: Award },
       ]
     }
   ];
@@ -87,7 +90,11 @@ export function RadiologySidebar() {
             </h3>
             <ul className="space-y-1">
               {section.links.map(link => {
-                const isActive = pathname === link.href || (link.name === "Imaging Queue" && pathname === "/radiology/queue");
+                const isArchiveLink = link.name === "Scan Archive & Releases";
+                const isQueueLink = link.name === "Imaging Queue";
+                const isActive = (isQueueLink && pathname === "/radiology/queue" && currentTab !== 'archive') ||
+                  (isArchiveLink && pathname === "/radiology/queue" && currentTab === 'archive') ||
+                  (!isQueueLink && !isArchiveLink && pathname === link.href);
                 const IconComponent = link.icon;
 
                 return (

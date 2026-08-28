@@ -3,25 +3,39 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, where } from 'firebase/firestore';
-import { Camera, Loader2, ShieldAlert, CheckCircle2, Download, Eye, FileText, Upload, RefreshCw } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { 
+  Camera, Loader2, ShieldAlert, CheckCircle2, Download, 
+  Eye, FileText, Upload, RefreshCw, AlertTriangle, Activity, 
+  Clock, Stethoscope, User, Zap, Sparkles, Layers, Shield
+} from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { formatDistanceToNow, format } from 'date-fns';
 import { safeToDate, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import RadiologyReportModal from '@/components/app/radiology-report-modal';
 
 type RadiologyOrder = {
   id: string;
   encounterId?: string;
-  scanName: string;
-  patientName: string;
+  scanName?: string;
+  testName?: string;
+  procedureName?: string;
+  patientName?: string;
+  patient?: string;
   patientEhrId?: string;
-  providerName: string;
-  modality: string;
-  indication: string;
+  ehrId?: string;
+  ehrNumber?: string;
+  providerName?: string;
+  orderedBy?: string;
+  doctorName?: string;
+  modality?: string;
+  indication?: string;
+  clinicalIndication?: string;
+  clinicalNotes?: string;
+  diagnosis?: string;
+  priority?: 'STAT / URGENT' | 'ROUTINE' | string;
+  isUrgent?: boolean;
   orderedAt: any;
   completedAt?: any;
   status: 'PENDING' | 'IMAGE_READY' | 'COMPLETED';
@@ -29,18 +43,32 @@ type RadiologyOrder = {
   impression?: string;
   findings?: string;
   radiologistName?: string;
+  wardName?: string;
+  location?: string;
 };
 
 export default function RadiologyQueuePage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<'ACTIVE' | 'ARCHIVE'>('ACTIVE');
+  const initialTab = searchParams?.get('tab') === 'archive' ? 'ARCHIVE' : 'ACTIVE';
+  const [activeTab, setActiveTab] = useState<'ACTIVE' | 'ARCHIVE'>(initialTab);
   const [selectedReportOrder, setSelectedReportOrder] = useState<any | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [claims, setClaims] = useState<any>(null);
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
+
+  // Synchronize tab state with search params if navigated via sidebar
+  useEffect(() => {
+    const tabParam = searchParams?.get('tab');
+    if (tabParam === 'archive') {
+      setActiveTab('ARCHIVE');
+    } else if (tabParam === 'queue') {
+      setActiveTab('ACTIVE');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (user) {
@@ -78,10 +106,11 @@ export default function RadiologyQueuePage() {
   const getOrderPaymentStatus = (order: RadiologyOrder) => {
     if (paymentPolicy === 'NONE') return 'PAID';
     if (!unpaidBillingItems) return 'LOADING';
+    const scanTitle = order.scanName || order.testName || order.procedureName || '';
     const matchingUnpaid = unpaidBillingItems.find(item => 
       item.encounterId === order.encounterId &&
       item.category === 'IMAGING' &&
-      item.description.toLowerCase() === order.scanName.toLowerCase()
+      item.description?.toLowerCase() === scanTitle.toLowerCase()
     );
     if (!matchingUnpaid) return 'PAID';
     if (matchingUnpaid.billingType === 'INSURANCE_CLAIM') return 'INSURANCE';
@@ -103,11 +132,64 @@ export default function RadiologyQueuePage() {
     const list = allOrders?.filter(o => o.status === 'PENDING' || o.status === 'IMAGE_READY') || [];
     if (list.length > 0) return list;
 
-    // Fallback Mock Queue matching specification for immediate visual impact
+    // Distinct clinical mock queue with separate patients and diagnostic indications
     return [
-      { id: 'RAD-001', scanName: 'Chest X-Ray (PA View)', patientName: 'Janet Bonah', patientEhrId: 'MMH/EHR/26/0101', providerName: 'Dr. Marcus Amosah Henaku', orderedAt: new Date(Date.now() - 7200000), modality: 'X-RAY', indication: 'Persistent cough for 2 weeks', status: 'PENDING' },
-      { id: 'RAD-002', scanName: 'MRI Brain w/ Contrast', patientName: 'Janet Bonah', patientEhrId: 'MMH/EHR/26/0101', providerName: 'Dr. Marcus Amosah Henaku', orderedAt: new Date(Date.now() - 14400000), modality: 'MRI', indication: 'Chronic migraine investigation', status: 'PENDING' },
-      { id: 'RAD-003', scanName: 'Ultrasound Abdomen', patientName: 'Janet Bonah', patientEhrId: 'MMH/EHR/26/0101', providerName: 'Dr. Marcus Amosah Henaku', orderedAt: new Date(Date.now() - 21600000), modality: 'USG', indication: 'Right upper quadrant pain', status: 'PENDING' },
+      {
+        id: 'RAD-2026-0142',
+        encounterId: 'ENC-8819',
+        scanName: 'Chest X-Ray (AP & Lateral View)',
+        patientName: 'Kofi Mensah Boateng',
+        patientEhrId: 'MMH/EHR/26/0142',
+        providerName: 'Marcus Amosah Henaku',
+        modality: 'X-RAY',
+        indication: 'Suspected lower lobe pneumonia with persistent productive cough, hemoptysis and fever 38.8°C.',
+        priority: 'STAT / URGENT',
+        orderedAt: new Date(Date.now() - 2100000), // 35 mins ago
+        status: 'PENDING',
+        wardName: 'Male Medical Ward'
+      },
+      {
+        id: 'RAD-2026-0208',
+        encounterId: 'ENC-8824',
+        scanName: 'Pelvic & Abdominal Ultrasound (USG)',
+        patientName: 'Abena Serwaa Prempeh',
+        patientEhrId: 'MMH/EHR/26/0208',
+        providerName: 'Kwame Adu',
+        modality: 'ULTRASOUND',
+        indication: 'Severe right iliac fossa tenderness; rule out acute appendicitis vs ruptured ovarian cyst.',
+        priority: 'STAT / URGENT',
+        orderedAt: new Date(Date.now() - 4800000), // 1 hr 20m ago
+        status: 'PENDING',
+        wardName: 'Emergency Triage'
+      },
+      {
+        id: 'RAD-2026-0315',
+        encounterId: 'ENC-8830',
+        scanName: 'Brain CT Scan (Non-Contrast)',
+        patientName: 'Emmanuel Kwaku Ofori',
+        patientEhrId: 'MMH/EHR/26/0315',
+        providerName: 'Anita Osei',
+        modality: 'CT',
+        indication: 'RTA vehicular head trauma with transient loss of consciousness (GCS 13); rule out epidural/subdural hematoma.',
+        priority: 'STAT / URGENT',
+        orderedAt: new Date(Date.now() - 7200000), // 2 hrs ago
+        status: 'PENDING',
+        wardName: 'Trauma & ICU'
+      },
+      {
+        id: 'RAD-2026-0101',
+        encounterId: 'ENC-8790',
+        scanName: 'MRI Lumbar Spine (L1-S1)',
+        patientName: 'Janet Bonah',
+        patientEhrId: 'MMH/EHR/26/0101',
+        providerName: 'James Gambrah',
+        modality: 'MRI',
+        indication: 'Chronic low back pain with progressive right lower limb radiculopathy; rule out L5-S1 herniated disc.',
+        priority: 'ROUTINE',
+        orderedAt: new Date(Date.now() - 14400000), // 4 hrs ago
+        status: 'PENDING',
+        wardName: 'OPD Orthopedics'
+      }
     ] as RadiologyOrder[];
   }, [allOrders]);
 
@@ -115,9 +197,42 @@ export default function RadiologyQueuePage() {
     const list = allOrders?.filter(o => o.status === 'COMPLETED') || [];
     if (list.length > 0) return list;
     return [
-      { id: 'REP-RAD-0992', patientName: 'Janet Bonah', patientEhrId: 'MMH/EHR/26/0101', scanName: 'Ultrasound (USS)', providerName: 'James Gambrah', radiologistName: 'Kwame Adu', completedAt: new Date(Date.now() - 86400000), impression: 'Normal abdominal ultrasound. No acute pathology detected.', status: 'COMPLETED' },
-      { id: 'REP-RAD-0991', patientName: 'Benjamin Hedidor', patientEhrId: 'MMH/EHR/26/0007', scanName: 'Chest X-Ray (PA View)', providerName: 'Anita Osei', radiologistName: 'Kwame Adu', completedAt: new Date(Date.now() - 172800000), impression: 'Clear lung fields. No sign of active consolidation.', status: 'COMPLETED' },
-      { id: 'REP-RAD-0988', patientName: 'Esi Adazewaa', patientEhrId: 'MMH/EHR/26/0002', scanName: 'MRI Brain w/ Contrast', providerName: 'James Gambrah', radiologistName: 'Kwame Adu', completedAt: new Date(Date.now() - 259200000), impression: 'No acute intracranial hemorrhage or mass effect.', status: 'COMPLETED' },
+      { 
+        id: 'REP-RAD-0992', 
+        patientName: 'Janet Bonah', 
+        patientEhrId: 'MMH/EHR/26/0101', 
+        scanName: 'Pelvic Ultrasound (USS)', 
+        modality: 'ULTRASOUND',
+        providerName: 'James Gambrah', 
+        radiologistName: 'Kwame Adu (Radiologist)', 
+        completedAt: new Date(Date.now() - 86400000), 
+        impression: 'Normal pelvic and abdominal sonogram. No free fluid in pouch of Douglas. No acute pathology detected.', 
+        status: 'COMPLETED' 
+      },
+      { 
+        id: 'REP-RAD-0991', 
+        patientName: 'Benjamin Hedidor', 
+        patientEhrId: 'MMH/EHR/26/0007', 
+        scanName: 'Chest X-Ray (PA View)', 
+        modality: 'X-RAY',
+        providerName: 'Anita Osei', 
+        radiologistName: 'Kwame Adu (Radiologist)', 
+        completedAt: new Date(Date.now() - 172800000), 
+        impression: 'Clear lung fields bilaterally. Normal cardiothoracic ratio. No sign of active consolidation or effusion.', 
+        status: 'COMPLETED' 
+      },
+      { 
+        id: 'REP-RAD-0988', 
+        patientName: 'Esi Adazewaa', 
+        patientEhrId: 'MMH/EHR/26/0002', 
+        scanName: 'MRI Brain w/ Contrast', 
+        modality: 'MRI',
+        providerName: 'James Gambrah', 
+        radiologistName: 'Kwame Adu (Radiologist)', 
+        completedAt: new Date(Date.now() - 259200000), 
+        impression: 'No acute intracranial hemorrhage, mass effect, or abnormal parenchymal enhancement observed.', 
+        status: 'COMPLETED' 
+      },
     ] as RadiologyOrder[];
   }, [allOrders]);
 
@@ -151,6 +266,46 @@ export default function RadiologyQueuePage() {
     );
   }
 
+  // Modality Visual Badging Helper
+  const getModalityConfig = (modality?: string, scanName?: string) => {
+    const m = (modality || '').toUpperCase();
+    const s = (scanName || '').toUpperCase();
+
+    if (m === 'X-RAY' || m === 'XRAY' || s.includes('X-RAY') || s.includes('CHEST XRAY')) {
+      return {
+        label: 'X-RAY',
+        badgeClass: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+        icon: <Camera className="w-3.5 h-3.5 text-cyan-400" />
+      };
+    }
+    if (m === 'ULTRASOUND' || m === 'USG' || m === 'USS' || s.includes('ULTRASOUND') || s.includes('SONOGRAM')) {
+      return {
+        label: 'ULTRASOUND',
+        badgeClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+        icon: <Activity className="w-3.5 h-3.5 text-emerald-400" />
+      };
+    }
+    if (m === 'CT' || m === 'CAT' || s.includes('CT SCAN') || s.includes('COMPUTED TOMOGRAPHY')) {
+      return {
+        label: 'CT SCAN',
+        badgeClass: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+        icon: <Layers className="w-3.5 h-3.5 text-indigo-400" />
+      };
+    }
+    if (m === 'MRI' || s.includes('MRI') || s.includes('MAGNETIC RESONANCE')) {
+      return {
+        label: 'MRI',
+        badgeClass: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+        icon: <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+      };
+    }
+    return {
+      label: m || 'IMAGING',
+      badgeClass: 'bg-slate-800 text-slate-300 border-slate-700',
+      icon: <Camera className="w-3.5 h-3.5 text-slate-400" />
+    };
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-12">
       
@@ -172,7 +327,7 @@ export default function RadiologyQueuePage() {
                 IMAGING COMMAND CENTER
               </h1>
               <h2 className="text-xs md:text-sm font-bold text-slate-400 mt-1 uppercase tracking-wider">
-                Acquire images, write scan reports, and track EMR releases.
+                Acquire scan series, write radiologist reports, and track EMR releases.
               </h2>
             </div>
           </div>
@@ -207,7 +362,7 @@ export default function RadiologyQueuePage() {
               : 'text-slate-400 hover:text-slate-200 border-b-4 border-transparent'
           }`}
         >
-          ACTIVE QUEUE ({activeOrders.length})
+          ACTIVE WORKLIST ({activeOrders.length})
         </button>
 
         <button 
@@ -237,32 +392,70 @@ export default function RadiologyQueuePage() {
             The imaging queue is clear. No pending scan requests.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-6">
             {activeOrders.map((order) => {
               const needsUpload = order.status === 'PENDING';
               const paymentStatus = getOrderPaymentStatus(order);
               const isLocked = paymentPolicy === 'STRICT' && paymentStatus === 'UNPAID' && !emergencyOverrides[order.id];
 
+              const patientName = order.patientName || order.patient || 'Patient Name';
+              const ehrNumber = order.patientEhrId || order.ehrId || order.ehrNumber || 'MMH/EHR/26/0000';
+              const scanTitle = order.scanName || order.testName || order.procedureName || 'Diagnostic Scan';
+              const providerName = order.providerName || order.orderedBy || order.doctorName || 'Attending Physician';
+              const indication = order.indication || order.clinicalIndication || order.clinicalNotes || order.diagnosis || 'Clinical evaluation requested by attending physician.';
+              const isUrgent = order.priority === 'STAT / URGENT' || order.isUrgent || false;
+
+              const modalityConfig = getModalityConfig(order.modality, scanTitle);
+              const orderDate = safeToDate(order.orderedAt) || new Date();
+
               return (
                 <div 
                   key={order.id} 
-                  className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col justify-between transition-all hover:shadow-md hover:border-indigo-500/40 p-6 space-y-4"
+                  className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col justify-between transition-all hover:shadow-lg hover:border-indigo-500/40 p-6 space-y-5"
                 >
-                  {/* Card Header */}
+                  {/* Card Header & Modality Badges */}
                   <div>
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="w-10 h-10 bg-indigo-500/10 text-indigo-400 rounded-xl flex items-center justify-center border border-indigo-500/20">
-                        <Camera size={20} />
+                    <div className="flex justify-between items-start gap-3 mb-4">
+                      
+                      {/* Left: Modality Icon & Priority */}
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-10 h-10 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-center shadow-inner">
+                          {modalityConfig.icon}
+                        </div>
+                        <div>
+                          <span className={cn(
+                            "text-[9px] font-black px-2.5 py-0.5 rounded-full border uppercase tracking-wider inline-flex items-center gap-1",
+                            modalityConfig.badgeClass
+                          )}>
+                            {modalityConfig.label}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-400 block mt-0.5 font-bold">
+                            {order.id}
+                          </span>
+                        </div>
                       </div>
                       
+                      {/* Right: Status & Payment Badges */}
                       <div className="flex flex-col items-end gap-1.5">
-                        <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border ${
-                          needsUpload 
-                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse' 
-                            : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                        }`}>
-                          {needsUpload ? 'AWAITING UPLOAD' : 'IMAGE READY'}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {isUrgent ? (
+                            <span className="text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse flex items-center gap-1">
+                              <Zap className="w-2.5 h-2.5 text-rose-400" /> STAT / URGENT
+                            </span>
+                          ) : (
+                            <span className="text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700">
+                              ROUTINE
+                            </span>
+                          )}
+
+                          <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border ${
+                            needsUpload 
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' 
+                              : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                          }`}>
+                            {needsUpload ? 'AWAITING SCAN' : 'IMAGE READY'}
+                          </span>
+                        </div>
 
                         {paymentPolicy !== 'NONE' && (
                           <span className={cn(
@@ -278,36 +471,57 @@ export default function RadiologyQueuePage() {
                       </div>
                     </div>
 
-                    {/* Patient & Scan Info */}
-                    <div className="space-y-1">
-                      <h3 className="font-black text-slate-900 dark:text-slate-100 uppercase tracking-wide text-base">
-                        {order.patientName || 'Janet Bonah'}
-                      </h3>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-bold">
-                        {order.patientEhrId || 'MMH/EHR/26/0101'}
-                      </p>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
-                          Requested Scan
-                        </p>
-                        <p className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase">
-                          {order.scanName}
+                    {/* Patient Profile */}
+                    <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-indigo-400" />
+                          <h3 className="font-black text-slate-900 dark:text-slate-100 uppercase tracking-wide text-sm">
+                            {patientName}
+                          </h3>
+                        </div>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-bold">
+                          {ehrNumber} {order.wardName ? `• ${order.wardName}` : ''}
                         </p>
                       </div>
 
+                      <div className="text-right">
+                        <p className="text-[9px] font-mono text-slate-400 font-bold">
+                          {formatDistanceToNow(orderDate, { addSuffix: true })}
+                        </p>
+                        <p className="text-[8px] font-mono text-slate-500">
+                          {format(orderDate, 'dd MMM, HH:mm')}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Diagnostic Procedure Details */}
+                    <div className="mt-4 space-y-3">
                       <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
-                          Clinical Order Details
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                          <Camera className="w-3 h-3 text-indigo-400" />
+                          <span>REQUESTED SCAN PROCEDURE</span>
                         </p>
-                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                          Dr. {order.providerName || 'Marcus Amosah Henaku'}
+                        <p className="text-sm font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-tight">
+                          {scanTitle}
                         </p>
-                        <p className="text-[10px] font-mono text-slate-400 mt-0.5">
-                          {formatDistanceToNow(safeToDate(order.orderedAt) || new Date(), { addSuffix: true })}
+                      </div>
+
+                      {/* Clinical Indication Callout */}
+                      <div className="p-3 rounded-xl bg-slate-100/80 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                        <p className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                          <Stethoscope className="w-3 h-3 text-rose-400" />
+                          <span>CLINICAL INDICATION & NOTES</span>
                         </p>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
+                          {indication}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-1">
+                        <span className="text-[10px] font-bold">
+                          Ordered by: <span className="text-slate-900 dark:text-slate-200 font-bold">{providerName.startsWith('Dr.') ? providerName : `Dr. ${providerName}`}</span>
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -323,7 +537,7 @@ export default function RadiologyQueuePage() {
                         className="w-3.5 h-3.5 rounded border-rose-500/30 text-rose-500 focus:ring-rose-500 cursor-pointer"
                       />
                       <label htmlFor={`override-${order.id}`} className="text-[9px] font-black text-rose-400 uppercase cursor-pointer select-none">
-                        Emergency Override
+                        Emergency Clinical Override
                       </label>
                     </div>
                   )}
@@ -333,7 +547,18 @@ export default function RadiologyQueuePage() {
                     <Button 
                       disabled={isLocked}
                       onClick={() => {
-                        setSelectedReportOrder(order);
+                        setSelectedReportOrder({
+                          id: order.id,
+                          patient: patientName,
+                          patientName: patientName,
+                          ehrId: ehrNumber,
+                          scanType: scanTitle,
+                          scanName: scanTitle,
+                          orderedBy: providerName,
+                          providerName: providerName,
+                          encounterId: order.encounterId,
+                          indication: indication
+                        });
                         setIsReportModalOpen(true);
                       }}
                       className="w-full py-3 bg-indigo-950 hover:bg-indigo-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow transition-colors flex items-center justify-center gap-2 border border-indigo-700 cursor-pointer disabled:opacity-50"
@@ -376,6 +601,7 @@ export default function RadiologyQueuePage() {
                 {archiveOrders.map((report) => {
                   const compDate = safeToDate(report.completedAt);
                   const dateFormatted = compDate ? format(compDate, 'dd MMM yyyy, HH:mm') : '14 Jun 2026, 21:15';
+                  const modalityConfig = getModalityConfig(report.modality, report.scanName);
 
                   return (
                     <tr key={report.id} className="border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
@@ -392,8 +618,11 @@ export default function RadiologyQueuePage() {
                       <td className="p-4 align-top">
                         <p className="font-black text-slate-900 dark:text-slate-100 uppercase text-xs">{report.patientName}</p>
                         <p className="text-[10px] font-mono text-slate-400 mb-2 font-bold">{report.patientEhrId || 'MMH/EHR/26/0101'}</p>
-                        <span className="inline-block bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                          {report.scanName}
+                        <span className={cn(
+                          "inline-flex items-center gap-1 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border",
+                          modalityConfig.badgeClass
+                        )}>
+                          {modalityConfig.label}: {report.scanName}
                         </span>
                       </td>
 
@@ -401,7 +630,7 @@ export default function RadiologyQueuePage() {
                       <td className="p-4 align-top">
                         <div className="mb-1.5">
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ordered By</p>
-                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Dr. {report.providerName}</p>
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{report.providerName?.startsWith('Dr.') ? report.providerName : `Dr. ${report.providerName}`}</p>
                         </div>
                         <div>
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reported By</p>
@@ -421,7 +650,17 @@ export default function RadiologyQueuePage() {
                         <button 
                           type="button"
                           onClick={() => {
-                            setSelectedReportOrder(report);
+                            setSelectedReportOrder({
+                              id: report.id,
+                              patient: report.patientName,
+                              patientName: report.patientName,
+                              ehrId: report.patientEhrId || 'MMH/EHR/26/0101',
+                              scanType: report.scanName,
+                              scanName: report.scanName,
+                              orderedBy: report.providerName,
+                              providerName: report.providerName,
+                              impression: report.impression
+                            });
                             setIsReportModalOpen(true);
                           }}
                           className="px-4 py-2 bg-slate-950 hover:bg-indigo-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-sm transition-all border border-slate-800 cursor-pointer"
