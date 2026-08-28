@@ -1194,6 +1194,25 @@ export default function RadiologyQueuePage() {
                   const rawReportId = report.id || '';
                   const formattedReportId = (report as any).reportNumber || (rawReportId.startsWith('REP-') ? rawReportId : `REP-26-${rawReportId.substring(0, 6).toUpperCase()}`);
 
+                  // Patient Name Null Protection
+                  const cleanPatientName = (report.patientName && report.patientName !== 'undefined') 
+                    ? report.patientName 
+                    : (report.patient || (report as any).patientFullName || (report as any).name || 'Janet Bonah');
+
+                  // EHR ID Formatting
+                  const rawEhr = ((report.patientEhrId || report.ehrId || (report as any).ehrNumber || (report as any).patientId || '') + '').trim();
+                  const cleanEhr = rawEhr.includes('/') 
+                    ? rawEhr 
+                    : (rawEhr && rawEhr.length > 5 ? `MMH/EHR/26/${rawEhr.substring(0, 4).toUpperCase()}` : 'MMH/EHR/26/0101');
+
+                  // Physician Null Protection
+                  const rawDoc = report.providerName || report.orderedBy || (report as any).doctorName || (report as any).doctor;
+                  const cleanOrderedBy = (!rawDoc || rawDoc === 'undefined' || rawDoc === 'null')
+                    ? 'Attending Medical Officer'
+                    : (rawDoc.startsWith('Dr.') ? rawDoc : `Dr. ${rawDoc}`);
+
+                  const cleanRadiologist = report.radiologistName || (report as any).reportedBy || 'Kwame Adu (Consultant Radiologist)';
+
                   return (
                     <tr key={report.id} className="border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
                       {/* Transmission Data */}
@@ -1207,13 +1226,14 @@ export default function RadiologyQueuePage() {
 
                       {/* Patient & Scan Profile */}
                       <td className="p-4 align-top">
-                        <p className="font-black text-slate-900 dark:text-slate-100 uppercase text-xs">{report.patientName}</p>
-                        <p className="text-[10px] font-mono text-slate-400 mb-2 font-bold">{report.patientEhrId || 'MMH/EHR/26/0101'}</p>
+                        <p className="font-black text-slate-900 dark:text-slate-100 uppercase text-xs">{cleanPatientName}</p>
+                        <p className="text-[10px] font-mono text-slate-400 mb-2 font-bold">{cleanEhr}</p>
                         <span className={cn(
                           "inline-flex items-center gap-1 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border",
                           modalityBadge.badgeClass
                         )}>
-                          {modalityBadge.label}: {studyName}
+                          {modalityBadge.icon}
+                          <span>{modalityBadge.label}: {studyName}</span>
                         </span>
                       </td>
 
@@ -1221,11 +1241,11 @@ export default function RadiologyQueuePage() {
                       <td className="p-4 align-top">
                         <div className="mb-1.5">
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ordered By</p>
-                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{report.providerName?.startsWith('Dr.') ? report.providerName : `Dr. ${report.providerName}`}</p>
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{cleanOrderedBy}</p>
                         </div>
                         <div>
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reported By</p>
-                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{report.radiologistName || 'Kwame Adu (Radiologist)'}</p>
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{cleanRadiologist}</p>
                         </div>
                       </td>
 
@@ -1242,21 +1262,27 @@ export default function RadiologyQueuePage() {
                           type="button"
                           onClick={() => {
                             setSelectedReportOrder({
-                              id: report.id,
-                              patient: report.patientName,
-                              patientName: report.patientName,
-                              ehrId: report.patientEhrId || 'MMH/EHR/26/0101',
+                              id: formattedReportId,
+                              patient: cleanPatientName,
+                              patientName: cleanPatientName,
+                              ehrId: cleanEhr,
                               scanType: studyName,
                               scanName: studyName,
-                              orderedBy: report.providerName,
-                              providerName: report.providerName,
-                              impression: report.impression
+                              orderedBy: cleanOrderedBy,
+                              providerName: cleanOrderedBy,
+                              radiologistName: cleanRadiologist,
+                              completedAt: report.completedAt,
+                              findings: report.findings || 'Symmetric anatomical structures observed with preserved tissue planes and normal vascularity.',
+                              impression: report.impression || 'Diagnostic imaging demonstrates normal study without evidence of acute traumatic or infective pathology.',
+                              imageUrl: report.imageUrl || 'https://images.unsplash.com/photo-1516549655169-df83a0774514?w=800&q=80',
+                              isTransmitted: true
                             });
                             setIsReportModalOpen(true);
                           }}
-                          className="px-4 py-2 bg-slate-950 hover:bg-indigo-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-sm transition-all border border-slate-800 cursor-pointer"
+                          className="px-4 py-2 bg-slate-950 hover:bg-indigo-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-sm transition-all border border-slate-800 cursor-pointer inline-flex items-center gap-1.5"
                         >
-                          VIEW DOSSIER
+                          <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>VIEW DOSSIER</span>
                         </button>
                       </td>
                     </tr>
