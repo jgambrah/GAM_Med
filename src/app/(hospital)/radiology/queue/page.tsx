@@ -913,6 +913,7 @@ export default function RadiologyQueuePage() {
               const formattedOrderId = order.orderNumber || (rawId.startsWith('RAD-') || rawId.startsWith('ORD-') 
                 ? rawId 
                 : `ORD-26-${rawId.substring(0, 6).toUpperCase()}`);
+              const orderDate = safeToDate(order.orderedAt) || new Date();
 
               return (
                 <div 
