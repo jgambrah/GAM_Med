@@ -9,7 +9,7 @@ import {
   Clock, Stethoscope, User, Zap, Sparkles, Layers, Shield,
   Search, Filter, ArrowUpDown, Bed, MapPin, Building2,
   Calendar, ChevronRight, AlertCircle, FileUp, FolderOpen,
-  SlidersHorizontal, Check, HeartPulse
+  SlidersHorizontal, Check, HeartPulse, Copy
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -281,6 +281,7 @@ export default function RadiologyQueuePage() {
   const [selectedModality, setSelectedModality] = useState<string>('ALL');
   const [selectedUrgency, setSelectedUrgency] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
 
   // Synchronize tab state with search params if navigated via sidebar
   useEffect(() => {
@@ -972,9 +973,23 @@ export default function RadiologyQueuePage() {
                           <span>{modalityBadge.label}</span>
                         </span>
 
-                        <span className="text-[10px] font-mono text-slate-400 font-bold">
-                          {formattedOrderId}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(formattedOrderId);
+                            setCopiedOrderId(order.id);
+                            setTimeout(() => setCopiedOrderId(null), 2000);
+                          }}
+                          className="text-[10px] font-mono text-slate-400 hover:text-slate-200 font-bold flex items-center gap-1 bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-800 px-2 py-0.5 rounded transition-all cursor-pointer border border-slate-200 dark:border-slate-700"
+                          title="Click to copy Tracking Order ID"
+                        >
+                          <span>{formattedOrderId}</span>
+                          {copiedOrderId === order.id ? (
+                            <Check className="w-2.5 h-2.5 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-2.5 h-2.5 text-slate-500 opacity-60 hover:opacity-100 transition-opacity" />
+                          )}
+                        </button>
                       </div>
 
                       {/* Urgency & Worklist Status */}
