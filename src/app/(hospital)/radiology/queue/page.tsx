@@ -6,7 +6,10 @@ import { collection, query, orderBy, doc, where } from 'firebase/firestore';
 import { 
   Camera, Loader2, ShieldAlert, CheckCircle2, Download, 
   Eye, FileText, Upload, RefreshCw, AlertTriangle, Activity, 
-  Clock, Stethoscope, User, Zap, Sparkles, Layers, Shield
+  Clock, Stethoscope, User, Zap, Sparkles, Layers, Shield,
+  Search, Filter, ArrowUpDown, Bed, MapPin, Building2,
+  Calendar, ChevronRight, AlertCircle, FileUp, FolderOpen,
+  SlidersHorizontal, Check
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -18,6 +21,7 @@ import RadiologyReportModal from '@/components/app/radiology-report-modal';
 type RadiologyOrder = {
   id: string;
   encounterId?: string;
+  patientId?: string;
   scanName?: string;
   testName?: string;
   procedureName?: string;
@@ -26,6 +30,10 @@ type RadiologyOrder = {
   patientEhrId?: string;
   ehrId?: string;
   ehrNumber?: string;
+  gender?: string;
+  age?: string | number;
+  location?: string;
+  wardName?: string;
   providerName?: string;
   orderedBy?: string;
   doctorName?: string;
@@ -43,8 +51,6 @@ type RadiologyOrder = {
   impression?: string;
   findings?: string;
   radiologistName?: string;
-  wardName?: string;
-  location?: string;
 };
 
 export default function RadiologyQueuePage() {
@@ -59,6 +65,12 @@ export default function RadiologyQueuePage() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [claims, setClaims] = useState<any>(null);
   const [isClaimsLoading, setIsClaimsLoading] = useState(true);
+
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedModality, setSelectedModality] = useState<string>('ALL');
+  const [selectedUrgency, setSelectedUrgency] = useState<string>('ALL');
+  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
 
   // Synchronize tab state with search params if navigated via sidebar
   useEffect(() => {
@@ -128,67 +140,119 @@ export default function RadiologyQueuePage() {
   const { data: allOrders, isLoading: areOrdersLoading } = useCollection<RadiologyOrder>(allScansQuery);
 
   // Active Queue: Awaiting Upload or Image Ready
-  const activeOrders = useMemo(() => {
+  const activeOrdersRaw = useMemo(() => {
     const list = allOrders?.filter(o => o.status === 'PENDING' || o.status === 'IMAGE_READY') || [];
     if (list.length > 0) return list;
 
-    // Distinct clinical mock queue with separate patients and diagnostic indications
+    // High-density clinical mock dataset with authentic Ghanaian medical cases
     return [
       {
         id: 'RAD-2026-0142',
         encounterId: 'ENC-8819',
-        scanName: 'Chest X-Ray (AP & Lateral View)',
+        patientId: 'PT-90142',
+        scanName: 'Chest X-Ray (PA & Lateral View)',
         patientName: 'Kofi Mensah Boateng',
         patientEhrId: 'MMH/EHR/26/0142',
+        gender: 'Male',
+        age: '48y',
+        location: 'Male Medical Ward - Bed 3',
+        wardName: 'Male Medical Ward',
         providerName: 'Marcus Amosah Henaku',
         modality: 'X-RAY',
-        indication: 'Suspected lower lobe pneumonia with persistent productive cough, hemoptysis and fever 38.8°C.',
+        indication: 'Suspected lower lobe consolidation/pneumonia with persistent productive cough, hemoptysis and pyrexia 38.8°C.',
         priority: 'STAT / URGENT',
-        orderedAt: new Date(Date.now() - 2100000), // 35 mins ago
-        status: 'PENDING',
-        wardName: 'Male Medical Ward'
+        orderedAt: new Date(Date.now() - 1200000), // 20m ago
+        status: 'PENDING'
       },
       {
         id: 'RAD-2026-0208',
         encounterId: 'ENC-8824',
-        scanName: 'Pelvic & Abdominal Ultrasound (USG)',
+        patientId: 'PT-90208',
+        scanName: 'Pelvic & Abdominal Ultrasound (USG Complete)',
         patientName: 'Abena Serwaa Prempeh',
         patientEhrId: 'MMH/EHR/26/0208',
+        gender: 'Female',
+        age: '29y',
+        location: 'Emergency Triage - Bed 2',
+        wardName: 'Emergency Triage',
         providerName: 'Kwame Adu',
         modality: 'ULTRASOUND',
-        indication: 'Severe right iliac fossa tenderness; rule out acute appendicitis vs ruptured ovarian cyst.',
+        indication: 'Severe right iliac fossa tenderness with guarding; rule out acute appendicitis vs ruptured ovarian cyst.',
         priority: 'STAT / URGENT',
-        orderedAt: new Date(Date.now() - 4800000), // 1 hr 20m ago
-        status: 'PENDING',
-        wardName: 'Emergency Triage'
+        orderedAt: new Date(Date.now() - 2700000), // 45m ago
+        status: 'PENDING'
       },
       {
         id: 'RAD-2026-0315',
         encounterId: 'ENC-8830',
-        scanName: 'Brain CT Scan (Non-Contrast)',
+        patientId: 'PT-90315',
+        scanName: 'Brain CT Scan (Non-Contrast Axial & Coronal)',
         patientName: 'Emmanuel Kwaku Ofori',
         patientEhrId: 'MMH/EHR/26/0315',
+        gender: 'Male',
+        age: '36y',
+        location: 'Trauma & ICU - Bed 1',
+        wardName: 'Trauma & ICU',
         providerName: 'Anita Osei',
         modality: 'CT',
-        indication: 'RTA vehicular head trauma with transient loss of consciousness (GCS 13); rule out epidural/subdural hematoma.',
+        indication: 'RTA vehicular head injury with transient loss of consciousness (GCS 13); rule out acute epidural/subdural hematoma.',
         priority: 'STAT / URGENT',
-        orderedAt: new Date(Date.now() - 7200000), // 2 hrs ago
-        status: 'PENDING',
-        wardName: 'Trauma & ICU'
+        orderedAt: new Date(Date.now() - 5400000), // 1.5 hrs ago
+        status: 'PENDING'
       },
       {
         id: 'RAD-2026-0101',
         encounterId: 'ENC-8790',
-        scanName: 'MRI Lumbar Spine (L1-S1)',
+        patientId: 'PT-90101',
+        scanName: 'Obstetric Ultrasound (Biophysical Profile & Doppler)',
         patientName: 'Janet Bonah',
         patientEhrId: 'MMH/EHR/26/0101',
+        gender: 'Female',
+        age: '32y',
+        location: 'Maternity Ward - Antenatal Bay',
+        wardName: 'Maternity Ward',
+        providerName: 'James Gambrah',
+        modality: 'ULTRASOUND',
+        indication: 'Gravida 2 Para 1 at 34 weeks gestation; suspected oligohydramnios and fetal growth assessment.',
+        priority: 'ROUTINE',
+        orderedAt: new Date(Date.now() - 10800000), // 3 hrs ago
+        status: 'IMAGE_READY'
+      },
+      {
+        id: 'RAD-2026-0422',
+        encounterId: 'ENC-8845',
+        patientId: 'PT-90422',
+        scanName: 'MRI Lumbar Spine (L1-S1 Sagittal & Axial)',
+        patientName: 'Kwabena Appiah Danquah',
+        patientEhrId: 'MMH/EHR/26/0422',
+        gender: 'Male',
+        age: '54y',
+        location: 'OPD Consulting Room 4',
+        wardName: 'OPD Orthopedics',
         providerName: 'James Gambrah',
         modality: 'MRI',
-        indication: 'Chronic low back pain with progressive right lower limb radiculopathy; rule out L5-S1 herniated disc.',
+        indication: 'Chronic intractable lower back pain radiating down right S1 dermatome; assess for disc protrusion and nerve impingement.',
         priority: 'ROUTINE',
-        orderedAt: new Date(Date.now() - 14400000), // 4 hrs ago
-        status: 'PENDING',
-        wardName: 'OPD Orthopedics'
+        orderedAt: new Date(Date.now() - 18000000), // 5 hrs ago
+        status: 'PENDING'
+      },
+      {
+        id: 'RAD-2026-0518',
+        encounterId: 'ENC-8860',
+        patientId: 'PT-90518',
+        scanName: 'Right Knee Joint X-Ray (AP & Lateral Weight-Bearing)',
+        patientName: 'Akosua Mansa Frimpong',
+        patientEhrId: 'MMH/EHR/26/0518',
+        gender: 'Female',
+        age: '62y',
+        location: 'OPD Consulting Room 2',
+        wardName: 'OPD Consulting',
+        providerName: 'Marcus Amosah Henaku',
+        modality: 'X-RAY',
+        indication: 'Severe right knee joint pain with crepitus and restricted flexion; assess Kellgren-Lawrence osteoarthritis grade.',
+        priority: 'ROUTINE',
+        orderedAt: new Date(Date.now() - 25200000), // 7 hrs ago
+        status: 'PENDING'
       }
     ] as RadiologyOrder[];
   }, [allOrders]);
@@ -201,12 +265,12 @@ export default function RadiologyQueuePage() {
         id: 'REP-RAD-0992', 
         patientName: 'Janet Bonah', 
         patientEhrId: 'MMH/EHR/26/0101', 
-        scanName: 'Pelvic Ultrasound (USS)', 
+        scanName: 'Abdominal Ultrasound (USS Complete)', 
         modality: 'ULTRASOUND',
         providerName: 'James Gambrah', 
         radiologistName: 'Kwame Adu (Radiologist)', 
         completedAt: new Date(Date.now() - 86400000), 
-        impression: 'Normal pelvic and abdominal sonogram. No free fluid in pouch of Douglas. No acute pathology detected.', 
+        impression: 'Normal pelvic and abdominal sonogram. Normal liver texture, gall bladder free of calculi. No acute pathology detected.', 
         status: 'COMPLETED' 
       },
       { 
@@ -218,30 +282,100 @@ export default function RadiologyQueuePage() {
         providerName: 'Anita Osei', 
         radiologistName: 'Kwame Adu (Radiologist)', 
         completedAt: new Date(Date.now() - 172800000), 
-        impression: 'Clear lung fields bilaterally. Normal cardiothoracic ratio. No sign of active consolidation or effusion.', 
+        impression: 'Clear lung fields bilaterally. Normal cardiothoracic ratio (CTR 0.48). No sign of active consolidation or pleural effusion.', 
         status: 'COMPLETED' 
       },
       { 
         id: 'REP-RAD-0988', 
         patientName: 'Esi Adazewaa', 
         patientEhrId: 'MMH/EHR/26/0002', 
-        scanName: 'MRI Brain w/ Contrast', 
-        modality: 'MRI',
+        scanName: 'Brain CT Scan w/ Contrast', 
+        modality: 'CT',
         providerName: 'James Gambrah', 
         radiologistName: 'Kwame Adu (Radiologist)', 
         completedAt: new Date(Date.now() - 259200000), 
-        impression: 'No acute intracranial hemorrhage, mass effect, or abnormal parenchymal enhancement observed.', 
+        impression: 'No acute intracranial hemorrhage, mass effect, or abnormal parenchymal enhancement observed. Ventricles age-appropriate.', 
         status: 'COMPLETED' 
       },
     ] as RadiologyOrder[];
   }, [allOrders]);
 
-  const metrics = useMemo(() => {
-    const active = activeOrders.filter(q => q.status === 'PENDING').length;
-    const reportsPending = activeOrders.filter(q => q.status === 'IMAGE_READY').length;
-    const transmitted = archiveOrders.length || 14;
-    return { active, reportsPending, transmitted };
-  }, [activeOrders, archiveOrders]);
+  // Helper for Modality Normalization
+  const getNormalizedModality = (modality?: string, scanName?: string): string => {
+    const m = (modality || '').toUpperCase();
+    const s = (scanName || '').toUpperCase();
+
+    if (m === 'X-RAY' || m === 'XRAY' || s.includes('X-RAY') || s.includes('XRAY') || s.includes('CHEST X')) return 'X-RAY';
+    if (m === 'ULTRASOUND' || m === 'USG' || m === 'USS' || s.includes('ULTRASOUND') || s.includes('SONOGRAM') || s.includes('USS')) return 'ULTRASOUND';
+    if (m === 'CT' || m === 'CAT' || s.includes('CT SCAN') || s.includes('COMPUTED TOMOGRAPHY')) return 'CT';
+    if (m === 'MRI' || s.includes('MRI') || s.includes('RESONANCE')) return 'MRI';
+    return 'OTHER';
+  };
+
+  // Telemetry Breakout Counts
+  const telemetryMetrics = useMemo(() => {
+    const total = activeOrdersRaw.length;
+    let ussCount = 0;
+    let xrayCount = 0;
+    let ctMriCount = 0;
+    let statCount = 0;
+    let reportsPending = 0;
+
+    activeOrdersRaw.forEach(o => {
+      const mod = getNormalizedModality(o.modality, o.scanName);
+      if (mod === 'ULTRASOUND') ussCount++;
+      else if (mod === 'X-RAY') xrayCount++;
+      else if (mod === 'CT' || mod === 'MRI') ctMriCount++;
+
+      const isStat = o.priority === 'STAT / URGENT' || o.isUrgent || false;
+      if (isStat) statCount++;
+
+      if (o.status === 'IMAGE_READY') reportsPending++;
+    });
+
+    const transmitted = archiveOrders.length || 18;
+    return { total, ussCount, xrayCount, ctMriCount, statCount, reportsPending, transmitted };
+  }, [activeOrdersRaw, archiveOrders]);
+
+  // Filtered Active Worklist
+  const filteredActiveOrders = useMemo(() => {
+    return activeOrdersRaw.filter(order => {
+      // 1. Search Query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const pName = (order.patientName || order.patient || '').toLowerCase();
+        const ehr = (order.patientEhrId || order.ehrId || order.ehrNumber || '').toLowerCase();
+        const scan = (order.scanName || order.testName || order.procedureName || '').toLowerCase();
+        const doc = (order.providerName || order.orderedBy || order.doctorName || '').toLowerCase();
+        const ind = (order.indication || order.clinicalIndication || order.clinicalNotes || '').toLowerCase();
+        const orderId = (order.id || '').toLowerCase();
+
+        const matches = pName.includes(q) || ehr.includes(q) || scan.includes(q) || doc.includes(q) || ind.includes(q) || orderId.includes(q);
+        if (!matches) return false;
+      }
+
+      // 2. Modality Filter
+      if (selectedModality !== 'ALL') {
+        const mod = getNormalizedModality(order.modality, order.scanName);
+        if (mod !== selectedModality) return false;
+      }
+
+      // 3. Urgency Filter
+      if (selectedUrgency !== 'ALL') {
+        const isUrgent = order.priority === 'STAT / URGENT' || order.isUrgent || false;
+        if (selectedUrgency === 'STAT' && !isUrgent) return false;
+        if (selectedUrgency === 'ROUTINE' && isUrgent) return false;
+      }
+
+      // 4. Status Filter
+      if (selectedStatus !== 'ALL') {
+        if (selectedStatus === 'PENDING' && order.status !== 'PENDING') return false;
+        if (selectedStatus === 'IMAGE_READY' && order.status !== 'IMAGE_READY') return false;
+      }
+
+      return true;
+    });
+  }, [activeOrdersRaw, searchQuery, selectedModality, selectedUrgency, selectedStatus]);
 
   const isLoading = isUserLoading || isClaimsLoading;
 
@@ -266,200 +400,462 @@ export default function RadiologyQueuePage() {
     );
   }
 
-  // Modality Visual Badging Helper
-  const getModalityConfig = (modality?: string, scanName?: string) => {
-    const m = (modality || '').toUpperCase();
-    const s = (scanName || '').toUpperCase();
+  // Modality Visual Badging Configuration
+  const getModalityBadge = (modality?: string, scanName?: string) => {
+    const mod = getNormalizedModality(modality, scanName);
 
-    if (m === 'X-RAY' || m === 'XRAY' || s.includes('X-RAY') || s.includes('CHEST XRAY')) {
-      return {
-        label: 'X-RAY',
-        badgeClass: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
-        icon: <Camera className="w-3.5 h-3.5 text-cyan-400" />
-      };
+    switch (mod) {
+      case 'X-RAY':
+        return {
+          label: 'X-RAY (DR/CR)',
+          badgeClass: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
+          icon: <Camera className="w-3.5 h-3.5 text-sky-400" />
+        };
+      case 'ULTRASOUND':
+        return {
+          label: 'ULTRASOUND (USS)',
+          badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+          icon: <Activity className="w-3.5 h-3.5 text-emerald-400" />
+        };
+      case 'CT':
+        return {
+          label: 'CT SCAN',
+          badgeClass: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
+          icon: <Layers className="w-3.5 h-3.5 text-indigo-400" />
+        };
+      case 'MRI':
+        return {
+          label: 'MRI SCAN',
+          badgeClass: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+          icon: <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+        };
+      default:
+        return {
+          label: 'SPECIAL IMAGING',
+          badgeClass: 'bg-slate-800 text-slate-300 border-slate-700',
+          icon: <Camera className="w-3.5 h-3.5 text-slate-400" />
+        };
     }
-    if (m === 'ULTRASOUND' || m === 'USG' || m === 'USS' || s.includes('ULTRASOUND') || s.includes('SONOGRAM')) {
-      return {
-        label: 'ULTRASOUND',
-        badgeClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-        icon: <Activity className="w-3.5 h-3.5 text-emerald-400" />
-      };
-    }
-    if (m === 'CT' || m === 'CAT' || s.includes('CT SCAN') || s.includes('COMPUTED TOMOGRAPHY')) {
-      return {
-        label: 'CT SCAN',
-        badgeClass: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
-        icon: <Layers className="w-3.5 h-3.5 text-indigo-400" />
-      };
-    }
-    if (m === 'MRI' || s.includes('MRI') || s.includes('MAGNETIC RESONANCE')) {
-      return {
-        label: 'MRI',
-        badgeClass: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
-        icon: <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-      };
-    }
-    return {
-      label: m || 'IMAGING',
-      badgeClass: 'bg-slate-800 text-slate-300 border-slate-700',
-      icon: <Camera className="w-3.5 h-3.5 text-slate-400" />
-    };
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-12">
+    <div className="max-w-7xl mx-auto space-y-6 pb-16">
       
       {/* ========================================== */}
-      {/* 1. GAM MED SIGNATURE HERO COMMAND BANNER   */}
+      {/* 1. ENTERPRISE HERO COMMAND BANNER          */}
       {/* ========================================== */}
-      <div className="bg-slate-950 text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-        {/* Subtle Ambient Radial Glows */}
-        <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-12 w-64 h-64 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+      <div className="bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden border border-slate-800">
+        {/* Ambient Glows */}
+        <div className="absolute top-0 right-0 -mt-16 -mr-16 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 -mb-16 w-80 h-80 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-rose-600/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-indigo-500/20 border border-indigo-500/30 rounded-xl text-indigo-400">
-              <Camera className="w-7 h-7" />
+        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3.5 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/40 rounded-2xl text-indigo-400 shadow-inner">
+              <Camera className="w-8 h-8" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-wider text-white">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  Diagnostic Radiology Node
+                </span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  DICOM / PACS Hub
+                </span>
+              </div>
+              <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-wider text-white mt-1">
                 IMAGING COMMAND CENTER
               </h1>
-              <h2 className="text-xs md:text-sm font-bold text-slate-400 mt-1 uppercase tracking-wider">
-                Acquire scan series, write radiologist reports, and track EMR releases.
-              </h2>
+              <p className="text-xs font-semibold text-slate-400 mt-0.5">
+                Real-time modality worklists, STAT triage routing, and radiologist report transmission.
+              </p>
+            </div>
+          </div>
+
+          {/* Telemetry Modality Breakout Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 w-full lg:w-auto">
+            {/* Total Active */}
+            <div className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+              <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Active Queue</p>
+              <p className="text-xl font-mono text-white font-black">{telemetryMetrics.total}</p>
+            </div>
+
+            {/* Ultrasound */}
+            <div className="bg-slate-900/90 border border-emerald-500/30 p-3 rounded-xl bg-emerald-950/10">
+              <p className="text-[9px] text-emerald-400 font-black uppercase tracking-widest flex items-center gap-1">
+                <Activity className="w-2.5 h-2.5" /> USS Sonography
+              </p>
+              <p className="text-xl font-mono text-emerald-300 font-black">{telemetryMetrics.ussCount}</p>
+            </div>
+
+            {/* X-Ray */}
+            <div className="bg-slate-900/90 border border-sky-500/30 p-3 rounded-xl bg-sky-950/10">
+              <p className="text-[9px] text-sky-400 font-black uppercase tracking-widest flex items-center gap-1">
+                <Camera className="w-2.5 h-2.5" /> X-Ray (DR/CR)
+              </p>
+              <p className="text-xl font-mono text-sky-300 font-black">{telemetryMetrics.xrayCount}</p>
+            </div>
+
+            {/* CT / MRI */}
+            <div className="bg-slate-900/90 border border-indigo-500/30 p-3 rounded-xl bg-indigo-950/10">
+              <p className="text-[9px] text-indigo-400 font-black uppercase tracking-widest flex items-center gap-1">
+                <Layers className="w-2.5 h-2.5" /> CT / MRI
+              </p>
+              <p className="text-xl font-mono text-indigo-300 font-black">{telemetryMetrics.ctMriCount}</p>
+            </div>
+
+            {/* STAT Requests */}
+            <div className="bg-slate-900/90 border border-rose-500/40 p-3 rounded-xl bg-rose-950/20 col-span-2 sm:col-span-1 xl:col-span-1 shadow-rose-900/20 shadow-lg">
+              <p className="text-[9px] text-rose-400 font-black uppercase tracking-widest flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" /> STAT / Emergency
+              </p>
+              <p className="text-xl font-mono text-rose-300 font-black">{telemetryMetrics.statCount}</p>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Telemetry Metrics */}
-        <div className="flex gap-4 relative z-10 w-full md:w-auto">
-          <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl flex-1 md:flex-none">
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Active Queue</p>
-            <p className="text-xl font-mono text-white font-black">{metrics.active}</p>
-          </div>
-          <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl flex-1 md:flex-none">
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Pending Reports</p>
-            <p className="text-xl font-mono text-amber-400 font-black">{metrics.reportsPending}</p>
-          </div>
-          <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl flex-1 md:flex-none">
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Transmitted Today</p>
-            <p className="text-xl font-mono text-emerald-400 font-black">{metrics.transmitted}</p>
-          </div>
+      {/* ========================================== */}
+      {/* 2. TAB TOGGLES (ACTIVE WORKLIST / ARCHIVE) */}
+      {/* ========================================== */}
+      <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-1">
+        <div className="flex gap-2">
+          <button 
+            onClick={() => setActiveTab('ACTIVE')}
+            className={`pb-3 px-6 text-xs font-black uppercase tracking-widest transition-all cursor-pointer ${
+              activeTab === 'ACTIVE' 
+                ? 'text-indigo-400 border-b-4 border-indigo-500 font-black' 
+                : 'text-slate-400 hover:text-slate-200 border-b-4 border-transparent'
+            }`}
+          >
+            ACTIVE WORKLIST ({activeOrdersRaw.length})
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('ARCHIVE')}
+            className={`pb-3 px-6 text-xs font-black uppercase tracking-widest transition-all cursor-pointer ${
+              activeTab === 'ARCHIVE' 
+                ? 'text-indigo-400 border-b-4 border-indigo-500 font-black' 
+                : 'text-slate-400 hover:text-slate-200 border-b-4 border-transparent'
+            }`}
+          >
+            TRANSMITTED ARCHIVE ({telemetryMetrics.transmitted})
+          </button>
+        </div>
+
+        <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-slate-400">
+          <Clock className="w-3.5 h-3.5 text-indigo-400" />
+          <span>Live Telemetry Active</span>
         </div>
       </div>
 
       {/* ========================================== */}
-      {/* 2. EXECUTIVE TAB NAVIGATION                */}
+      {/* 3. STICKY MODALITY & PRIORITY FILTER BAR   */}
       {/* ========================================== */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800">
-        <button 
-          onClick={() => setActiveTab('ACTIVE')}
-          className={`pb-4 px-6 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer ${
-            activeTab === 'ACTIVE' 
-              ? 'text-indigo-400 border-b-4 border-indigo-500 font-black' 
-              : 'text-slate-400 hover:text-slate-200 border-b-4 border-transparent'
-          }`}
-        >
-          ACTIVE WORKLIST ({activeOrders.length})
-        </button>
+      {activeTab === 'ACTIVE' && (
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md space-y-3.5 sticky top-2 z-20 backdrop-blur-md bg-opacity-95 dark:bg-opacity-95">
+          
+          {/* Top Row: Search & Status Selector */}
+          <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
+            {/* Search Input */}
+            <div className="relative w-full md:flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input 
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search patient name, EHR #, order ID, procedure, doctor, or indication..."
+                className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-200"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
 
-        <button 
-          onClick={() => setActiveTab('ARCHIVE')}
-          className={`pb-4 px-6 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer ${
-            activeTab === 'ARCHIVE' 
-              ? 'text-indigo-400 border-b-4 border-indigo-500 font-black' 
-              : 'text-slate-400 hover:text-slate-200 border-b-4 border-transparent'
-          }`}
-        >
-          TRANSMITTED ARCHIVE ({metrics.transmitted})
-        </button>
-      </div>
+            {/* Status Quick Toggle */}
+            <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1 shrink-0">
+                Worklist Status:
+              </span>
+              {[
+                { id: 'ALL', label: 'All Active' },
+                { id: 'PENDING', label: 'Awaiting Acquisition' },
+                { id: 'IMAGE_READY', label: 'Ready for Reporting' }
+              ].map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedStatus(s.id)}
+                  className={cn(
+                    "px-3 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap",
+                    selectedStatus === s.id
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white"
+                  )}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Bottom Row: Modality & Urgency Pill Toggles */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            
+            {/* Modality Toggles */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mr-1 flex items-center gap-1">
+                <SlidersHorizontal className="w-3 h-3 text-indigo-400" /> Modality Suite:
+              </span>
+
+              {[
+                { id: 'ALL', label: `All (${activeOrdersRaw.length})` },
+                { id: 'ULTRASOUND', label: `Ultrasound (${telemetryMetrics.ussCount})`, icon: <Activity className="w-3 h-3 text-emerald-400" /> },
+                { id: 'X-RAY', label: `X-Ray (${telemetryMetrics.xrayCount})`, icon: <Camera className="w-3 h-3 text-sky-400" /> },
+                { id: 'CT', label: 'CT Scan', icon: <Layers className="w-3 h-3 text-indigo-400" /> },
+                { id: 'MRI', label: 'MRI', icon: <Sparkles className="w-3 h-3 text-purple-400" /> }
+              ].map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setSelectedModality(m.id)}
+                  className={cn(
+                    "px-3 py-1 text-[10px] font-black rounded-full border uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer",
+                    selectedModality === m.id
+                      ? "bg-slate-900 text-white border-indigo-500 shadow-md ring-1 ring-indigo-500/50"
+                      : "bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-600"
+                  )}
+                >
+                  {m.icon}
+                  <span>{m.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Urgency Toggles */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mr-1">
+                Triage Priority:
+              </span>
+
+              <button
+                onClick={() => setSelectedUrgency('ALL')}
+                className={cn(
+                  "px-2.5 py-1 text-[10px] font-black rounded-full border uppercase tracking-wider transition-all cursor-pointer",
+                  selectedUrgency === 'ALL'
+                    ? "bg-slate-900 text-white border-slate-600"
+                    : "bg-slate-50 dark:bg-slate-950 text-slate-500 border-slate-200 dark:border-slate-800"
+                )}
+              >
+                All
+              </button>
+
+              <button
+                onClick={() => setSelectedUrgency('STAT')}
+                className={cn(
+                  "px-3 py-1 text-[10px] font-black rounded-full border uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer",
+                  selectedUrgency === 'STAT'
+                    ? "bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-900/30"
+                    : "bg-rose-500/10 text-rose-300 border-rose-500/30 hover:bg-rose-500/20"
+                )}
+              >
+                <Zap className="w-2.5 h-2.5 text-rose-400" />
+                <span>STAT / Emergency ({telemetryMetrics.statCount})</span>
+              </button>
+
+              <button
+                onClick={() => setSelectedUrgency('ROUTINE')}
+                className={cn(
+                  "px-3 py-1 text-[10px] font-black rounded-full border uppercase tracking-wider transition-all cursor-pointer",
+                  selectedUrgency === 'ROUTINE'
+                    ? "bg-slate-800 text-white border-slate-600 shadow"
+                    : "bg-slate-50 dark:bg-slate-950 text-slate-400 border-slate-200 dark:border-slate-800"
+                )}
+              >
+                Routine
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+      )}
 
       {/* ========================================== */}
-      {/* 3. HIGH-CONTRAST IMAGING GRID              */}
+      {/* 4. HIGH-DENSITY WORKLIST GRID / CARDS      */}
       {/* ========================================== */}
       {areOrdersLoading ? (
-        <div className="text-center p-12 text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl font-bold">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-indigo-400" />
-          Fetching DICOM imaging requests...
+        <div className="text-center p-16 text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl font-bold">
+          <Loader2 className="h-9 w-9 animate-spin mx-auto mb-3 text-indigo-400" />
+          Synchronizing DICOM imaging worklist & clinical telemetry...
         </div>
       ) : activeTab === 'ACTIVE' ? (
-        activeOrders.length === 0 ? (
-          <div className="text-center p-20 bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400">
-            <Camera className="h-12 w-12 mx-auto mb-2 text-slate-500" />
-            The imaging queue is clear. No pending scan requests.
+        filteredActiveOrders.length === 0 ? (
+          <div className="text-center p-20 bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl text-slate-400 space-y-3">
+            <Camera className="h-12 w-12 mx-auto text-slate-500" />
+            <h3 className="text-sm font-black text-slate-300 uppercase tracking-wide">
+              No Matching Imaging Requests Found
+            </h3>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              {searchQuery || selectedModality !== 'ALL' || selectedUrgency !== 'ALL'
+                ? "No active scans match your filter criteria. Try resetting filters or clearing the search query."
+                : "The radiology scan worklist is clear. New scan orders from Doctor Consulting, Triage, or Wards will stream here in real time."}
+            </p>
+            {(searchQuery || selectedModality !== 'ALL' || selectedUrgency !== 'ALL' || selectedStatus !== 'ALL') && (
+              <Button 
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedModality('ALL');
+                  setSelectedUrgency('ALL');
+                  setSelectedStatus('ALL');
+                }}
+                variant="outline"
+                className="mt-2 text-xs"
+              >
+                Reset All Filters
+              </Button>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-6">
-            {activeOrders.map((order) => {
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {filteredActiveOrders.map((order) => {
               const needsUpload = order.status === 'PENDING';
               const paymentStatus = getOrderPaymentStatus(order);
               const isLocked = paymentPolicy === 'STRICT' && paymentStatus === 'UNPAID' && !emergencyOverrides[order.id];
 
               const patientName = order.patientName || order.patient || 'Patient Name';
               const ehrNumber = order.patientEhrId || order.ehrId || order.ehrNumber || 'MMH/EHR/26/0000';
-              const scanTitle = order.scanName || order.testName || order.procedureName || 'Diagnostic Scan';
+              const scanTitle = order.scanName || order.testName || order.procedureName || 'Diagnostic Procedure';
               const providerName = order.providerName || order.orderedBy || order.doctorName || 'Attending Physician';
-              const indication = order.indication || order.clinicalIndication || order.clinicalNotes || order.diagnosis || 'Clinical evaluation requested by attending physician.';
+              const indication = order.indication || order.clinicalIndication || order.clinicalNotes || order.diagnosis || 'Clinical evaluation requested by attending medical officer.';
               const isUrgent = order.priority === 'STAT / URGENT' || order.isUrgent || false;
+              const location = order.location || order.wardName || 'OPD Consulting';
+              const genderAge = `${order.age || 'Adult'} • ${order.gender || 'Patient'}`;
 
-              const modalityConfig = getModalityConfig(order.modality, scanTitle);
+              const modalityBadge = getModalityBadge(order.modality, scanTitle);
               const orderDate = safeToDate(order.orderedAt) || new Date();
 
               return (
                 <div 
                   key={order.id} 
-                  className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col justify-between transition-all hover:shadow-lg hover:border-indigo-500/40 p-6 space-y-5"
+                  className={cn(
+                    "bg-white dark:bg-slate-900 rounded-2xl shadow-sm border transition-all hover:shadow-xl p-5 flex flex-col justify-between space-y-4 group",
+                    isUrgent 
+                      ? "border-rose-500/40 bg-gradient-to-br from-rose-950/10 via-slate-900 to-slate-900" 
+                      : "border-slate-200 dark:border-slate-800 hover:border-indigo-500/40"
+                  )}
                 >
-                  {/* Card Header & Modality Badges */}
+                  {/* Top Bar: Modality, Priority & Telemetry Header */}
                   <div>
-                    <div className="flex justify-between items-start gap-3 mb-4">
-                      
-                      {/* Left: Modality Icon & Priority */}
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-10 h-10 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-center shadow-inner">
-                          {modalityConfig.icon}
-                        </div>
-                        <div>
-                          <span className={cn(
-                            "text-[9px] font-black px-2.5 py-0.5 rounded-full border uppercase tracking-wider inline-flex items-center gap-1",
-                            modalityConfig.badgeClass
-                          )}>
-                            {modalityConfig.label}
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      {/* Modality Badge */}
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "text-[9px] font-black px-2.5 py-1 rounded-lg border uppercase tracking-wider inline-flex items-center gap-1.5 shadow-sm",
+                          modalityBadge.badgeClass
+                        )}>
+                          {modalityBadge.icon}
+                          <span>{modalityBadge.label}</span>
+                        </span>
+
+                        <span className="text-[10px] font-mono text-slate-400 font-bold">
+                          {order.id}
+                        </span>
+                      </div>
+
+                      {/* Urgency & Worklist Status */}
+                      <div className="flex items-center gap-1.5">
+                        {isUrgent ? (
+                          <span className="text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse flex items-center gap-1 shadow-sm">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-400" /> STAT / CRITICAL
                           </span>
-                          <span className="text-[10px] font-mono text-slate-400 block mt-0.5 font-bold">
-                            {order.id}
+                        ) : (
+                          <span className="text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                            ROUTINE
+                          </span>
+                        )}
+
+                        <span className={cn(
+                          "text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest border",
+                          needsUpload 
+                            ? "bg-amber-500/20 text-amber-300 border-amber-500/30" 
+                            : "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                        )}>
+                          {needsUpload ? 'AWAITING SCAN' : 'IMAGE READY'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Patient Banner: High Contrast Profile */}
+                    <div className="p-3.5 bg-slate-50 dark:bg-slate-950/80 rounded-xl border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-black text-slate-900 dark:text-slate-100 uppercase tracking-wide text-sm">
+                            {patientName}
+                          </h3>
+                          <span className="text-[10px] font-mono text-indigo-500 dark:text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">
+                            {ehrNumber}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                          <span>{genderAge}</span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1 text-slate-700 dark:text-slate-300">
+                            <MapPin className="w-3 h-3 text-rose-400" />
+                            {location}
                           </span>
                         </div>
                       </div>
-                      
-                      {/* Right: Status & Payment Badges */}
-                      <div className="flex flex-col items-end gap-1.5">
-                        <div className="flex items-center gap-1.5">
-                          {isUrgent ? (
-                            <span className="text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse flex items-center gap-1">
-                              <Zap className="w-2.5 h-2.5 text-rose-400" /> STAT / URGENT
-                            </span>
-                          ) : (
-                            <span className="text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700">
-                              ROUTINE
-                            </span>
-                          )}
 
-                          <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border ${
-                            needsUpload 
-                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' 
-                              : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                          }`}>
-                            {needsUpload ? 'AWAITING SCAN' : 'IMAGE READY'}
-                          </span>
-                        </div>
+                      {/* Order Time Telemetry */}
+                      <div className="text-right">
+                        <p className="text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300 flex items-center justify-end gap-1">
+                          <Clock className="w-3 h-3 text-indigo-400" />
+                          {formatDistanceToNow(orderDate, { addSuffix: true })}
+                        </p>
+                        <p className="text-[9px] font-mono text-slate-400 mt-0.5">
+                          {format(orderDate, 'dd MMM, HH:mm')}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Target Procedure & Clinical Details */}
+                    <div className="mt-3.5 space-y-2.5">
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5 flex items-center gap-1">
+                          <Camera className="w-3 h-3 text-indigo-400" />
+                          <span>TARGET PROCEDURE & STUDY</span>
+                        </p>
+                        <p className="text-sm font-black text-indigo-600 dark:text-indigo-300 uppercase tracking-tight">
+                          {scanTitle}
+                        </p>
+                      </div>
+
+                      {/* Clinical Indication Callout */}
+                      <div className="p-3 rounded-xl bg-slate-100/80 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/90 space-y-1">
+                        <p className="text-[9px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-widest flex items-center gap-1">
+                          <Stethoscope className="w-3 h-3" />
+                          <span>CLINICAL INDICATION & REASONING</span>
+                        </p>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
+                          {indication}
+                        </p>
+                      </div>
+
+                      {/* Ordering Doctor & Billing Pill */}
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-[10px] font-semibold text-slate-500">
+                          Ordered by: <strong className="text-slate-800 dark:text-slate-200">{providerName.startsWith('Dr.') ? providerName : `Dr. ${providerName}`}</strong>
+                        </span>
 
                         {paymentPolicy !== 'NONE' && (
                           <span className={cn(
-                            "text-[8px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider shrink-0",
+                            "text-[8px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider",
                             paymentStatus === 'PAID' && "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
                             paymentStatus === 'INSURANCE' && "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
                             paymentStatus === 'UNPAID' && "bg-rose-500/20 text-rose-300 border-rose-500/30",
@@ -470,63 +866,9 @@ export default function RadiologyQueuePage() {
                         )}
                       </div>
                     </div>
-
-                    {/* Patient Profile */}
-                    <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-1.5">
-                          <User className="w-3.5 h-3.5 text-indigo-400" />
-                          <h3 className="font-black text-slate-900 dark:text-slate-100 uppercase tracking-wide text-sm">
-                            {patientName}
-                          </h3>
-                        </div>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-bold">
-                          {ehrNumber} {order.wardName ? `• ${order.wardName}` : ''}
-                        </p>
-                      </div>
-
-                      <div className="text-right">
-                        <p className="text-[9px] font-mono text-slate-400 font-bold">
-                          {formatDistanceToNow(orderDate, { addSuffix: true })}
-                        </p>
-                        <p className="text-[8px] font-mono text-slate-500">
-                          {format(orderDate, 'dd MMM, HH:mm')}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Diagnostic Procedure Details */}
-                    <div className="mt-4 space-y-3">
-                      <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                          <Camera className="w-3 h-3 text-indigo-400" />
-                          <span>REQUESTED SCAN PROCEDURE</span>
-                        </p>
-                        <p className="text-sm font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-tight">
-                          {scanTitle}
-                        </p>
-                      </div>
-
-                      {/* Clinical Indication Callout */}
-                      <div className="p-3 rounded-xl bg-slate-100/80 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                        <p className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                          <Stethoscope className="w-3 h-3 text-rose-400" />
-                          <span>CLINICAL INDICATION & NOTES</span>
-                        </p>
-                        <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
-                          {indication}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-1">
-                        <span className="text-[10px] font-bold">
-                          Ordered by: <span className="text-slate-900 dark:text-slate-200 font-bold">{providerName.startsWith('Dr.') ? providerName : `Dr. ${providerName}`}</span>
-                        </span>
-                      </div>
-                    </div>
                   </div>
 
-                  {/* Payment Emergency Override */}
+                  {/* Payment Strict Emergency Override */}
                   {paymentPolicy === 'STRICT' && paymentStatus === 'UNPAID' && (
                     <div className="flex items-center gap-2 bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20">
                       <input 
@@ -542,8 +884,28 @@ export default function RadiologyQueuePage() {
                     </div>
                   )}
 
-                  {/* Card Action Button */}
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                  {/* High-Contrast Action Worklist Buttons */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                    {order.patientId && (
+                      <Link 
+                        href={`/patients/folder/${order.patientId}`}
+                        className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-black rounded-xl uppercase tracking-wider transition-colors flex items-center gap-1 shrink-0"
+                        title="Open Patient EMR Folder"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Folder</span>
+                      </Link>
+                    )}
+
+                    <Link 
+                      href={`/radiology/upload/${order.id}`}
+                      className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-black rounded-xl uppercase tracking-wider transition-colors flex items-center gap-1 shrink-0"
+                      title="Upload Scan Images / DICOM Series"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                      <span className="hidden sm:inline">Upload PACS</span>
+                    </Link>
+
                     <Button 
                       disabled={isLocked}
                       onClick={() => {
@@ -561,7 +923,7 @@ export default function RadiologyQueuePage() {
                         });
                         setIsReportModalOpen(true);
                       }}
-                      className="w-full py-3 bg-indigo-950 hover:bg-indigo-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow transition-colors flex items-center justify-center gap-2 border border-indigo-700 cursor-pointer disabled:opacity-50"
+                      className="flex-1 py-3 bg-indigo-950 hover:bg-indigo-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow transition-all flex items-center justify-center gap-2 border border-indigo-700 cursor-pointer disabled:opacity-50"
                     >
                       {isLocked ? (
                         <span>Payment Pending</span>
@@ -581,7 +943,7 @@ export default function RadiologyQueuePage() {
       ) : (
         /* ARCHIVE TAB VIEW */
         archiveOrders.length === 0 ? (
-          <div className="text-center p-20 bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400">
+          <div className="text-center p-20 bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl text-slate-400">
             <CheckCircle2 className="h-12 w-12 mx-auto mb-2 text-slate-500" />
             You have not transmitted any radiology reports yet.
           </div>
@@ -601,7 +963,7 @@ export default function RadiologyQueuePage() {
                 {archiveOrders.map((report) => {
                   const compDate = safeToDate(report.completedAt);
                   const dateFormatted = compDate ? format(compDate, 'dd MMM yyyy, HH:mm') : '14 Jun 2026, 21:15';
-                  const modalityConfig = getModalityConfig(report.modality, report.scanName);
+                  const modalityBadge = getModalityBadge(report.modality, report.scanName);
 
                   return (
                     <tr key={report.id} className="border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
@@ -620,9 +982,9 @@ export default function RadiologyQueuePage() {
                         <p className="text-[10px] font-mono text-slate-400 mb-2 font-bold">{report.patientEhrId || 'MMH/EHR/26/0101'}</p>
                         <span className={cn(
                           "inline-flex items-center gap-1 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border",
-                          modalityConfig.badgeClass
+                          modalityBadge.badgeClass
                         )}>
-                          {modalityConfig.label}: {report.scanName}
+                          {modalityBadge.label}: {report.scanName}
                         </span>
                       </td>
 
