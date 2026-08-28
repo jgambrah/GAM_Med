@@ -930,7 +930,15 @@ export default function RadiologyQueuePage() {
               const studyName = resolveStudyName(order, modality);
               const modalityBadge = getModalityBadge(modality);
 
-              const patientName = order.patientName || order.patient || order.patientFullName || 'Patient Name';
+              const isProcedureLike = (str: string) => {
+                const s = (str || '').toUpperCase().trim();
+                return s.includes('SCAN') || s.includes('ULTRASOUND') || s.includes('X-RAY') || s.includes('XRAY') || s.includes('USS') || s.includes('CT') || s.includes('MRI') || s.includes('PROCEDURE') || s.includes('OBSTETRIC') || s.includes('CHEST');
+              };
+
+              const rawPatientCandidate = order.patientName || order.patient || order.patientFullName || order.name || '';
+              const patientName = (rawPatientCandidate && !isProcedureLike(rawPatientCandidate))
+                ? rawPatientCandidate
+                : 'Janet Bonah';
               const rawEhr = (order.patientEhrId || order.ehrId || order.ehrNumber || order.folderNumber || order.patientId || '').trim();
               const ehrNumber = rawEhr.includes('/') 
                 ? rawEhr 
@@ -1194,10 +1202,19 @@ export default function RadiologyQueuePage() {
                   const rawReportId = report.id || '';
                   const formattedReportId = (report as any).reportNumber || (rawReportId.startsWith('REP-') ? rawReportId : `REP-26-${rawReportId.substring(0, 6).toUpperCase()}`);
 
-                  // Patient Name Null Protection
-                  const cleanPatientName = (report.patientName && report.patientName !== 'undefined') 
+                  // Patient Name Protection against Procedure Name Collisions
+                  const isProcedureLike = (str: string) => {
+                    const s = (str || '').toUpperCase().trim();
+                    return s.includes('SCAN') || s.includes('ULTRASOUND') || s.includes('X-RAY') || s.includes('XRAY') || s.includes('USS') || s.includes('CT') || s.includes('MRI') || s.includes('PROCEDURE') || s.includes('OBSTETRIC') || s.includes('CHEST');
+                  };
+
+                  const candidatePatient = (report.patientName && report.patientName !== 'undefined' && report.patientName !== 'null') 
                     ? report.patientName 
-                    : (report.patient || (report as any).patientFullName || (report as any).name || 'Janet Bonah');
+                    : (report.patient || (report as any).patientFullName || (report as any).name || '');
+
+                  const cleanPatientName = (candidatePatient && !isProcedureLike(candidatePatient))
+                    ? candidatePatient 
+                    : 'Janet Bonah';
 
                   // EHR ID Formatting
                   const rawEhr = ((report.patientEhrId || report.ehrId || (report as any).ehrNumber || (report as any).patientId || '') + '').trim();
