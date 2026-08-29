@@ -5,6 +5,7 @@ import { PharmacySidebar } from "@/components/app/pharmacy-sidebar";
 import { DoctorSidebar } from "@/components/app/doctor-sidebar";
 import { NurseSidebar } from "@/components/app/nurse-sidebar";
 import { CashierSidebar } from "@/components/app/cashier-sidebar";
+import { ReceptionSidebar } from "@/components/app/reception-sidebar";
 import { ProcurementSidebar } from "@/components/app/procurement-sidebar";
 import { StoresSidebar } from "@/components/app/stores-sidebar";
 import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
@@ -96,6 +97,7 @@ export default function HospitalLayout({
     userProfile?.role === 'DOCTOR' ? <DoctorSidebar /> :
     userProfile?.role === 'NURSE' ? <NurseSidebar /> :
     userProfile?.role === 'CASHIER' ? <CashierSidebar /> :
+    userProfile?.role === 'RECEPTIONIST' ? <ReceptionSidebar /> :
     userProfile?.role === 'STORE_MANAGER' ? <StoresSidebar /> :
     userProfile?.role === 'PROCUREMENT_OFFICER' ? <ProcurementSidebar /> :
     <DirectorSidebar userProfile={userProfile} />;
