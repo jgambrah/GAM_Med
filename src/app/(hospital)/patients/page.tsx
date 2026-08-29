@@ -62,25 +62,35 @@ export function formatGhanaPhoneNumber(rawPhone?: string): string {
     return 'N/A';
   }
   const s = rawPhone.trim();
-  const digits = s.replace(/\D/g, '');
-  
-  // Case 1: 233XXXXXXXXX (12 digits) e.g. 233244750903 or +233244750903
-  if (digits.startsWith('233') && digits.length === 12) {
-    const net = digits.slice(3, 5);
-    const mid = digits.slice(5, 8);
-    const end = digits.slice(8, 12);
-    return `+233 ${net} ${mid} ${end}`;
-  }
-  
-  // Case 2: 0XXXXXXXXX (10 digits) e.g. 0244750903 or 0542367470
-  if (digits.startsWith('0') && digits.length === 10) {
-    const net = digits.slice(0, 3);
-    const mid = digits.slice(3, 6);
-    const end = digits.slice(6, 10);
-    return `${net} ${mid} ${end}`;
+  let digits = s.replace(/\D/g, '');
+
+  if (!digits) return s;
+
+  // Strip international 00 prefix if present (e.g. 00233 -> 233)
+  if (digits.startsWith('00233')) {
+    digits = digits.slice(2);
+  } else if (digits.startsWith('00')) {
+    // Inadvertent double leading zero e.g. 0054236747 -> 054236747
+    digits = digits.replace(/^0+/, '0');
   }
 
-  // Case 3: 9 digits without leading 0 e.g. 244750903 or 542367470
+  // Case 1: International Country Code (+233) e.g. 233244750903 or +233 24 475 0903
+  if (digits.startsWith('233') && digits.length >= 11) {
+    const net = digits.slice(3, 5);
+    const mid = digits.slice(5, 8);
+    const end = digits.slice(8);
+    return `+233 ${net} ${mid} ${end}`.trim();
+  }
+
+  // Case 2: Standard numbers starting with 0 (e.g. 0244750903, 054236747, 0542367470)
+  if (digits.startsWith('0')) {
+    const net = digits.slice(0, 3);
+    const mid = digits.slice(3, 6);
+    const end = digits.slice(6);
+    return end ? `${net} ${mid} ${end}` : `${net} ${mid}`;
+  }
+
+  // Case 3: 9 digits without leading zero (e.g. 244750903 -> 024 475 0903)
   if (digits.length === 9) {
     const net = '0' + digits.slice(0, 2);
     const mid = digits.slice(2, 5);
