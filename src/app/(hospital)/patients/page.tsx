@@ -35,6 +35,62 @@ interface Patient {
   lastVisitDate?: string;
 }
 
+export function normalizeEhrNumber(rawEhr?: string, fallbackId?: string): string {
+  if (!rawEhr || rawEhr === 'undefined' || rawEhr === 'null' || rawEhr.trim() === '') {
+    const cleanId = (fallbackId || '0001').replace(/[^a-zA-Z0-9]/g, '');
+    return `MMH/EHR/26/${cleanId.slice(-4).padStart(4, '0').toUpperCase()}`;
+  }
+  const s = rawEhr.trim();
+  if (s.startsWith('MMH/EHR/')) return s;
+  
+  // Convert legacy formats e.g. MMH-00001 or MMH-0001 or MMH-01
+  const match = s.match(/MMH-?(\d+)/i);
+  if (match) {
+    const numPart = match[1].slice(-4).padStart(4, '0');
+    return `MMH/EHR/26/${numPart}`;
+  }
+  if (s.startsWith('EHR-')) {
+    const num = s.replace('EHR-', '');
+    return `MMH/EHR/26/${num.slice(-4).padStart(4, '0').toUpperCase()}`;
+  }
+  const alphanum = s.replace(/[^a-zA-Z0-9]/g, '');
+  return `MMH/EHR/26/${alphanum.slice(-4).padStart(4, '0').toUpperCase()}`;
+}
+
+export function formatGhanaPhoneNumber(rawPhone?: string): string {
+  if (!rawPhone || rawPhone === 'N/A' || rawPhone === 'undefined' || rawPhone === 'null' || rawPhone.trim() === '') {
+    return 'N/A';
+  }
+  const s = rawPhone.trim();
+  const digits = s.replace(/\D/g, '');
+  
+  // Case 1: 233XXXXXXXXX (12 digits) e.g. 233244750903 or +233244750903
+  if (digits.startsWith('233') && digits.length === 12) {
+    const net = digits.slice(3, 5);
+    const mid = digits.slice(5, 8);
+    const end = digits.slice(8, 12);
+    return `+233 ${net} ${mid} ${end}`;
+  }
+  
+  // Case 2: 0XXXXXXXXX (10 digits) e.g. 0244750903 or 0542367470
+  if (digits.startsWith('0') && digits.length === 10) {
+    const net = digits.slice(0, 3);
+    const mid = digits.slice(3, 6);
+    const end = digits.slice(6, 10);
+    return `${net} ${mid} ${end}`;
+  }
+
+  // Case 3: 9 digits without leading 0 e.g. 244750903 or 542367470
+  if (digits.length === 9) {
+    const net = '0' + digits.slice(0, 2);
+    const mid = digits.slice(2, 5);
+    const end = digits.slice(5, 9);
+    return `${net} ${mid} ${end}`;
+  }
+
+  return s;
+}
+
 export default function PatientDirectoryPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
@@ -49,6 +105,7 @@ export default function PatientDirectoryPage() {
   // Check-In Routing Modal State
   const [routingPatient, setRoutingPatient] = useState<Patient | null>(null);
   const [selectedQueue, setSelectedQueue] = useState('GENERAL_OPD');
+  const [urgencyPriority, setUrgencyPriority] = useState<'ROUTINE' | 'URGENT' | 'STAT_EMERGENCY'>('ROUTINE');
   const [chiefComplaint, setChiefComplaint] = useState('');
   const [paymentMode, setPaymentMode] = useState('NHIS');
   const [isRoutingSubmitting, setIsRoutingSubmitting] = useState(false);
@@ -208,10 +265,12 @@ function calculatePatientAge(dob?: any, fallbackSeed: string = 'patient'): numbe
 }
 
   const masterPatientList = useMemo(() => {
-    if (!rawPatients || rawPatients.length === 0) return defaultFallbackPatients;
-    return rawPatients.map(p => {
+    const listToProcess = (!rawPatients || rawPatients.length === 0) ? defaultFallbackPatients : rawPatients;
+    return listToProcess.map((p, idx) => {
       const computedAge = (p as any).age || calculatePatientAge((p as any).dateOfBirth || (p as any).dob, p.id || p.ehrNumber || p.firstName);
       const computedGender = p.gender || (p as any).sex || 'MALE';
+      const cleanEhr = normalizeEhrNumber(p.ehrNumber, p.id || `000${idx + 1}`);
+      const cleanPhone = formatGhanaPhoneNumber(p.phoneNumber);
       
       let loc = 'Discharged Home';
       if (p.status === 'Awaiting Vitals' || p.status === 'TRIAGE') loc = 'OPD Triage Waiting';
@@ -221,6 +280,8 @@ function calculatePatientAge(dob?: any, fallbackSeed: string = 'patient'): numbe
 
       return {
         ...p,
+        ehrNumber: cleanEhr,
+        phoneNumber: cleanPhone,
         gender: computedGender,
         age: computedAge,
         currentLocation: p.currentLocation || loc,
@@ -335,22 +396,40 @@ function calculatePatientAge(dob?: any, fallbackSeed: string = 'patient'): numbe
     try {
       if (firestore && hospitalId) {
         const patientRef = doc(firestore, `hospitals/${hospitalId}/patients/${routingPatient.id}`);
+        const destinationLocation = selectedQueue === 'EMERGENCY_TRIAGE' 
+          ? 'Emergency Triage Waiting' 
+          : (selectedQueue === 'ANC_MATERNITY' ? 'ANC Triage Waiting' : 'OPD Triage Waiting');
+
         updateDocumentNonBlocking(patientRef, {
           status: 'Awaiting Vitals',
+          currentLocation: destinationLocation,
           currentQueue: selectedQueue,
+          urgencyPriority: urgencyPriority,
           chiefComplaint: chiefComplaint || 'Routine Medical Consultation',
+          paymentMode: paymentMode,
           checkedInAt: serverTimestamp(),
           checkedInBy: user?.uid || 'Reception',
         });
       }
 
+      const queueLabels: Record<string, string> = {
+        'GENERAL_OPD': 'General OPD Triage',
+        'EMERGENCY_TRIAGE': '🚨 Emergency Fast-Track Triage',
+        'ANC_MATERNITY': 'Antenatal & Maternity Clinic',
+        'SPECIALIST_CLINIC': 'Specialist Physician Clinic',
+        'CHILD_WELFARE': 'Child Welfare & Vaccination Clinic',
+        'CORPORATE_CARE': 'Corporate Executive Desk',
+        'LAB_DIRECT': 'Phlebotomy / Lab Intake',
+      };
+
       toast({
         title: "✅ Patient Checked In & Routed",
-        description: `${routingPatient.firstName} ${routingPatient.lastName} dispatched to ${selectedQueue.replace(/_/g, ' ')} with chief complaint recorded.`
+        description: `${routingPatient.firstName} ${routingPatient.lastName} (${routingPatient.ehrNumber}) dispatched to ${queueLabels[selectedQueue] || selectedQueue} [${urgencyPriority}].`
       });
 
       setRoutingPatient(null);
       setChiefComplaint('');
+      setUrgencyPriority('ROUTINE');
     } catch (e: any) {
       toast({
         variant: "destructive",
@@ -726,71 +805,119 @@ function calculatePatientAge(dob?: any, fallbackSeed: string = 'patient'): numbe
       {/* ========================================================================= */}
       {routingPatient && (
         <Dialog open={!!routingPatient} onOpenChange={() => setRoutingPatient(null)}>
-          <DialogContent className="bg-slate-950 border border-slate-800 text-white rounded-3xl p-6 md:p-8 max-w-lg">
+          <DialogContent className="bg-slate-950 border border-slate-800 text-white rounded-3xl p-6 md:p-8 max-w-lg shadow-2xl">
             <DialogHeader>
               <DialogTitle className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-emerald-400" />
-                <span>Patient Check-In & Queue Routing</span>
+                <span>Patient Check-In & Triage Dispatch</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-400">
-                Dispatch patient into active facility clinical queues and record arrival parameters.
+                Record clinical visit category, urgency priority, and dispatch to nursing triage.
               </DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleConfirmRouting} className="space-y-4 pt-3 text-xs">
               
+              {/* Patient Banner */}
               <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-2">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-400">Patient:</span>
-                  <span className="font-bold text-white uppercase">{routingPatient.firstName} {routingPatient.lastName}</span>
+                  <span className="font-bold text-white uppercase text-sm">{routingPatient.firstName} {routingPatient.lastName}</span>
                 </div>
                 <div className="flex justify-between font-mono text-[11px]">
                   <span className="text-slate-400 font-sans">EHR Number:</span>
                   <span className="text-indigo-400 font-bold">{routingPatient.ehrNumber}</span>
                 </div>
                 <div className="flex justify-between font-mono text-[11px]">
-                  <span className="text-slate-400 font-sans">Age & Gender:</span>
-                  <span className="text-white">{routingPatient.age || 35} YRS • {routingPatient.gender || 'MALE'}</span>
+                  <span className="text-slate-400 font-sans">Demographics:</span>
+                  <span className="text-slate-200">{routingPatient.age || 35} YRS • {routingPatient.gender || 'MALE'} • 📞 {routingPatient.phoneNumber || 'N/A'}</span>
+                </div>
+              </div>
+
+              {/* Triage Urgency Priority Selector */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                  Triage Priority Level *
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setUrgencyPriority('ROUTINE')}
+                    className={cn(
+                      "py-2 px-3 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer",
+                      urgencyPriority === 'ROUTINE'
+                        ? "bg-indigo-600 text-white border-indigo-500 shadow-md"
+                        : "bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700"
+                    )}
+                  >
+                    Routine Walk-In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUrgencyPriority('URGENT')}
+                    className={cn(
+                      "py-2 px-3 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer",
+                      urgencyPriority === 'URGENT'
+                        ? "bg-amber-600 text-white border-amber-500 shadow-md"
+                        : "bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700"
+                    )}
+                  >
+                    Urgent / Priority
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUrgencyPriority('STAT_EMERGENCY')}
+                    className={cn(
+                      "py-2 px-3 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer",
+                      urgencyPriority === 'STAT_EMERGENCY'
+                        ? "bg-rose-600 text-white border-rose-500 shadow-md animate-pulse"
+                        : "bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700"
+                    )}
+                  >
+                    🚨 STAT Emergency
+                  </button>
                 </div>
               </div>
 
               {/* Destination Queue Selector */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase text-slate-400">
-                  Target Destination Queue *
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                  Target Clinical Destination Queue *
                 </label>
                 <select
                   value={selectedQueue}
                   onChange={(e) => setSelectedQueue(e.target.value)}
                   className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-indigo-500 cursor-pointer"
                 >
-                  <option value="GENERAL_OPD">General OPD Triage & Vitals (Standard)</option>
-                  <option value="EMERGENCY_TRIAGE">🚨 Emergency / Red Code Triage (STAT)</option>
-                  <option value="SPECIALIST_CLINIC">Specialist Physician Consultation</option>
+                  <option value="GENERAL_OPD">General OPD Triage & Vitals (Standard Desk)</option>
+                  <option value="EMERGENCY_TRIAGE">🚨 Emergency & Red Code Trauma Triage (STAT)</option>
                   <option value="ANC_MATERNITY">Antenatal & Maternity Clinic (ANC)</option>
-                  <option value="LAB_DIRECT">Direct Laboratory / Phlebotomy Intake</option>
+                  <option value="SPECIALIST_CLINIC">Specialist Physician Consultation</option>
+                  <option value="CHILD_WELFARE">Child Welfare Clinic (CWI) / Immunization</option>
+                  <option value="CORPORATE_CARE">Corporate Private / Executive Health Desk</option>
+                  <option value="LAB_DIRECT">Direct Phlebotomy / Laboratory Intake</option>
                 </select>
               </div>
 
               {/* Chief Complaint / Reason for Visit */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase text-slate-400">
-                  Chief Complaint / Reason for Visit *
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                  Chief Complaint / Primary Reason for Visit *
                 </label>
                 <input
                   type="text"
                   required
                   value={chiefComplaint}
                   onChange={(e) => setChiefComplaint(e.target.value)}
-                  placeholder="e.g. Persistent fever, chills & severe headache for 3 days..."
+                  placeholder="e.g. High fever, headache, body pains for 2 days..."
                   className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs font-medium text-white outline-none focus:border-indigo-500"
                 />
               </div>
 
               {/* Payment Mode Verification */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase text-slate-400">
-                  Payment Mode Verification
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                  Payment Mode & Insurance Validation
                 </label>
                 <select
                   value={paymentMode}
@@ -798,12 +925,12 @@ function calculatePatientAge(dob?: any, fallbackSeed: string = 'patient'): numbe
                   className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:border-indigo-500 cursor-pointer"
                 >
                   <option value="NHIS">National Health Insurance Scheme (NHIS Verified)</option>
-                  <option value="CASH">Cash / Out-of-Pocket Payment</option>
-                  <option value="CORPORATE">Corporate Private Health Insurance (Acacia/Enterprise)</option>
+                  <option value="CASH">Cash / Direct Out-of-Pocket Payment</option>
+                  <option value="CORPORATE">Corporate Private Insurance (Acacia, Enterprise, Apex)</option>
                 </select>
               </div>
 
-              <DialogFooter className="pt-2">
+              <DialogFooter className="pt-2 gap-2">
                 <Button 
                   type="button" 
                   variant="ghost" 
@@ -815,7 +942,7 @@ function calculatePatientAge(dob?: any, fallbackSeed: string = 'patient'): numbe
                 <Button 
                   type="submit" 
                   disabled={isRoutingSubmitting}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl px-6 flex items-center gap-2"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl px-6 flex items-center gap-2 cursor-pointer shadow-lg"
                 >
                   {isRoutingSubmitting ? (
                     <>

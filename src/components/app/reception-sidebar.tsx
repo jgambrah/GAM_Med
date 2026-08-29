@@ -13,11 +13,13 @@ import { autoClockOutIfNeeded } from '@/lib/attendance';
 
 const menuGroups = [
   {
-    title: "FRONT DESK",
+    title: "FRONT DESK OPERATIONS",
     items: [
-      { name: "Patient Directory", href: "/reception", icon: Users },
+      { name: "Patient Directory", href: "/patients", icon: Users },
+      { name: "Register New Patient", href: "/patients/register", icon: UserCheck },
       { name: "Appointments Queue", href: "/reception/appointments", icon: Calendar },
-      { name: "Assign Doctor", href: "/reception/assign-doctor", icon: UserCheck },
+      { name: "Assign Doctor & Consult", href: "/reception/assign-doctor", icon: Clock },
+      { name: "Triage & Vitals Station", href: "/nurse", icon: Award },
     ]
   }
 ];
