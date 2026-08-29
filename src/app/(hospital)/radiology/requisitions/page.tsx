@@ -262,20 +262,25 @@ export default function RadiologyRequisitionsPage() {
   const [srvHaltsScans, setSrvHaltsScans] = useState(false);
   const [srvDescription, setSrvDescription] = useState('');
 
-  // Firestore Sync Queries
+  // Firestore Sync Queries - Standard Requisitions Ledger (Permitted across hospital)
   const hospitalId = claims?.hospitalId || 'GAM-GAR-7578';
   
   const reqQuery = useMemoFirebase(() => {
     if (!firestore || !hospitalId || !user) return null;
-    return query(collection(firestore, "hospitals", hospitalId, "radiology_requisitions"));
+    return query(collection(firestore, "hospitals", hospitalId, "requisitions"));
   }, [firestore, hospitalId, user]);
-  const { data: dbRequisitions } = useCollection<any>(reqQuery);
+  const { data: dbAllRequisitions } = useCollection<any>(reqQuery);
 
-  const srvQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId || !user) return null;
-    return query(collection(firestore, "hospitals", hospitalId, "radiology_service_tickets"));
-  }, [firestore, hospitalId, user]);
-  const { data: dbServiceTickets } = useCollection<any>(srvQuery);
+  // Split Requisitions vs Service Tickets
+  const dbRequisitions = useMemo(() => {
+    if (!dbAllRequisitions || dbAllRequisitions.length === 0) return [];
+    return dbAllRequisitions.filter(r => (r.department?.toLowerCase().includes('radiology') || r.module === 'RADIOLOGY' || r.type === 'STORE_REQUISITION') && r.type !== 'BIOMEDICAL_SERVICE');
+  }, [dbAllRequisitions]);
+
+  const dbServiceTickets = useMemo(() => {
+    if (!dbAllRequisitions || dbAllRequisitions.length === 0) return [];
+    return dbAllRequisitions.filter(r => (r.department?.toLowerCase().includes('radiology') || r.module === 'RADIOLOGY') && r.type === 'BIOMEDICAL_SERVICE');
+  }, [dbAllRequisitions]);
 
   // Merged Requisitions
   const requisitions: StoreRequisition[] = useMemo(() => {
@@ -285,15 +290,15 @@ export default function RadiologyRequisitionsPage() {
         reqNumber: r.reqNumber || `REQ-RAD-26-${r.id.substring(0, 4).toUpperCase()}`,
         targetStore: r.targetStore || 'MAIN_STORE',
         targetStoreLabel: r.targetStoreLabel || (r.targetStore === 'CENTRAL_PHARMACY' ? 'Central Pharmacy' : 'Main Medical Stores'),
-        requestDate: r.createdAt || new Date(),
+        requestDate: r.createdAt?.toDate ? r.createdAt.toDate() : (r.createdAt || new Date()),
         clinicianName: r.clinicianName || r.requestedByName || 'Dr. Marcus Amosah Henaku',
         department: r.department || 'Radiology & Sonography',
         priority: r.priority || 'ROUTINE',
         items: r.items || [],
         justification: r.justification || '',
         status: r.status || 'PENDING_APPROVAL',
-        dispatchedAt: r.dispatchedAt,
-        fulfilledAt: r.fulfilledAt
+        dispatchedAt: r.dispatchedAt?.toDate ? r.dispatchedAt.toDate() : r.dispatchedAt,
+        fulfilledAt: r.fulfilledAt?.toDate ? r.fulfilledAt.toDate() : r.fulfilledAt
       }));
     }
     return initialRequisitions;
@@ -313,11 +318,11 @@ export default function RadiologyRequisitionsPage() {
         severity: s.severity || 'MEDIUM',
         problemDescription: s.problemDescription || '',
         haltsScans: s.haltsScans || false,
-        loggedDate: s.createdAt || new Date(),
+        loggedDate: s.createdAt?.toDate ? s.createdAt.toDate() : (s.createdAt || new Date()),
         reportingOfficer: s.reportingOfficer || 'Dr. Marcus Amosah Henaku',
         assignedEngineer: s.assignedEngineer,
         status: s.status || 'LOGGED',
-        resolvedAt: s.resolvedAt,
+        resolvedAt: s.resolvedAt?.toDate ? s.resolvedAt.toDate() : s.resolvedAt,
         resolutionNotes: s.resolutionNotes
       }));
     }
@@ -382,12 +387,15 @@ export default function RadiologyRequisitionsPage() {
 
     try {
       if (firestore && hospitalId) {
-        await addDocumentNonBlocking(collection(firestore, 'hospitals', hospitalId, 'radiology_requisitions'), {
+        await addDocumentNonBlocking(collection(firestore, 'hospitals', hospitalId, 'requisitions'), {
           reqNumber: newReqNumber,
           targetStore: reqTargetStore,
           targetStoreLabel: storeLabels[reqTargetStore],
           clinicianName: user?.displayName || 'Dr. Marcus Amosah Henaku',
           department: 'Radiology & Sonography',
+          module: 'RADIOLOGY',
+          type: 'STORE_REQUISITION',
+          requisitionType: 'INTERNAL_STORE',
           priority: reqPriority,
           items: draftedItems,
           justification: reqJustification,
@@ -430,7 +438,7 @@ export default function RadiologyRequisitionsPage() {
 
     try {
       if (firestore && hospitalId) {
-        await addDocumentNonBlocking(collection(firestore, 'hospitals', hospitalId, 'radiology_service_tickets'), {
+        await addDocumentNonBlocking(collection(firestore, 'hospitals', hospitalId, 'requisitions'), {
           ticketNumber: newTicketNumber,
           assetName: targetAsset.name,
           assetSerial: targetAsset.serial,
@@ -441,6 +449,10 @@ export default function RadiologyRequisitionsPage() {
           haltsScans: srvHaltsScans,
           problemDescription: srvDescription,
           reportingOfficer: user?.displayName || 'Dr. Marcus Amosah Henaku',
+          department: 'Radiology & Sonography',
+          module: 'RADIOLOGY',
+          type: 'BIOMEDICAL_SERVICE',
+          requisitionType: 'SERVICE_TICKET',
           status: 'LOGGED',
           createdAt: serverTimestamp()
         });
@@ -459,9 +471,21 @@ export default function RadiologyRequisitionsPage() {
   };
 
   // Acknowledge Receipt of Consumables
-  const handleAcknowledgeReceipt = (req: StoreRequisition) => {
+  const handleAcknowledgeReceipt = async (req: StoreRequisition) => {
     req.status = 'RECEIVED_FULFILLED';
     req.fulfilledAt = new Date();
+    if (firestore && hospitalId && req.id) {
+      try {
+        const reqRef = doc(firestore, 'hospitals', hospitalId, 'requisitions', req.id);
+        await updateDoc(reqRef, {
+          status: 'RECEIVED_FULFILLED',
+          fulfilledAt: serverTimestamp(),
+          acknowledgedBy: user?.displayName || 'Dr. Marcus Amosah Henaku'
+        });
+      } catch (e) {
+        console.warn('Local update applied for requisition receipt', e);
+      }
+    }
     toast({
       title: '✅ Consumables Received & Stocked',
       description: `Requisition ${req.reqNumber} marked fulfilled. Department stock levels updated.`,
