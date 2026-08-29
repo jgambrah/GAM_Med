@@ -210,12 +210,27 @@ const initialServiceTickets: ServiceTicket[] = [
 // MAIN REQUISITIONS & MAINTENANCE COMPONENT
 // ============================================================================
 export default function RadiologyRequisitionsPage() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
 
+  const [claims, setClaims] = useState<any>(null);
+  const [isClaimsLoading, setIsClaimsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'CONSUMABLES' | 'SERVICE'>('CONSUMABLES');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      user.getIdTokenResult(true).then((idTokenResult) => {
+        setClaims(idTokenResult.claims);
+        setIsClaimsLoading(false);
+      }).catch(() => {
+        setIsClaimsLoading(false);
+      });
+    } else if (!isUserLoading) {
+      setIsClaimsLoading(false);
+    }
+  }, [user, isUserLoading]);
 
   // Search & Filter States
   const [consumableSearch, setConsumableSearch] = useState('');
@@ -248,18 +263,18 @@ export default function RadiologyRequisitionsPage() {
   const [srvDescription, setSrvDescription] = useState('');
 
   // Firestore Sync Queries
-  const hospitalId = 'GAM-GAR-7578';
+  const hospitalId = claims?.hospitalId || 'GAM-GAR-7578';
   
   const reqQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return query(collection(firestore, 'hospitals', hospitalId, 'radiology_requisitions'));
-  }, [firestore, hospitalId]);
+    if (!firestore || !hospitalId || !user) return null;
+    return query(collection(firestore, "hospitals", hospitalId, "radiology_requisitions"));
+  }, [firestore, hospitalId, user]);
   const { data: dbRequisitions } = useCollection<any>(reqQuery);
 
   const srvQuery = useMemoFirebase(() => {
-    if (!firestore || !hospitalId) return null;
-    return query(collection(firestore, 'hospitals', hospitalId, 'radiology_service_tickets'));
-  }, [firestore, hospitalId]);
+    if (!firestore || !hospitalId || !user) return null;
+    return query(collection(firestore, "hospitals", hospitalId, "radiology_service_tickets"));
+  }, [firestore, hospitalId, user]);
   const { data: dbServiceTickets } = useCollection<any>(srvQuery);
 
   // Merged Requisitions

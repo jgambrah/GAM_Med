@@ -271,6 +271,18 @@ service cloud.firestore {
       allow read, write, list, get, create, update: if isSignedIn();
     }
 
+    match /{path=**}/radiology_requisitions/{reqId} {
+      allow read, write, list, get, create, update, delete: if isSignedIn();
+    }
+
+    match /{path=**}/radiology_service_tickets/{ticketId} {
+      allow read, write, list, get, create, update, delete: if isSignedIn();
+    }
+
+    match /{path=**}/radiology_menu/{menuId} {
+      allow read, write, list, get, create, update, delete: if isSignedIn();
+    }
+
 
 
 
