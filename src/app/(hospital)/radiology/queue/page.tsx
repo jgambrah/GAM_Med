@@ -904,12 +904,14 @@ export default function RadiologyQueuePage() {
       {/* ========================================== */}
       {/* 4. HIGH-DENSITY WORKLIST GRID / CARDS      */}
       {/* ========================================== */}
-      {areOrdersLoading ? (
+      {areOrdersLoading && (
         <div className="text-center p-16 text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl font-bold">
           <Loader2 className="h-9 w-9 animate-spin mx-auto mb-3 text-indigo-400" />
           Synchronizing DICOM imaging worklist & clinical telemetry...
         </div>
-      ) : activeTab === 'ACTIVE' ? (
+      )}
+
+      {!areOrdersLoading && activeTab === 'ACTIVE' && (
         filteredActiveOrders.length === 0 ? (
           <div className="text-center p-20 bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl text-slate-400 space-y-3">
             <Camera className="h-12 w-12 mx-auto text-slate-500" />
@@ -1190,8 +1192,12 @@ export default function RadiologyQueuePage() {
             })}
           </div>
         )
-      ) : (
-        /* ARCHIVE TAB VIEW */
+      )}
+
+      {/* ========================================== */}
+      {/* 4.1 TRANSMITTED ARCHIVE TAB VIEW           */}
+      {/* ========================================== */}
+      {!areOrdersLoading && activeTab === 'ARCHIVE' && (
         archiveOrders.length === 0 ? (
           <div className="text-center p-20 bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl text-slate-400">
             <CheckCircle2 className="h-12 w-12 mx-auto mb-2 text-slate-500" />
@@ -1331,7 +1337,7 @@ export default function RadiologyQueuePage() {
       {/* ========================================================= */}
       {/* 5. DEPARTMENTAL KPI & TURNAROUND TIME (TAT) ANALYTICS     */}
       {/* ========================================================= */}
-      {activeTab === 'ANALYTICS' && (
+      {!areOrdersLoading && activeTab === 'ANALYTICS' && (
         <div className="space-y-6 animate-in fade-in duration-300">
           
           {/* Top Level Diagnostic TAT Metrics */}
