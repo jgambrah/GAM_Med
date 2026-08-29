@@ -9,7 +9,8 @@ import {
   Clock, Stethoscope, User, Zap, Sparkles, Layers, Shield,
   Search, Filter, ArrowUpDown, Bed, MapPin, Building2,
   Calendar, ChevronRight, AlertCircle, FileUp, FolderOpen,
-  SlidersHorizontal, Check, HeartPulse, Copy
+  SlidersHorizontal, Check, HeartPulse, Copy, BarChart3,
+  TrendingUp, ArrowUpRight, Award, PieChart
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -269,8 +270,10 @@ export default function RadiologyQueuePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const initialTab = searchParams?.get('tab') === 'archive' ? 'ARCHIVE' : 'ACTIVE';
-  const [activeTab, setActiveTab] = useState<'ACTIVE' | 'ARCHIVE'>(initialTab);
+  const initialTab = searchParams?.get('tab') === 'archive' 
+    ? 'ARCHIVE' 
+    : (searchParams?.get('tab') === 'analytics' ? 'ANALYTICS' : 'ACTIVE');
+  const [activeTab, setActiveTab] = useState<'ACTIVE' | 'ARCHIVE' | 'ANALYTICS'>(initialTab);
   const [selectedReportOrder, setSelectedReportOrder] = useState<any | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [claims, setClaims] = useState<any>(null);
@@ -288,6 +291,8 @@ export default function RadiologyQueuePage() {
     const tabParam = searchParams?.get('tab');
     if (tabParam === 'archive') {
       setActiveTab('ARCHIVE');
+    } else if (tabParam === 'analytics') {
+      setActiveTab('ANALYTICS');
     } else if (tabParam === 'queue') {
       setActiveTab('ACTIVE');
     }
@@ -716,13 +721,13 @@ export default function RadiologyQueuePage() {
       </div>
 
       {/* ========================================== */}
-      {/* 2. TAB TOGGLES (ACTIVE WORKLIST / ARCHIVE) */}
+      {/* 2. TAB TOGGLES (ACTIVE / ARCHIVE / ANALYTICS) */}
       {/* ========================================== */}
-      <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-1">
-        <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-1">
+        <div className="flex gap-2 overflow-x-auto w-full sm:w-auto">
           <button 
             onClick={() => setActiveTab('ACTIVE')}
-            className={`pb-3 px-6 text-xs font-black uppercase tracking-widest transition-all cursor-pointer ${
+            className={`pb-3 px-5 text-xs font-black uppercase tracking-widest transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'ACTIVE' 
                 ? 'text-indigo-400 border-b-4 border-indigo-500 font-black' 
                 : 'text-slate-400 hover:text-slate-200 border-b-4 border-transparent'
@@ -733,13 +738,25 @@ export default function RadiologyQueuePage() {
 
           <button 
             onClick={() => setActiveTab('ARCHIVE')}
-            className={`pb-3 px-6 text-xs font-black uppercase tracking-widest transition-all cursor-pointer ${
+            className={`pb-3 px-5 text-xs font-black uppercase tracking-widest transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'ARCHIVE' 
                 ? 'text-indigo-400 border-b-4 border-indigo-500 font-black' 
                 : 'text-slate-400 hover:text-slate-200 border-b-4 border-transparent'
             }`}
           >
             TRANSMITTED ARCHIVE ({telemetryMetrics.transmitted})
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('ANALYTICS')}
+            className={`pb-3 px-5 text-xs font-black uppercase tracking-widest transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === 'ANALYTICS' 
+                ? 'text-indigo-400 border-b-4 border-indigo-500 font-black' 
+                : 'text-slate-400 hover:text-slate-200 border-b-4 border-transparent'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>ANALYTICS & TAT</span>
           </button>
         </div>
 
@@ -1309,6 +1326,324 @@ export default function RadiologyQueuePage() {
             </table>
           </div>
         )
+      )}
+
+      {/* ========================================================= */}
+      {/* 5. DEPARTMENTAL KPI & TURNAROUND TIME (TAT) ANALYTICS     */}
+      {/* ========================================================= */}
+      {activeTab === 'ANALYTICS' && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          
+          {/* Top Level Diagnostic TAT Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            {/* Median Overall TAT */}
+            <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Order-To-Report Median TAT</p>
+                <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
+                  <Clock className="w-4 h-4" />
+                </div>
+              </div>
+              <h3 className="text-3xl font-black text-slate-900 dark:text-white mt-2 font-mono">22.4 <span className="text-xs font-sans text-slate-400 font-bold">mins</span></h3>
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 mt-2">
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>Target: &lt; 30m • Faster by 25.3%</span>
+              </div>
+            </div>
+
+            {/* STAT Emergency TAT */}
+            <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Emergency STAT TAT</p>
+                <div className="p-2 bg-rose-500/10 text-rose-400 rounded-xl">
+                  <Zap className="w-4 h-4" />
+                </div>
+              </div>
+              <h3 className="text-3xl font-black text-rose-500 mt-2 font-mono">9.8 <span className="text-xs font-sans text-slate-400 font-bold">mins</span></h3>
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 mt-2">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Target: &lt; 15m • 100% SLA compliance</span>
+              </div>
+            </div>
+
+            {/* Macro Engine Utilization */}
+            <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reporting Macro Adoption</p>
+                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+              </div>
+              <h3 className="text-3xl font-black text-indigo-500 mt-2 font-mono">74.2%</h3>
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-2">
+                Avg. ~4.8 mins saved per normal diagnostic study
+              </p>
+            </div>
+
+            {/* Critical Red Flag Escalations */}
+            <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Red Flag Physician Response</p>
+                <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
+                  <ShieldAlert className="w-4 h-4" />
+                </div>
+              </div>
+              <h3 className="text-3xl font-black text-amber-500 mt-2 font-mono">3.2 <span className="text-xs font-sans text-slate-400 font-bold">mins</span></h3>
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-2">
+                Average clinician acknowledgement time
+              </p>
+            </div>
+
+          </div>
+
+          {/* Turnaround Time Stage Progression Funnel */}
+          <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-indigo-500" />
+                  <span>Clinical Turnaround Time (TAT) Stage Breakdown</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  End-to-end telemetry from clinical order creation to radiologist electronic sign-off.
+                </p>
+              </div>
+              <span className="text-[10px] font-mono font-bold px-3 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full">
+                Benchmark: MMH 30m Standard
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2">
+              
+              {/* Stage 1 */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
+                  <span>STAGE 1</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-200 font-mono">4.2 mins</span>
+                </div>
+                <p className="text-xs font-black text-slate-900 dark:text-white uppercase">Order ➔ Check-in</p>
+                <p className="text-[10px] text-slate-500 leading-relaxed">
+                  Doctor places electronic order, patient arrives at reception for biometric check-in.
+                </p>
+                <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-indigo-500 h-full w-[18%]" />
+                </div>
+              </div>
+
+              {/* Stage 2 */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
+                  <span>STAGE 2</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-200 font-mono">7.9 mins</span>
+                </div>
+                <p className="text-xs font-black text-slate-900 dark:text-white uppercase">Patient Prep & Scan</p>
+                <p className="text-[10px] text-slate-500 leading-relaxed">
+                  Radiographer positions patient and executes modality imaging protocol.
+                </p>
+                <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-sky-500 h-full w-[35%]" />
+                </div>
+              </div>
+
+              {/* Stage 3 */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
+                  <span>STAGE 3</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-200 font-mono">1.8 mins</span>
+                </div>
+                <p className="text-xs font-black text-slate-900 dark:text-white uppercase">DICOM PACS Gateway</p>
+                <p className="text-[10px] text-slate-500 leading-relaxed">
+                  Automated high-speed DICOM transfer from imaging hardware to local server.
+                </p>
+                <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-emerald-500 h-full w-[8%]" />
+                </div>
+              </div>
+
+              {/* Stage 4 */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
+                  <span>STAGE 4</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-200 font-mono">8.5 mins</span>
+                </div>
+                <p className="text-xs font-black text-slate-900 dark:text-white uppercase">Reading & Sign-Off</p>
+                <p className="text-[10px] text-slate-500 leading-relaxed">
+                  Consultant radiologist reviews images, applies structured macros, and signs report.
+                </p>
+                <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-purple-500 h-full w-[39%]" />
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Dual Split: Modality Volume Breakdown & Top Referring Units */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Modality Split Matrix */}
+            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                <PieChart className="w-4 h-4 text-indigo-500" />
+                <span>Modality Volume & Throughput (Weekly)</span>
+              </h3>
+              
+              <div className="space-y-3 pt-2">
+                {/* Ultrasound */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-emerald-600 dark:text-emerald-400 uppercase">Ultrasound (USS)</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300">142 Scans (48%)</span>
+                  </div>
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                    <div className="bg-emerald-500 h-full w-[48%]" />
+                  </div>
+                </div>
+
+                {/* Digital X-Ray */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-sky-600 dark:text-sky-400 uppercase">Digital X-Ray (DR/CR)</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300">95 Scans (32%)</span>
+                  </div>
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                    <div className="bg-sky-500 h-full w-[32%]" />
+                  </div>
+                </div>
+
+                {/* CT Scan */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-indigo-600 dark:text-indigo-400 uppercase">Computed Tomography (CT)</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300">41 Scans (14%)</span>
+                  </div>
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                    <div className="bg-indigo-500 h-full w-[14%]" />
+                  </div>
+                </div>
+
+                {/* MRI */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-purple-600 dark:text-purple-400 uppercase">Magnetic Resonance (MRI)</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300">18 Scans (6%)</span>
+                  </div>
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                    <div className="bg-purple-500 h-full w-[6%]" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Top Referring Clinicians & Wards */}
+            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-indigo-500" />
+                <span>Referring Departments & Inpatient Desks</span>
+              </h3>
+
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-rose-500/10 text-rose-500 rounded-xl font-black text-xs font-mono">01</div>
+                    <div>
+                      <p className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase">Emergency Triage & Trauma</p>
+                      <p className="text-[10px] text-slate-400">Lead: Dr. Marcus Amosah Henaku</p>
+                    </div>
+                  </div>
+                  <span className="font-mono text-xs font-black text-indigo-400">124 Requests (42%)</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-xl font-black text-xs font-mono">02</div>
+                    <div>
+                      <p className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase">OPD General Consulting</p>
+                      <p className="text-[10px] text-slate-400">Lead: Dr. James Gambrah</p>
+                    </div>
+                  </div>
+                  <span className="font-mono text-xs font-black text-indigo-400">88 Requests (28%)</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl font-black text-xs font-mono">03</div>
+                    <div>
+                      <p className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase">Antenatal & Gynaecology Clinic</p>
+                      <p className="text-[10px] text-slate-400">Lead: Dr. Esi Mensah</p>
+                    </div>
+                  </div>
+                  <span className="font-mono text-xs font-black text-indigo-400">52 Requests (18%)</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Critical Red Flag Audit Trail Table */}
+          <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wider text-rose-500 flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4" />
+                  <span>Recent Critical Red Flag Escalation Log</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  High-priority statutory escalations dispatched directly to attending physician desks.
+                </p>
+              </div>
+              <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                100% Clinical Response SLA
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <th className="pb-3">Patient / Accession</th>
+                    <th className="pb-3">Identified Critical Pathology</th>
+                    <th className="pb-3">Ordering Clinician</th>
+                    <th className="pb-3">Escalation Dispatch</th>
+                    <th className="pb-3 text-right">Acknowledgement Time</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                  <tr>
+                    <td className="py-3">
+                      <p className="font-black text-slate-900 dark:text-white uppercase">Janet Bonah</p>
+                      <p className="text-[10px] font-mono text-slate-400">MMH/EHR/26/EDG6</p>
+                    </td>
+                    <td className="py-3">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[9.5px] font-black">
+                        🚨 Ruptured Ectopic Pregnancy w/ Free Fluid
+                      </span>
+                    </td>
+                    <td className="py-3 text-slate-700 dark:text-slate-300">Dr. Marcus Amosah Henaku</td>
+                    <td className="py-3 text-slate-500 text-[10px]">SMS + EMR Flash Broadcast</td>
+                    <td className="py-3 text-right font-mono font-bold text-emerald-400">1.8 mins</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3">
+                      <p className="font-black text-slate-900 dark:text-white uppercase">Kofi Mensah Boateng</p>
+                      <p className="text-[10px] font-mono text-slate-400">MMH/EHR/26/0142</p>
+                    </td>
+                    <td className="py-3">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[9.5px] font-black">
+                        🚨 Tension Pneumothorax (Right)
+                      </span>
+                    </td>
+                    <td className="py-3 text-slate-700 dark:text-slate-300">Dr. James Gambrah</td>
+                    <td className="py-3 text-slate-500 text-[10px]">Direct Intercom + Push</td>
+                    <td className="py-3 text-right font-mono font-bold text-emerald-400">2.4 mins</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
       )}
 
       <RadiologyReportModal

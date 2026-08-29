@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
-  LayoutDashboard, Camera, Settings, PackageCheck,
+  LayoutDashboard, Camera, Settings, PackageCheck, BarChart3,
   LogOut, ChevronRight,
   Calendar, Clock, Wallet, GraduationCap, Award,
   Users
@@ -37,6 +37,7 @@ export function RadiologySidebar() {
         { name: "Imaging Queue", href: "/radiology/queue", icon: LayoutDashboard },
         { name: "Patient Directory", href: "/patients", icon: Users },
         { name: "Scan Archive & Releases", href: "/radiology/queue?tab=archive", icon: Camera },
+        { name: "Analytics & TAT", href: "/radiology/queue?tab=analytics", icon: BarChart3 },
         { name: "Modality / Imaging Menu", href: "/radiology/setup", icon: Settings },
         { name: "Store & Service Requests", href: "/radiology/requisitions", icon: PackageCheck },
       ]
@@ -58,13 +59,11 @@ export function RadiologySidebar() {
       try {
         await autoClockOutIfNeeded(user.uid, firestore, userProfile);
       } catch (err) {
-        console.error("Error during auto clock-out on logout:", err);
+        console.error("Auto clock-out failed:", err);
       }
     }
-    if (auth) {
-      await signOut(auth);
-    }
-    router.push('/');
+    await signOut(auth);
+    router.push('/login');
   };
 
   const displayName = userProfile?.name || user?.displayName || 'Marcus Amosah Henaku';
@@ -72,30 +71,37 @@ export function RadiologySidebar() {
   const initials = displayName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || 'MA';
 
   return (
-    <aside className="w-64 h-screen bg-slate-900 text-slate-300 flex flex-col shadow-2xl border-r border-slate-800 hidden md:flex shrink-0">
+    <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 h-screen sticky top-0">
       
-      {/* 1. GAM Med Header */}
-      <div className="p-6 bg-slate-950 border-b border-slate-800 shrink-0">
-        <h1 className="text-2xl font-black text-white tracking-tight italic">GAM MED</h1>
-        <h2 className="text-[10px] font-black text-indigo-400 mt-1 uppercase tracking-widest">
-          Imaging & Diagnostics
-        </h2>
+      {/* Brand Header */}
+      <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black shadow-lg shadow-indigo-600/30">
+            <Camera className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="font-black text-sm tracking-wider text-white block">GAM MED</span>
+            <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block">Radiology Suite</span>
+          </div>
+        </div>
       </div>
 
-      {/* 2. Navigation Sections */}
-      <nav className="flex-1 overflow-y-auto py-6 space-y-6">
-        {navSections.map((section, idx) => (
-          <div key={idx} className="mb-6">
-            <h3 className="px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">
+      {/* Navigation Links */}
+      <nav className="flex-1 py-4 overflow-y-auto space-y-6">
+        {navSections.map(section => (
+          <div key={section.title}>
+            <h3 className="px-6 text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2">
               {section.title}
             </h3>
             <ul className="space-y-1">
               {section.links.map(link => {
+                const isAnalyticsLink = link.name === "Analytics & TAT";
                 const isArchiveLink = link.name === "Scan Archive & Releases";
                 const isQueueLink = link.name === "Imaging Queue";
-                const isActive = (isQueueLink && pathname === "/radiology/queue" && currentTab !== 'archive') ||
+                const isActive = (isQueueLink && pathname === "/radiology/queue" && currentTab !== 'archive' && currentTab !== 'analytics') ||
                   (isArchiveLink && pathname === "/radiology/queue" && currentTab === 'archive') ||
-                  (!isQueueLink && !isArchiveLink && pathname === link.href);
+                  (isAnalyticsLink && pathname === "/radiology/queue" && currentTab === 'analytics') ||
+                  (!isQueueLink && !isArchiveLink && !isAnalyticsLink && pathname === link.href);
                 const IconComponent = link.icon;
 
                 return (

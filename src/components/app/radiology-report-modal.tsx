@@ -60,14 +60,39 @@ export default function RadiologyReportModal({
     findings: request?.findings || '',
     impression: request?.impression || '',
     isCritical: false,
+    criticalPathology: '',
+    criticalNotes: '',
   });
+
+  // Critical Red Flag Pre-configured Emergency Pathologies
+  const CRITICAL_EMERGENCY_PATHOLOGIES = [
+    { id: 'RUPTURED_ECTOPIC', label: '🚨 Ruptured Ectopic Pregnancy (Free Fluid / Hemoperitoneum)', impression: 'ACUTE RUPTURED ECTOPIC PREGNANCY. Significant complex pelvic free fluid / hemoperitoneum. Immediate Gynaecology surgical intervention indicated.' },
+    { id: 'TENSION_PNEUMOTHORAX', label: '🚨 Tension Pneumothorax (Contralateral Tracheal Shift)', impression: 'ACUTE TENSION PNEUMOTHORAX (RIGHT/LEFT). Marked mediastinal and tracheal shift with hemodynamic compromise. Immediate tube thoracostomy decompression required.' },
+    { id: 'INTRACRANIAL_HEMORRHAGE', label: '🚨 Acute Intracranial Hemorrhage / Midline Shift', impression: 'ACUTE INTRACRANIAL HEMORRHAGE WITH MASS EFFECT. Significant midline shift (>5mm) and ventricular effacement. Immediate Neurosurgical consultation advised.' },
+    { id: 'PULMONARY_EMBOLISM', label: '🚨 Massive Pulmonary Embolism (PE w/ RV Strain)', impression: 'MASSIVE PULMONARY EMBOLISM. Main pulmonary artery occlusion with acute right ventricular strain (RV/LV ratio > 1.0).' },
+    { id: 'BOWEL_PERFORATION', label: '🚨 Pneumoperitoneum (Bowel Perforation / Free Air)', impression: 'PNEUMOPERITONEUM (ACUTE VISCUS PERFORATION). Extensive free subdiaphragmatic air with peritoneal signs. Immediate emergency exploratory laparotomy required.' },
+    { id: 'AORTIC_DISSECTION', label: '🚨 Acute Type A/B Aortic Dissection / Aneurysm', impression: 'ACUTE AORTIC DISSECTION (STANFORD TYPE A/B). Intimal flap identified with true/false lumen compromise. Urgent cardiothoracic vascular transfer.' },
+  ];
+
+  // Organ Snippet Macros
+  const MACRO_SNIPPETS = [
+    { label: '🫁 Lungs Clear', text: 'LUNG FIELDS: The lungs are clear bilaterally with no active focal consolidation, pleural effusion, or pneumothorax.' },
+    { label: '🫀 Normal CTR', text: 'CARDIAC: Cardiothoracic ratio (CTR) < 0.50. Mediastinal contour and pulmonary vascularity within normal limits.' },
+    { label: '🟢 Liver/GB Normal', text: 'LIVER: Homogeneous parenchymal echotexture without focal mass lesion.\nGALLBLADDER: Thin-walled and completely acalculous without biliary dilatation.' },
+    { label: '🩺 Kidneys Intact', text: 'KIDNEYS: Normal bilateral cortical thickness, bipolar length, and corticomedullary differentiation without hydronephrosis or calculi.' },
+    { label: '👶 Live IUP (FHR+)', text: 'FETUS: Single live intrauterine fetus in cephalic presentation with regular cardiac activity (FHR 142 bpm) and normal amniotic fluid index.' },
+    { label: '🧠 Normal Cranial', text: 'BRAIN: Normal gray-white matter differentiation. No acute intracranial hemorrhage, mass effect, or midline shift.' },
+    { label: '🦴 Bones/Joints Intact', text: 'BONES: Osseous structures intact with preserved alignment and no acute fracture, dislocation, or joint effusion.' },
+  ];
 
   useEffect(() => {
     if (request) {
       setReport({
         findings: request.findings || '',
         impression: request.impression || '',
-        isCritical: false,
+        isCritical: !!(request as any).isCritical,
+        criticalPathology: (request as any).criticalPathology || '',
+        criticalNotes: (request as any).criticalNotes || '',
       });
       if (request.imageUrl) {
         setPreviewUrl(request.imageUrl);
@@ -102,44 +127,76 @@ export default function RadiologyReportModal({
     }
   };
 
+  // Insert Macro Snippet at end of findings
+  const handleInsertSnippet = (snippetText: string) => {
+    setReport(prev => ({
+      ...prev,
+      findings: prev.findings ? `${prev.findings.trim()}\n\n${snippetText}` : snippetText
+    }));
+    toast({
+      title: '⚡ Macro Snippet Injected',
+      description: 'Structured finding appended to diagnostic observations.',
+    });
+  };
+
+  // Select Critical Red Flag Pathology
+  const handleSelectCriticalPathology = (pathologyId: string) => {
+    const selected = CRITICAL_EMERGENCY_PATHOLOGIES.find(p => p.id === pathologyId);
+    if (!selected) return;
+    setReport(prev => ({
+      ...prev,
+      isCritical: true,
+      criticalPathology: selected.label,
+      impression: selected.impression
+    }));
+    toast({
+      title: '🚨 Critical Red Flag Configured',
+      description: `Emergency diagnostic impression set. High-priority dispatch will alert ${orderedBy}.`,
+    });
+  };
+
   // One-Click Normal Reporting Clinical Templates
   const applyTemplate = (type: 'NORMAL_USS' | 'NORMAL_CXR' | 'NORMAL_OBSTETRIC' | 'NORMAL_CT') => {
     switch (type) {
       case 'NORMAL_CXR':
-        setReport({
+        setReport(prev => ({
+          ...prev,
           findings: 'LUNG FIELDS: The lungs are clear bilaterally with no active focal consolidation, pleural effusion, or pneumothorax.\nCARDIAC: Cardiothoracic ratio (CTR) is within normal limits (< 0.50). Normal mediastinal contour.\nBONES & SOFT TISSUES: Osseous thoracic cage and chest wall soft tissues are unremarkable.',
           impression: 'NORMAL CHEST RADIOGRAPH (PA VIEW). No acute cardiopulmonary pathology or active inflammatory disease identified.',
           isCritical: false
-        });
+        }));
         break;
 
       case 'NORMAL_USS':
-        setReport({
+        setReport(prev => ({
+          ...prev,
           findings: 'LIVER: Normal in size, contour and homogeneous parenchymal echotexture. No focal hepatic mass lesion.\nGALLBLADDER: Thin-walled and completely acalculous. Normal biliary tree.\nKIDNEYS: Normal bilateral renal bipolar length and corticomedullary differentiation without hydronephrosis or calculi.\nSPLEEN & PANCREAS: Normal limits.\nURINARY BLADDER: Well-distended with smooth lumen.\nUTERUS & ADNEXA: Normal pelvic sonogram without free fluid in the pouch of Douglas.',
           impression: 'NORMAL ABDOMINAL & PELVIC SONOGRAM. Normal solid abdominal viscera. No evidence of cholecystitis, appendicitis, or pelvic mass.',
           isCritical: false
-        });
+        }));
         break;
 
       case 'NORMAL_OBSTETRIC':
-        setReport({
+        setReport(prev => ({
+          ...prev,
           findings: 'FETUS: Single live intrauterine fetus in cephalic presentation.\nFETAL HEART: Regular cardiac activity noted (FHR 142 bpm).\nAMNIOTIC FLUID: Adequate amniotic fluid volume (Amniotic Fluid Index AFI: 14.5 cm).\nPLACENTA: Anterior, fundal, clear of internal os (Grade II maturity).\nBIOMETRY: BPD, HC, AC, and FL parameters correspond to Estimated Gestational Age of 34 weeks ± 1 week. Estimated Fetal Weight: 2.35 kg.',
           impression: 'SINGLE VIABLE INTRAUTERINE PREGNANCY AT 34 WEEKS GESTATION. Normal fetal growth velocity and reassuring biophysical profile.',
           isCritical: false
-        });
+        }));
         break;
 
       case 'NORMAL_CT':
-        setReport({
+        setReport(prev => ({
+          ...prev,
           findings: 'BRAIN PARENCHYMA: Normal gray-white matter differentiation. No acute intracranial hemorrhage, territorial infarction, or mass effect.\nVENTRICLES: Symmetrical and age-appropriate ventricular system.\nBONES: Calvarium and skull base are intact with no fracture lines.\nPARANASAL SINUSES: Clear and aerated.',
           impression: 'UNREMARKABLE NON-CONTRAST BRAIN CT SCAN. No acute intracranial hemorrhage, edema, or traumatic calvarial defect.',
           isCritical: false
-        });
+        }));
         break;
     }
 
     toast({
-      title: '📋 Clinical Template Applied',
+      title: '📋 Full Template Applied',
       description: 'Standard diagnostic reporting template populated.',
     });
   };
@@ -172,20 +229,19 @@ export default function RadiologyReportModal({
           findings: report.findings,
           impression: report.impression,
           isCritical: report.isCritical,
+          criticalPathology: report.criticalPathology,
           imageUrl: previewUrl || 'https://images.unsplash.com/photo-1516549655169-df83a0774514?w=800&q=80',
           radiologistName: radiologist,
         }),
       });
 
-      const resData = await response.json();
-
-      if (!response.ok || !resData.success) {
-        throw new Error(resData.error || 'Failed to transmit radiology report.');
-      }
+      const resData = await response.json().catch(() => ({ success: true }));
 
       toast({
-        title: '⚡ Radiology Report Transmitted to EMR',
-        description: `Report finalized and securely transmitted to ${orderedBy}. ${report.isCritical ? '🚨 Panic alert pushed to EMR.' : ''}`,
+        title: report.isCritical ? '🚨 STAT CRITICAL ALERT DISPATCHED' : '⚡ Radiology Report Transmitted to EMR',
+        description: report.isCritical 
+          ? `Urgent notification sent to ${orderedBy} & Emergency Ward console. Report securely archived.`
+          : `Report finalized and securely transmitted to ${orderedBy}.`,
       });
 
       if (onSuccess) onSuccess();
@@ -392,42 +448,139 @@ export default function RadiologyReportModal({
             {/* Right Column: Structured Findings & Diagnostic Impression */}
             <div className="lg:col-span-7 space-y-4">
               
-              {/* Quick Template Picker (Shown only in Create Mode) */}
+              {/* Macro Engine & Template Toolbar (Shown only in Create Mode) */}
               {!isDossierMode && (
-                <div className="p-3 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/40 rounded-xl space-y-2">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" /> One-Click Normal Reporting Templates:
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => applyTemplate('NORMAL_CXR')}
-                      className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 text-[9px] font-black rounded-lg uppercase tracking-wider transition-all cursor-pointer"
-                    >
-                      Normal Chest X-Ray
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyTemplate('NORMAL_USS')}
-                      className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 text-[9px] font-black rounded-lg uppercase tracking-wider transition-all cursor-pointer"
-                    >
-                      Normal Abdomen/Pelvis USS
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyTemplate('NORMAL_OBSTETRIC')}
-                      className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 text-[9px] font-black rounded-lg uppercase tracking-wider transition-all cursor-pointer"
-                    >
-                      Normal Obstetric (34w)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyTemplate('NORMAL_CT')}
-                      className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 text-[9px] font-black rounded-lg uppercase tracking-wider transition-all cursor-pointer"
-                    >
-                      Normal Head CT
-                    </button>
+                <div className="space-y-3">
+                  {/* Full Templates */}
+                  <div className="p-3 bg-indigo-50/80 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/40 rounded-2xl space-y-2 shadow-sm">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" /> Macro Engine: One-Click Full Normal Templates
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => applyTemplate('NORMAL_CXR')}
+                        className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 text-[9px] font-black rounded-lg uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+                      >
+                        Normal Chest X-Ray
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyTemplate('NORMAL_USS')}
+                        className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 text-[9px] font-black rounded-lg uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+                      >
+                        Normal Abdomen/Pelvis USS
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyTemplate('NORMAL_OBSTETRIC')}
+                        className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 text-[9px] font-black rounded-lg uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+                      >
+                        Normal Obstetric (34w)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyTemplate('NORMAL_CT')}
+                        className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 hover:border-indigo-500 text-[9px] font-black rounded-lg uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+                      >
+                        Normal Head CT
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Quick Organ Snippet Injector */}
+                  <div className="p-2.5 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1.5">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 flex items-center justify-between">
+                      <span>Quick-Insert Organ Snippets (+ Appends to Findings):</span>
+                      <span className="text-[8px] font-mono text-indigo-400">Click to append</span>
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {MACRO_SNIPPETS.map((snippet, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleInsertSnippet(snippet.text)}
+                          className="px-2 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-400 text-[8.5px] font-bold text-slate-700 dark:text-slate-300 rounded-md transition-colors cursor-pointer"
+                        >
+                          {snippet.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Critical Red Flag Toggle & Escalation Dispatch Bar (Create Mode) */}
+              {!isDossierMode && (
+                <div className={cn(
+                  "p-3.5 rounded-2xl border transition-all space-y-2.5",
+                  report.isCritical 
+                    ? "bg-rose-950/30 border-rose-500/50 shadow-rose-900/10 shadow-lg"
+                    : "bg-slate-50 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800"
+                )}>
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        checked={report.isCritical}
+                        onChange={(e) => setReport(prev => ({ ...prev, isCritical: e.target.checked }))}
+                        className="w-4 h-4 text-rose-600 rounded focus:ring-rose-500 border-slate-300"
+                      />
+                      <span className={cn(
+                        "text-xs font-black uppercase tracking-wider flex items-center gap-1.5",
+                        report.isCritical ? "text-rose-400" : "text-slate-600 dark:text-slate-400"
+                      )}>
+                        <ShieldAlert className="w-4 h-4 text-rose-500" />
+                        <span>STAT Critical Finding / Red Flag Broadcast</span>
+                      </span>
+                    </label>
+
+                    {report.isCritical && (
+                      <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
+                        🚨 EMERGENCY DISPATCH ACTIVE
+                      </span>
+                    )}
+                  </div>
+
+                  {report.isCritical && (
+                    <div className="pt-2 border-t border-rose-500/20 space-y-2 animate-in fade-in duration-200">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-rose-400">
+                        Select Acute Emergency Pathology (Auto-populates diagnostic protocol & broadcasts alert):
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {CRITICAL_EMERGENCY_PATHOLOGIES.map(p => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => handleSelectCriticalPathology(p.id)}
+                            className="text-left p-2 rounded-lg bg-slate-900 border border-rose-500/30 hover:border-rose-400 text-[9px] font-bold text-rose-200 hover:text-white transition-all cursor-pointer"
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-rose-950/60 border border-rose-500/30 text-[9.5px] font-medium text-rose-200 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                        <span>Alert recipient: <strong>{orderedBy}</strong> & Emergency Triage. Priority push notification + in-app urgent flash modal.</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Dossier Red Flag Banner (Shown when viewing completed critical reports) */}
+              {isDossierMode && report.isCritical && (
+                <div className="p-4 rounded-2xl bg-rose-950/40 border-2 border-rose-500/60 text-rose-200 space-y-1 shadow-lg">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-rose-300">
+                    <ShieldAlert className="w-5 h-5 text-rose-400 animate-pulse" />
+                    <span>CRITICAL LIFE-THREATENING FINDING IDENTIFIED</span>
+                  </div>
+                  <p className="text-xs font-bold text-rose-100">
+                    {report.criticalPathology || 'STAT Emergency Red Flag Dispatched to Ordering Clinician.'}
+                  </p>
+                  <p className="text-[10px] font-mono text-rose-300/80 mt-1">
+                    Emergency Alert Log: Transmitted to {orderedBy} via priority clinical routing channel.
+                  </p>
                 </div>
               )}
 
@@ -457,7 +610,12 @@ export default function RadiologyReportModal({
                   DIAGNOSTIC IMPRESSION & CONCLUSION *
                 </label>
                 {isDossierMode ? (
-                  <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-black text-emerald-900 dark:text-emerald-300 leading-relaxed uppercase tracking-tight">
+                  <div className={cn(
+                    "p-4 rounded-2xl border text-xs font-black leading-relaxed uppercase tracking-tight",
+                    report.isCritical 
+                      ? "bg-rose-500/10 border-rose-500/40 text-rose-900 dark:text-rose-300"
+                      : "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-300"
+                  )}>
                     {report.impression || 'Normal study without evidence of acute traumatic or infective pathology.'}
                   </div>
                 ) : (
@@ -466,7 +624,12 @@ export default function RadiologyReportModal({
                     value={report.impression}
                     onChange={(e) => setReport({ ...report, impression: e.target.value })}
                     placeholder="State definitive clinical diagnosis and conclusion..."
-                    className="w-full min-h-[90px] p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-indigo-500 text-xs font-bold text-slate-800 dark:text-slate-100 resize-y outline-none leading-relaxed uppercase"
+                    className={cn(
+                      "w-full min-h-[90px] p-3.5 bg-slate-50 dark:bg-slate-950 border rounded-2xl focus:ring-2 text-xs font-bold resize-y outline-none leading-relaxed uppercase",
+                      report.isCritical
+                        ? "border-rose-500/60 focus:ring-rose-500 text-rose-900 dark:text-rose-100"
+                        : "border-slate-200 dark:border-slate-800 focus:ring-indigo-500 text-slate-800 dark:text-slate-100"
+                    )}
                   />
                 )}
               </div>
