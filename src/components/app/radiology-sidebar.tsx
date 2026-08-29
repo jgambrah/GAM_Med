@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
-  LayoutDashboard, Camera, Settings,
+  LayoutDashboard, Camera, Settings, PackageCheck,
   LogOut, ChevronRight,
   Calendar, Clock, Wallet, GraduationCap, Award,
   Users
@@ -38,6 +38,7 @@ export function RadiologySidebar() {
         { name: "Patient Directory", href: "/patients", icon: Users },
         { name: "Scan Archive & Releases", href: "/radiology/queue?tab=archive", icon: Camera },
         { name: "Modality / Imaging Menu", href: "/radiology/setup", icon: Settings },
+        { name: "Store & Service Requests", href: "/radiology/requisitions", icon: PackageCheck },
       ]
     },
     {
