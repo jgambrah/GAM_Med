@@ -524,8 +524,8 @@ export default function RadiologyRequisitionsPage() {
   const telemetry = useMemo(() => {
     const pendingReqs = requisitions.filter(r => r.status === 'PENDING_APPROVAL').length;
     const dispatchedReqs = requisitions.filter(r => r.status === 'DISPATCHED').length;
-    const activeTickets = serviceTickets.filter(s => s.status === 'IN_PROGRESS' || s.status === 'ASSIGNED_TO_BIOMED').length;
-    const criticalDowntime = serviceTickets.filter(s => s.severity === 'CRITICAL_DOWNTIME' && s.status !== 'RESOLVED_VERIFIED').length;
+    const activeTickets = serviceTickets.filter(s => s.status !== 'RESOLVED_VERIFIED' && s.status !== 'CLOSED').length;
+    const criticalDowntime = serviceTickets.filter(s => s.severity === 'CRITICAL_DOWNTIME' && s.status !== 'RESOLVED_VERIFIED' && s.status !== 'CLOSED').length;
 
     return { pendingReqs, dispatchedReqs, activeTickets, criticalDowntime };
   }, [requisitions, serviceTickets]);
@@ -534,42 +534,57 @@ export default function RadiologyRequisitionsPage() {
     <div className="flex-1 overflow-y-auto bg-slate-100 dark:bg-slate-950 p-6 md:p-8 space-y-6">
       
       {/* ========================================================= */}
-      {/* 1. TOP HEADER & PRIMARY CTAS                              */}
+      {/* 1. ENTERPRISE DARK HERO COMMAND BANNER                    */}
       {/* ========================================================= */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-indigo-500/10 text-indigo-500 border-indigo-500/20 text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5">
-              Departmental Logistics & Engineering
-            </Badge>
-            <span className="text-xs text-slate-400 font-mono">HUB-RAD-OPS-2026</span>
+      <div className="bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden border border-slate-800">
+        {/* Ambient Glows */}
+        <div className="absolute top-0 right-0 -mt-16 -mr-16 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 -mb-16 w-80 h-80 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-amber-600/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3.5 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/40 rounded-2xl text-indigo-400 shadow-inner">
+              <PackageCheck className="w-8 h-8" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  DEPARTMENTAL LOGISTICS & ENGINEERING
+                </span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  HUB-RAD-OPS-2026
+                </span>
+              </div>
+              <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-wider text-white mt-1">
+                STORE & SERVICE REQUESTS
+              </h1>
+              <p className="text-xs font-semibold text-slate-400 mt-0.5">
+                Manage consumable requisitions, pharmacy restocks, and biomedical maintenance tickets.
+              </p>
+            </div>
           </div>
-          <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight italic mt-1">
-            STORE & SERVICE REQUESTS
-          </h1>
-          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-0.5">
-            Manage consumable requisitions, pharmacy restocks, and biomedical maintenance tickets.
-          </p>
-        </div>
 
-        <div className="flex items-center gap-2.5 w-full md:w-auto">
-          <Button
-            type="button"
-            onClick={() => setIsNewRequisitionModalOpen(true)}
-            className="flex-1 md:flex-none px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-xl uppercase tracking-wider shadow flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <PackageCheck className="w-4 h-4" />
-            <span>+ NEW STORE REQUISITION</span>
-          </Button>
+          {/* Action CTAs */}
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            <Button
+              type="button"
+              onClick={() => setIsNewRequisitionModalOpen(true)}
+              className="flex-1 lg:flex-none px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-xl uppercase tracking-wider shadow flex items-center justify-center gap-2 cursor-pointer transition-all border border-indigo-400/30"
+            >
+              <PackageCheck className="w-4 h-4" />
+              <span>+ NEW STORE REQUISITION</span>
+            </Button>
 
-          <Button
-            type="button"
-            onClick={() => setIsNewServiceModalOpen(true)}
-            className="flex-1 md:flex-none px-4 py-2.5 bg-slate-950 hover:bg-slate-800 text-white border border-slate-700 text-xs font-black rounded-xl uppercase tracking-wider shadow flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Wrench className="w-4 h-4 text-amber-400" />
-            <span>+ LOG SERVICE TICKET</span>
-          </Button>
+            <Button
+              type="button"
+              onClick={() => setIsNewServiceModalOpen(true)}
+              className="flex-1 lg:flex-none px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-amber-400 hover:text-amber-300 border border-amber-500/30 text-xs font-black rounded-xl uppercase tracking-wider shadow flex items-center justify-center gap-2 cursor-pointer transition-all"
+            >
+              <Wrench className="w-4 h-4 text-amber-400" />
+              <span>+ LOG SERVICE TICKET</span>
+            </Button>
+          </div>
         </div>
       </div>
 
