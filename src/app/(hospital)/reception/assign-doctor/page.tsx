@@ -19,6 +19,19 @@ import { PATIENT_STATUS } from '@/lib/constants';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
+// Helper: Normalize Legacy EHR Identifiers to MMH/EHR/26/XXXX
+function normalizeEhrNumber(ehr?: string): string {
+  if (!ehr) return 'MMH/EHR/26/0001';
+  if (/^MMH\/EHR\/\d{2}\/\d{4}$/.test(ehr)) return ehr;
+  const digitsMatch = ehr.match(/\d+/g);
+  if (digitsMatch) {
+    const num = parseInt(digitsMatch[digitsMatch.length - 1], 10);
+    const padded = String(num).padStart(4, '0');
+    return `MMH/EHR/26/${padded}`;
+  }
+  return ehr;
+}
+
 // Standardized Demo Patients with varied, realistic triage readings
 const DEMO_WAITING_PATIENTS = [
   { 
@@ -119,14 +132,12 @@ const DEMO_ACTIVE_CLINICIANS = [
   },
 ];
 
-// Helper: Calculate Clean Daily Wait Minutes
-function getFormattedWaitMinutes(patient: any, defaultMinutes: number): string {
-  // If explicitly provided as recent minutes in demo
-  if (patient.rawWaitMinutes) {
-    return `${patient.rawWaitMinutes} mins`;
+// Helper: Get Numeric Wait Minutes
+function getWaitMinutesNumber(patient: any, defaultMinutes: number): number {
+  if (typeof patient.rawWaitMinutes === 'number') {
+    return patient.rawWaitMinutes;
   }
 
-  // Check timestamp fields
   const timeField = patient.triageCompletedAt || patient.checkInTime || patient.updatedAt || patient.createdAt;
   if (timeField) {
     let dateObj: Date | null = null;
@@ -143,18 +154,21 @@ function getFormattedWaitMinutes(patient: any, defaultMinutes: number): string {
       const diffMs = now - dateObj.getTime();
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-      // If timestamp was created within the last 12 hours, show exact minutes
       if (diffMinutes >= 0 && diffMinutes < 720) {
-        return diffMinutes === 1 ? '1 min' : `${diffMinutes} mins`;
+        return diffMinutes;
       }
       
-      // If from an older date/seed, clamp gracefully to realistic shift duration
-      const simulatedMins = Math.max(4, Math.min(45, (Math.abs(dateObj.getTime()) % 35) + 5));
-      return `${simulatedMins} mins`;
+      return Math.max(4, Math.min(45, (Math.abs(dateObj.getTime()) % 35) + 5));
     }
   }
 
-  return `${defaultMinutes} mins`;
+  return defaultMinutes;
+}
+
+// Helper: Calculate Clean Daily Wait Minutes Display
+function getFormattedWaitMinutes(patient: any, defaultMinutes: number): string {
+  const mins = getWaitMinutesNumber(patient, defaultMinutes);
+  return mins === 1 ? '1 min' : `${mins} mins`;
 }
 
 // Helper: Extract Dynamic Vitals Summary
@@ -259,10 +273,14 @@ export default function ClinicalAssignmentQueue() {
     return unassignedPatients.find(p => p.id === selectedPatientId) || unassignedPatients[0] || null;
   }, [unassignedPatients, selectedPatientId]);
 
-  // Dynamic Telemetry Metrics
+  // Dynamic Telemetry: Longest Wait Time computed via Math.max across all waiting patients
   const longestWaitStr = useMemo(() => {
     if (unassignedPatients.length === 0) return '0 mins';
-    return getFormattedWaitMinutes(unassignedPatients[0], 24);
+    const waitList = unassignedPatients.map((p: any, idx: number) => {
+      return getWaitMinutesNumber(p, Math.max(5, 24 - idx * 3));
+    });
+    const maxWait = Math.max(...waitList);
+    return `${maxWait} mins`;
   }, [unassignedPatients]);
 
   const urgentCount = useMemo(() => {
@@ -293,7 +311,7 @@ export default function ClinicalAssignmentQueue() {
 
     try {
       const patientFullName = `${patient.firstName || ''} ${patient.lastName || patient.name || ''}`.trim() || 'Patient';
-      const patientEhr = patient.ehrNumber || 'MMH/EHR/26/XXXX';
+      const patientEhr = normalizeEhrNumber(patient.ehrNumber || patient.ehr || 'MMH/EHR/26/0001');
 
       if (firestore && hospitalId && patient.id && !patient.id.startsWith('p_0')) {
         const patientRef = doc(firestore, `hospitals/${hospitalId}/patients`, patient.id);
@@ -421,7 +439,7 @@ export default function ClinicalAssignmentQueue() {
             </div>
           </div>
 
-          {/* Card 2: Longest Wait Time */}
+          {/* Card 2: Longest Wait Time (Calculated across full queue) */}
           <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
             <div>
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
@@ -518,6 +536,7 @@ export default function ClinicalAssignmentQueue() {
                 const waitMinutesFormatted = getFormattedWaitMinutes(patient, Math.max(5, 24 - idx * 3));
                 const vitalsText = getFormattedVitalsSummary(patient, idx);
                 const complaint = patient.chiefComplaint || 'Consultation & Clinical Review';
+                const cleanEhr = normalizeEhrNumber(patient.ehrNumber || patient.ehr || `MMH/EHR/26/000${idx + 1}`);
 
                 return (
                   <div 
@@ -556,7 +575,7 @@ export default function ClinicalAssignmentQueue() {
 
                           <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-2">
                             <span className="px-2 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded font-mono">
-                              {patient.ehrNumber || patient.ehr || 'MMH/EHR/26/0001'}
+                              {cleanEhr}
                             </span>
                             <span>•</span>
                             <span className="text-amber-600 dark:text-amber-400 font-black flex items-center gap-1">
@@ -618,7 +637,7 @@ export default function ClinicalAssignmentQueue() {
               <div className="flex items-center gap-2 min-w-0">
                 <div className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
                 <span className="font-bold text-blue-950 dark:text-blue-200 truncate">
-                  Ready to Route: <strong className="uppercase">{selectedPatient.firstName} {selectedPatient.lastName}</strong> ({selectedPatient.ehrNumber})
+                  Ready to Route: <strong className="uppercase">{selectedPatient.firstName} {selectedPatient.lastName}</strong> ({normalizeEhrNumber(selectedPatient.ehrNumber || selectedPatient.ehr || 'MMH/EHR/26/0001')})
                 </span>
               </div>
               <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider shrink-0 font-mono">
@@ -717,7 +736,7 @@ export default function ClinicalAssignmentQueue() {
                     {assignmentModalTarget.patient.firstName} {assignmentModalTarget.patient.lastName}
                   </span>
                   <span className="text-indigo-400 font-bold">
-                    {assignmentModalTarget.patient.ehrNumber}
+                    {normalizeEhrNumber(assignmentModalTarget.patient.ehrNumber || assignmentModalTarget.patient.ehr || 'MMH/EHR/26/0001')}
                   </span>
                 </div>
                 <div className="text-[10px] text-slate-400 mt-1 font-sans">
