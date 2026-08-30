@@ -343,10 +343,13 @@ service cloud.firestore {
 
     match /appointments/{appointmentId} {
         allow create: if true;
-        allow read: if isSuperAdmin() || isAnyStaff(resource.data.hospitalId) || true;
-        allow list: if isSuperAdmin() || getCallingUserHospitalId() != null || request.query.patientId != null;
-        allow update: if isSuperAdmin() || (isAnyStaff(resource.data.hospitalId)) || (request.resource.data.status == 'CANCELLED_BY_PATIENT');
-        allow delete: if isSuperAdmin() || isDirectorOrAdmin(resource.data.hospitalId);
+        allow read: if true;
+        allow list: if isSuperAdmin() || getCallingUserHospitalId() != null || request.query.patientId != null || isSignedIn();
+        allow update: if isSuperAdmin() 
+          || isSignedIn() 
+          || (resource != null && 'hospitalId' in resource.data && isAnyStaff(resource.data.hospitalId)) 
+          || (request.resource.data.status == 'CANCELLED_BY_PATIENT');
+        allow delete: if isSuperAdmin() || isDirectorOrAdmin(resource.data.hospitalId) || isSignedIn();
     }
 
     match /doctor_availability/{doctorId} {

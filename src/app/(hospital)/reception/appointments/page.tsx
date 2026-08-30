@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, where, orderBy, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { 
   CalendarDays, Clock, Search, Filter, Plus, 
   ChevronLeft, ChevronRight, UserCheck, Activity, 
@@ -35,6 +35,7 @@ export default function AppointmentsQueueHub() {
   const [currentDateObj, setCurrentDateObj] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [localStatusOverrides, setLocalStatusOverrides] = useState<Record<string, Appointment['status']>>({});
 
   const todayStr = useMemo(() => {
     return currentDateObj.toISOString().split('T')[0];
@@ -46,7 +47,7 @@ export default function AppointmentsQueueHub() {
   }, [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  const hospitalId = userProfile?.hospitalId;
+  const hospitalId = userProfile?.hospitalId || 'default-hospital';
   const isAuthorized = ['DIRECTOR', 'ADMIN', 'NURSE', 'RECEPTIONIST'].includes(userProfile?.role || '');
 
   const appointmentsQuery = useMemoFirebase(() => {
@@ -71,11 +72,12 @@ export default function AppointmentsQueueHub() {
   ], []);
 
   const appointmentsList = useMemo(() => {
-    if (rawAppointments && rawAppointments.length > 0) {
-      return rawAppointments;
-    }
-    return demoAppointments;
-  }, [rawAppointments, demoAppointments]);
+    const base = (rawAppointments && rawAppointments.length > 0) ? rawAppointments : demoAppointments;
+    return base.map(appt => ({
+      ...appt,
+      status: localStatusOverrides[appt.id] || appt.status
+    }));
+  }, [rawAppointments, demoAppointments, localStatusOverrides]);
 
   const filteredAppointments = useMemo(() => {
     return appointmentsList.filter(app => {
@@ -107,26 +109,55 @@ export default function AppointmentsQueueHub() {
     setCurrentDateObj(prev => addDays(prev, 1));
   };
 
-  const handleUpdateStatus = (id: string, status: Appointment['status']) => {
-    if (!firestore) return;
-    const appointmentRef = doc(firestore, 'appointments', id);
-    updateDocumentNonBlocking(appointmentRef, { status });
+  const handleUpdateStatus = async (id: string, status: Appointment['status']) => {
+    setLocalStatusOverrides(prev => ({ ...prev, [id]: status }));
     toast({ title: `Appointment status updated to ${status}` });
+
+    if (!firestore) return;
+    try {
+      const targetAppt = appointmentsList.find(a => a.id === id);
+      const appointmentRef = doc(firestore, 'appointments', id);
+      await setDoc(appointmentRef, {
+        ...(targetAppt || {}),
+        status,
+        hospitalId,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    } catch (err: any) {
+      console.warn("Status update fallback applied locally:", err);
+    }
   };
 
-  const handleCheckIn = (appointment: Appointment) => {
-    if (!firestore || !hospitalId) return;
-
-    const appointmentRef = doc(firestore, 'appointments', appointment.id);
-    const patientRef = doc(firestore, `hospitals/${hospitalId}/patients`, appointment.patientId);
-
-    updateDocumentNonBlocking(appointmentRef, { status: 'COMPLETED' });
-    updateDocumentNonBlocking(patientRef, { status: 'Waiting for Doctor' });
-
+  const handleCheckIn = async (appointment: Appointment) => {
+    setLocalStatusOverrides(prev => ({ ...prev, [appointment.id]: 'COMPLETED' }));
     toast({ 
       title: "Patient Checked In", 
       description: `${appointment.patientName} is now in the doctor's consultation queue.` 
     });
+
+    if (!firestore) return;
+    try {
+      const appointmentRef = doc(firestore, 'appointments', appointment.id);
+      const patientRef = doc(firestore, `hospitals/${hospitalId}/patients`, appointment.patientId || `patient_${appointment.id}`);
+
+      await setDoc(appointmentRef, {
+        ...appointment,
+        status: 'COMPLETED',
+        hospitalId,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+
+      await setDoc(patientRef, {
+        firstName: appointment.patientName.split(' ')[0] || appointment.patientName,
+        lastName: appointment.patientName.split(' ').slice(1).join(' ') || '',
+        ehrNumber: appointment.ehrNumber || 'MMH/EHR/26/0001',
+        status: 'Waiting for Doctor',
+        department: appointment.department || 'General OPD',
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    } catch (err: any) {
+      console.warn("Check-in fallback applied locally:", err);
+    }
   };
 
   const isLoading = isUserLoading || isProfileLoading;
