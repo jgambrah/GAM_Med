@@ -11,7 +11,7 @@ import {
   Users, AlertCircle, ShieldCheck, ChevronRight, 
   HeartPulse, DoorOpen, UserCheck, Loader2, ShieldAlert,
   CheckCircle2, Sparkles, AlertTriangle, ArrowRight, User,
-  Search, X, Flame, Filter
+  Search, X, Flame, Filter, ArrowUpDown, Volume2, Navigation, MapPin
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,17 @@ function normalizeEhrNumber(ehr?: string): string {
 // Standardized Demo Patients with varied, realistic triage readings
 const DEMO_WAITING_PATIENTS = [
   { 
+    id: 'p_07', 
+    firstName: 'BENJAMIN', 
+    lastName: 'HEDIDOR', 
+    ehrNumber: 'MMH/EHR/26/0007', 
+    rawWaitMinutes: 36, 
+    acuity: 'URGENT', 
+    chiefComplaint: 'High Fever & Ear Discomfort',
+    phoneNumber: '024 991 3456',
+    vitals: { bp: '142/90', temp: '38.2', pulse: '92', spo2: '97', weight: '75' } 
+  },
+  { 
     id: 'p_01', 
     firstName: 'NANA', 
     lastName: 'ADWOA', 
@@ -45,6 +56,17 @@ const DEMO_WAITING_PATIENTS = [
     chiefComplaint: 'Severe Migraine & High BP',
     phoneNumber: '024 475 0901',
     vitals: { bp: '145/92', temp: '38.1', pulse: '94', spo2: '98', weight: '72' } 
+  },
+  { 
+    id: 'p_04', 
+    firstName: 'DANIEL', 
+    lastName: 'ANIM', 
+    ehrNumber: 'MMH/EHR/26/0004', 
+    rawWaitMinutes: 21, 
+    acuity: 'URGENT', 
+    chiefComplaint: 'Persistent Cough & Low Grade Fever',
+    phoneNumber: '020 889 1234',
+    vitals: { bp: '136/88', temp: '37.8', pulse: '88', spo2: '96', weight: '68' } 
   },
   { 
     id: 'p_02', 
@@ -69,17 +91,6 @@ const DEMO_WAITING_PATIENTS = [
     vitals: { bp: '118/76', temp: '37.0', pulse: '72', spo2: '99', weight: '80' } 
   },
   { 
-    id: 'p_04', 
-    firstName: 'DANIEL', 
-    lastName: 'ANIM', 
-    ehrNumber: 'MMH/EHR/26/0004', 
-    rawWaitMinutes: 21, 
-    acuity: 'URGENT', 
-    chiefComplaint: 'Persistent Cough & Low Grade Fever',
-    phoneNumber: '020 889 1234',
-    vitals: { bp: '136/88', temp: '37.8', pulse: '88', spo2: '96', weight: '68' } 
-  },
-  { 
     id: 'p_05', 
     firstName: 'JANET', 
     lastName: 'BONAH', 
@@ -90,17 +101,6 @@ const DEMO_WAITING_PATIENTS = [
     phoneNumber: '055 443 2190',
     vitals: { bp: '124/82', temp: '36.6', pulse: '70', spo2: '98', weight: '60' } 
   },
-  { 
-    id: 'p_07', 
-    firstName: 'BENJAMIN', 
-    lastName: 'HEDIDOR', 
-    ehrNumber: 'MMH/EHR/26/0007', 
-    rawWaitMinutes: 36, 
-    acuity: 'URGENT', 
-    chiefComplaint: 'High Fever & Ear Discomfort',
-    phoneNumber: '024 991 3456',
-    vitals: { bp: '142/90', temp: '38.2', pulse: '92', spo2: '97', weight: '75' } 
-  },
 ];
 
 // Standardized Clinicians with uniform 'DR.' prefix and designations
@@ -110,6 +110,8 @@ const DEMO_ACTIVE_CLINICIANS = [
     fullName: 'DR. TRACY GAMBRAH', 
     specialty: 'LEAD CONSULTING PHYSICIAN', 
     room: 'Consulting Room 4', 
+    wayfinding: 'First Floor • Executive OPD (Door 104)',
+    routeGuide: 'Take Elevator 1 to 1st Floor → Left at Wing C',
     currentLoad: 1, 
     status: 'AVAILABLE' 
   },
@@ -118,6 +120,8 @@ const DEMO_ACTIVE_CLINICIANS = [
     fullName: 'DR. JAMES OBREMPONG', 
     specialty: 'SENIOR MEDICAL OFFICER - OPD', 
     room: 'Consulting Room 5', 
+    wayfinding: 'Ground Floor • Surgical Wing (Door 005)',
+    routeGuide: 'Follow Green Line to West Corridor',
     currentLoad: 0, 
     status: 'OPEN' 
   },
@@ -126,6 +130,8 @@ const DEMO_ACTIVE_CLINICIANS = [
     fullName: 'DR. AMA ADU', 
     specialty: 'CONSULTING PHYSICIAN - GP', 
     room: 'Consulting Room 1', 
+    wayfinding: 'Ground Floor • General OPD Wing A (Door 001)',
+    routeGuide: 'Follow Blue Floor Line directly ahead',
     currentLoad: 2, 
     status: 'AVAILABLE' 
   },
@@ -134,10 +140,19 @@ const DEMO_ACTIVE_CLINICIANS = [
     fullName: 'DR. RICHARD YEBOAH', 
     specialty: 'MEDICAL OFFICER - OPD 2', 
     room: 'Consulting Room 2', 
+    wayfinding: 'Ground Floor • General OPD Wing B (Door 002)',
+    routeGuide: 'Follow Blue Line → Turn Right at Station B',
     currentLoad: 4, 
     status: 'BUSY' 
   },
 ];
+
+// Helper: Check if patient is high acuity
+function isPatientUrgent(p: any): boolean {
+  const bp = p.triage?.bloodPressure || p.triage?.bp || p.vitals?.bp || '';
+  const temp = parseFloat(p.triage?.temperature || p.triage?.temp || p.vitals?.temp || '0');
+  return p.acuity === 'URGENT' || bp.startsWith('14') || bp.startsWith('15') || bp.startsWith('16') || temp >= 38.0;
+}
 
 // Helper: Get Numeric Wait Minutes
 function getWaitMinutesNumber(patient: any, defaultMinutes: number): number {
@@ -189,7 +204,6 @@ function getFormattedVitalsSummary(patient: any, fallbackIndex: number): string 
     return `BP: ${bp} mmHg • Temp: ${temp}°C ${pulse ? `• Pulse: ${pulse} bpm` : ''}`;
   }
 
-  // Fallback to indexed realistic values
   const fallback = DEMO_WAITING_PATIENTS[fallbackIndex % DEMO_WAITING_PATIENTS.length]?.vitals;
   if (fallback) {
     return `BP: ${fallback.bp} mmHg • Temp: ${fallback.temp}°C • Pulse: ${fallback.pulse} bpm`;
@@ -214,11 +228,12 @@ export default function ClinicalAssignmentQueue() {
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(false);
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>('p_01');
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>('p_07');
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'URGENT' | 'LONG_WAIT'>('ALL');
+  const [sortBy, setSortBy] = useState<'TRIAGE_PRIORITY' | 'STRICT_FIFO'>('TRIAGE_PRIORITY');
 
   // Assignment Modal State
   const [assignmentModalTarget, setAssignmentModalTarget] = useState<{
@@ -272,6 +287,8 @@ export default function ClinicalAssignmentQueue() {
         fullName: formatDoctorName(d.fullName || d.name || 'Clinician'),
         specialty: (d.specialty || d.department || 'GENERAL PRACTITIONER').toUpperCase(),
         room: d.room || `Consulting Room ${idx + 1}`,
+        wayfinding: d.wayfinding || `Ground Floor • OPD Wing (Door 00${idx + 1})`,
+        routeGuide: d.routeGuide || 'Follow Blue Floor Line',
         currentLoad: d.currentLoad ?? (idx % 3),
         status: d.status || 'AVAILABLE'
       }));
@@ -290,11 +307,7 @@ export default function ClinicalAssignmentQueue() {
   }, [unassignedPatients]);
 
   const urgentCount = useMemo(() => {
-    return unassignedPatients.filter(p => {
-      const bp = p.triage?.bloodPressure || p.triage?.bp || p.vitals?.bp || '';
-      const temp = parseFloat(p.triage?.temperature || p.triage?.temp || p.vitals?.temp || '0');
-      return p.acuity === 'URGENT' || bp.startsWith('14') || bp.startsWith('15') || temp >= 38.0;
-    }).length;
+    return unassignedPatients.filter(isPatientUrgent).length;
   }, [unassignedPatients]);
 
   const longWaitCount = useMemo(() => {
@@ -303,17 +316,35 @@ export default function ClinicalAssignmentQueue() {
     }).length;
   }, [unassignedPatients]);
 
+  // FAIR TRIAGE & FIFO SORTING
+  const sortedPatients = useMemo(() => {
+    const base = [...unassignedPatients];
+
+    return base.sort((a: any, b: any) => {
+      const waitA = getWaitMinutesNumber(a, 10);
+      const waitB = getWaitMinutesNumber(b, 10);
+      const urgentA = isPatientUrgent(a);
+      const urgentB = isPatientUrgent(b);
+
+      if (sortBy === 'TRIAGE_PRIORITY') {
+        // High-acuity patients pinned to top, then sorted descending by wait time within urgent tier
+        if (urgentA && !urgentB) return -1;
+        if (!urgentA && urgentB) return 1;
+        return waitB - waitA; // longest wait first
+      } else {
+        // Pure FIFO: longest wait time strictly first
+        return waitB - waitA;
+      }
+    });
+  }, [unassignedPatients, sortBy]);
+
   // Real-Time Filtered Patients List
   const filteredPatients = useMemo(() => {
-    let list = unassignedPatients;
+    let list = sortedPatients;
 
     // Filter by Acuity / Wait Time Pill
     if (activeFilter === 'URGENT') {
-      list = list.filter((p: any) => {
-        const bp = p.triage?.bloodPressure || p.triage?.bp || p.vitals?.bp || '';
-        const temp = parseFloat(p.triage?.temperature || p.triage?.temp || p.vitals?.temp || '0');
-        return p.acuity === 'URGENT' || bp.startsWith('14') || bp.startsWith('15') || temp >= 38.0;
-      });
+      list = list.filter(isPatientUrgent);
     } else if (activeFilter === 'LONG_WAIT') {
       list = list.filter((p: any, idx: number) => {
         return getWaitMinutesNumber(p, Math.max(5, 24 - idx * 3)) >= 20;
@@ -341,9 +372,9 @@ export default function ClinicalAssignmentQueue() {
     }
 
     return list;
-  }, [unassignedPatients, activeFilter, searchQuery]);
+  }, [sortedPatients, activeFilter, searchQuery]);
 
-  // Auto-Select First Result on Search/Filter Change
+  // Auto-Select First Result on Search/Filter/Sort Change
   useEffect(() => {
     if (filteredPatients.length > 0) {
       const isSelectedPresent = filteredPatients.some(p => p.id === selectedPatientId);
@@ -475,7 +506,7 @@ export default function ClinicalAssignmentQueue() {
               </div>
             </div>
             <p className="mt-1 text-xs md:text-sm text-slate-400 font-medium max-w-2xl">
-              Route vitals-cleared patients to active clinicians based on clinical urgency, specialty needs, and consulting room capacity.
+              Fair queue sorting (longest wait & high-acuity priority) with wayfinding guidance to consulting rooms.
             </p>
           </div>
           
@@ -510,7 +541,7 @@ export default function ClinicalAssignmentQueue() {
             </div>
           </div>
 
-          {/* Card 2: Longest Wait Time (Calculated across full queue) */}
+          {/* Card 2: Longest Wait Time */}
           <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
             <div>
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
@@ -546,9 +577,9 @@ export default function ClinicalAssignmentQueue() {
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
                 Queue Balancing
               </span>
-              <div className="text-2xl font-black text-sky-400">Optimal</div>
+              <div className="text-2xl font-black text-sky-400">Fair FIFO</div>
               <span className="text-[10px] font-bold text-slate-400 mt-1 flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3 text-sky-400" /> Auto-Distribution Ready
+                <ShieldCheck className="w-3 h-3 text-sky-400" /> Longest Wait Priority
               </span>
             </div>
             <div className="p-3 bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded-xl">
@@ -565,24 +596,51 @@ export default function ClinicalAssignmentQueue() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* ======================================================================= */}
-        {/* LEFT COLUMN: PATIENT QUEUE                                              */}
+        {/* LEFT COLUMN: PATIENT QUEUE (FAIR FIFO + URGENT PINNING)                 */}
         {/* ======================================================================= */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 flex flex-col h-full space-y-4">
           
-          {/* Column Header */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+          {/* Column Header & Sort Mode Selector */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
             <div>
               <h2 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
                 <Clock className="w-4 h-4 text-amber-500" /> 
                 1. Patients Waiting for Doctor ({filteredPatients.length}{filteredPatients.length !== unassignedPatients.length ? ` of ${unassignedPatients.length}` : ''})
               </h2>
               <p className="text-[10px] text-slate-400 mt-0.5">
-                Click any patient card to select for routing to a clinician.
+                Longest wait times & high acuity patients prioritized at the top.
               </p>
             </div>
-            <span className="text-[9px] font-bold text-slate-500 uppercase font-mono">
-              FIFO SORTED
-            </span>
+
+            {/* Fair Sort Mode Toggle */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shrink-0 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setSortBy('TRIAGE_PRIORITY')}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1",
+                  sortBy === 'TRIAGE_PRIORITY'
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-white"
+                )}
+              >
+                <Flame className="w-3 h-3 text-amber-300" />
+                Urgent + Wait
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortBy('STRICT_FIFO')}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1",
+                  sortBy === 'STRICT_FIFO'
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-white"
+                )}
+              >
+                <ArrowUpDown className="w-3 h-3" />
+                Strict FIFO
+              </button>
+            </div>
           </div>
 
           {/* REAL-TIME SEARCH & TRIAGE FILTER TOOLBAR */}
@@ -698,7 +756,7 @@ export default function ClinicalAssignmentQueue() {
               {filteredPatients.map((patient: any, idx: number) => {
                 const patientName = `${patient.firstName || ''} ${patient.lastName || patient.name || ''}`.trim() || 'PATIENT';
                 const isSelected = selectedPatient?.id === patient.id;
-                const isUrgent = patient.acuity === 'URGENT' || patient.vitals?.bp?.startsWith('14') || patient.vitals?.temp > 38;
+                const isUrgent = isPatientUrgent(patient);
                 
                 const waitMinutesFormatted = getFormattedWaitMinutes(patient, Math.max(5, 24 - idx * 3));
                 const vitalsText = getFormattedVitalsSummary(patient, idx);
@@ -719,12 +777,17 @@ export default function ClinicalAssignmentQueue() {
                     <div className="flex items-start justify-between gap-3">
                       
                       <div className="flex items-start gap-3.5">
-                        {/* Avatar */}
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm text-white shrink-0 shadow-sm",
-                          isUrgent ? "bg-rose-600" : "bg-slate-800"
-                        )}>
-                          {patientName.charAt(0)}
+                        {/* Position Badge & Avatar */}
+                        <div className="relative shrink-0">
+                          <div className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm text-white shadow-sm",
+                            isUrgent ? "bg-rose-600" : "bg-slate-800"
+                          )}>
+                            {patientName.charAt(0)}
+                          </div>
+                          <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-slate-900 text-white font-mono text-[9px] font-black flex items-center justify-center border border-slate-700">
+                            #{idx + 1}
+                          </span>
                         </div>
 
                         {/* Patient Details */}
@@ -734,8 +797,9 @@ export default function ClinicalAssignmentQueue() {
                               {patientName}
                             </h3>
                             {isUrgent && (
-                              <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 text-[9px] font-black uppercase tracking-wider">
-                                URGENT ACUITY
+                              <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+                                <Flame className="w-2.5 h-2.5" />
+                                URGENT STAT
                               </span>
                             )}
                           </div>
@@ -780,7 +844,7 @@ export default function ClinicalAssignmentQueue() {
         </div>
 
         {/* ======================================================================= */}
-        {/* RIGHT COLUMN: CLINICIAN AVAILABILITY & ROUTING ACTION                   */}
+        {/* RIGHT COLUMN: CLINICIAN AVAILABILITY & WAYFINDING                       */}
         {/* ======================================================================= */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 flex flex-col h-full space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -827,6 +891,7 @@ export default function ClinicalAssignmentQueue() {
                 const docName = docItem.fullName;
                 const docSpecialty = docItem.specialty;
                 const docRoom = docItem.room;
+                const docWayfinding = docItem.wayfinding;
                 const docLoad = docItem.currentLoad ?? 0;
                 const isAvailable = docItem.status === 'AVAILABLE' || docItem.status === 'OPEN';
 
@@ -835,17 +900,24 @@ export default function ClinicalAssignmentQueue() {
                     key={docItem.id || index} 
                     className="p-5 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-slate-700 transition"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 rounded-2xl shrink-0">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 rounded-2xl shrink-0 mt-0.5">
                         <UserCheck className="w-6 h-6" />
                       </div>
                       <div>
                         <h3 className="font-black text-white text-sm tracking-wide mb-0.5 uppercase">
                           {docName}
                         </h3>
-                        <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1.5">
+                        <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">
                           {docSpecialty}
                         </div>
+                        
+                        {/* Wayfinding Wing Indicator */}
+                        <div className="text-[10px] text-slate-300 font-medium flex items-center gap-1.5 mb-1.5">
+                          <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
+                          <span>{docWayfinding}</span>
+                        </div>
+
                         <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 font-mono">
                           <span className="flex items-center gap-1">
                             <DoorOpen className="w-3 h-3 text-slate-300" /> {docRoom}
@@ -862,7 +934,7 @@ export default function ClinicalAssignmentQueue() {
                       type="button"
                       disabled={!selectedPatient || loading}
                       onClick={() => openAssignmentConfirmation(docItem)}
-                      className="self-end sm:self-center px-5 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer"
+                      className="self-end sm:self-center px-5 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer shrink-0"
                     >
                       <span>ASSIGN PATIENT</span>
                       <ChevronRight className="w-4 h-4" />
@@ -877,7 +949,7 @@ export default function ClinicalAssignmentQueue() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. ASSIGNMENT CONFIRMATION MODAL                                          */}
+      {/* 3. ASSIGNMENT CONFIRMATION & WAYFINDING MODAL                             */}
       {/* ========================================================================= */}
       {assignmentModalTarget && (
         <Dialog open={!!assignmentModalTarget} onOpenChange={() => setAssignmentModalTarget(null)}>
@@ -887,10 +959,10 @@ export default function ClinicalAssignmentQueue() {
                 <ArrowRightLeft className="w-6 h-6" />
               </div>
               <DialogTitle className="text-xl font-black uppercase tracking-tight text-white">
-                Confirm Doctor Assignment
+                Confirm Doctor Assignment & Wayfinding
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-400">
-                Verify patient routing details before transferring custody to the consulting room queue.
+                Verify patient routing details and consulting room wayfinding directions.
               </DialogDescription>
             </DialogHeader>
 
@@ -915,8 +987,8 @@ export default function ClinicalAssignmentQueue() {
                 </div>
               </div>
 
-              {/* Doctor Block */}
-              <div>
+              {/* Doctor & Room Block */}
+              <div className="border-b border-slate-800 pb-2.5">
                 <span className="text-[10px] text-slate-400 font-sans uppercase font-black tracking-widest block mb-1">
                   Assigned Clinician & Room
                 </span>
@@ -930,6 +1002,21 @@ export default function ClinicalAssignmentQueue() {
                 </div>
                 <div className="text-[10px] text-slate-400 mt-1 font-sans">
                   {assignmentModalTarget.doctor.specialty}
+                </div>
+              </div>
+
+              {/* Wayfinding Guide Block */}
+              <div className="pt-0.5">
+                <span className="text-[10px] text-indigo-400 font-sans uppercase font-black tracking-widest flex items-center gap-1 mb-1">
+                  <Navigation className="w-3 h-3 text-indigo-400" />
+                  Patient Wayfinding Directions
+                </span>
+                <div className="p-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-slate-300 font-sans text-xs flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-white block">{assignmentModalTarget.doctor.wayfinding}</strong>
+                    <span className="text-[11px] text-slate-400">{assignmentModalTarget.doctor.routeGuide}</span>
+                  </div>
                 </div>
               </div>
 
