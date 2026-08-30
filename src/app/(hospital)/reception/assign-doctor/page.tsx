@@ -149,34 +149,92 @@ const DEMO_ACTIVE_CLINICIANS = [
   },
 ];
 
+// Helper: Universal Extraction for Effective Vitals, Temp >= 38.0 C, BP >= 140/90, and High Acuity
+function getEffectivePatientVitals(patient: any, fallbackIndex: number = 0) {
+  if (!patient) {
+    return {
+      bp: '120/80',
+      temp: '37.0°C',
+      pulse: '72',
+      spo2: '98',
+      numericTemp: 37.0,
+      systolic: 120,
+      diastolic: 80,
+      isUrgent: false,
+      acuity: 'STANDARD',
+      summary: 'BP: 120/80 mmHg • Temp: 37.0°C • Pulse: 72 bpm'
+    };
+  }
+
+  const triage = patient.triage || patient.vitals || patient.triageVitals || patient.vitalsData || {};
+  const demoFallback = DEMO_WAITING_PATIENTS[fallbackIndex % DEMO_WAITING_PATIENTS.length];
+
+  const bp = String(
+    triage.bloodPressure || triage.bp || 
+    patient.bloodPressure || patient.bp || 
+    (demoFallback ? demoFallback.vitals.bp : '120/80')
+  );
+  const temp = String(
+    triage.temperature || triage.temp || 
+    patient.temperature || patient.temp || 
+    (demoFallback ? demoFallback.vitals.temp : '37.0')
+  );
+  const pulse = String(
+    triage.pulseRate || triage.pulse || 
+    patient.pulseRate || patient.pulse || 
+    (demoFallback ? demoFallback.vitals.pulse : '72')
+  );
+  const spo2 = String(
+    triage.spo2 || triage.oxygenSaturation || 
+    patient.spo2 || 
+    (demoFallback ? demoFallback.vitals.spo2 : '98')
+  );
+
+  const rawAcuity = String(
+    patient.acuity || patient.priority || patient.triagePriority || patient.triageCategory || 
+    (demoFallback ? demoFallback.acuity : 'STANDARD')
+  ).toUpperCase();
+
+  // Parse numeric temperature (>= 38.0°C indicates high-acuity fever)
+  const tempMatch = temp.match(/(\d+(\.\d+)?)/);
+  const numericTemp = tempMatch ? parseFloat(tempMatch[1]) : 37.0;
+
+  // Parse numeric BP (systolic >= 140 or diastolic >= 90 indicates urgent hypertension)
+  const bpMatch = bp.match(/(\d{2,3})\s*\/\s*(\d{2,3})/);
+  const systolic = bpMatch ? parseInt(bpMatch[1], 10) : 120;
+  const diastolic = bpMatch ? parseInt(bpMatch[2], 10) : 80;
+
+  const isUrgent = 
+    rawAcuity === 'URGENT' || 
+    rawAcuity === 'EMERGENCY' || 
+    rawAcuity === 'STAT' || 
+    rawAcuity === 'CRITICAL' || 
+    rawAcuity === 'HIGH' || 
+    numericTemp >= 38.0 || 
+    systolic >= 140 || 
+    diastolic >= 90 ||
+    patient.isUrgent === true;
+
+  const cleanTemp = temp.includes('°C') ? temp : `${temp}°C`;
+
+  return {
+    bp,
+    temp: cleanTemp,
+    pulse,
+    spo2,
+    numericTemp,
+    systolic,
+    diastolic,
+    isUrgent,
+    acuity: isUrgent ? 'URGENT' : 'STANDARD',
+    summary: `BP: ${bp} mmHg • Temp: ${cleanTemp} • Pulse: ${pulse} bpm`
+  };
+}
+
 // Helper: Universal High-Acuity & Urgent Vitals Predicate
-function isPatientUrgent(p: any): boolean {
+function isPatientUrgent(p: any, idx: number = 0): boolean {
   if (!p) return false;
-  if (p.acuity === 'URGENT' || p.acuity === 'EMERGENCY') return true;
-
-  const triage = p.triage || p.vitals || {};
-
-  // Temperature parsing (>= 38.0 C)
-  const rawTemp = String(triage.temperature || triage.temp || p.temperature || p.temp || '');
-  const tempMatch = rawTemp.match(/(\d+(\.\d+)?)/);
-  if (tempMatch) {
-    const tempVal = parseFloat(tempMatch[1]);
-    if (!isNaN(tempVal) && tempVal >= 38.0) return true;
-  }
-
-  // Blood Pressure parsing (systolic >= 140 or diastolic >= 90)
-  const rawBp = String(triage.bloodPressure || triage.bp || p.bloodPressure || p.bp || '');
-  const bpMatch = rawBp.match(/(\d{2,3})\s*\/\s*(\d{2,3})/);
-  if (bpMatch) {
-    const systolic = parseInt(bpMatch[1], 10);
-    const diastolic = parseInt(bpMatch[2], 10);
-    if (systolic >= 140 || diastolic >= 90) return true;
-  } else {
-    const singleSysMatch = rawBp.match(/^(\d{2,3})/);
-    if (singleSysMatch && parseInt(singleSysMatch[1], 10) >= 140) return true;
-  }
-
-  return false;
+  return getEffectivePatientVitals(p, idx).isUrgent;
 }
 
 // Helper: Get Numeric Wait Minutes
@@ -219,22 +277,8 @@ function getFormattedWaitMinutes(patient: any, defaultMinutes: number): string {
 }
 
 // Helper: Extract Dynamic Vitals Summary
-function getFormattedVitalsSummary(patient: any, fallbackIndex: number): string {
-  const triage = patient.triage || patient.vitals || {};
-  const bp = triage.bloodPressure || triage.bp || patient.bp;
-  const temp = triage.temperature || triage.temp || patient.temp;
-  const pulse = triage.pulseRate || triage.pulse || patient.pulse;
-
-  if (bp && temp) {
-    return `BP: ${bp} mmHg • Temp: ${temp}°C ${pulse ? `• Pulse: ${pulse} bpm` : ''}`;
-  }
-
-  const fallback = DEMO_WAITING_PATIENTS[fallbackIndex % DEMO_WAITING_PATIENTS.length]?.vitals;
-  if (fallback) {
-    return `BP: ${fallback.bp} mmHg • Temp: ${fallback.temp}°C • Pulse: ${fallback.pulse} bpm`;
-  }
-
-  return 'BP: 120/80 mmHg • Temp: 37.0°C • Pulse: 72 bpm';
+function getFormattedVitalsSummary(patient: any, fallbackIndex: number = 0): string {
+  return getEffectivePatientVitals(patient, fallbackIndex).summary;
 }
 
 // Helper: Ensure DR. Prefix
@@ -341,7 +385,7 @@ export default function ClinicalAssignmentQueue() {
   }, [unassignedPatients]);
 
   const urgentCount = useMemo(() => {
-    return unassignedPatients.filter(isPatientUrgent).length;
+    return unassignedPatients.filter((p: any, idx: number) => isPatientUrgent(p, idx)).length;
   }, [unassignedPatients]);
 
   const longWaitCount = useMemo(() => {
@@ -352,13 +396,22 @@ export default function ClinicalAssignmentQueue() {
 
   // FAIR FIFO / LONGEST WAIT SORTING (DEFAULT: b.waitMinutes - a.waitMinutes)
   const sortedPatients = useMemo(() => {
-    const base = [...unassignedPatients];
+    const base = unassignedPatients.map((p: any, idx: number) => {
+      const waitMins = getWaitMinutesNumber(p, Math.max(5, 24 - idx * 3));
+      const effVitals = getEffectivePatientVitals(p, idx);
+      return {
+        ...p,
+        _queueIndex: idx,
+        _effectiveVitals: effVitals,
+        _waitMinutes: waitMins
+      };
+    });
 
     return base.sort((a: any, b: any) => {
-      const waitA = getWaitMinutesNumber(a, 10);
-      const waitB = getWaitMinutesNumber(b, 10);
-      const urgentA = isPatientUrgent(a);
-      const urgentB = isPatientUrgent(b);
+      const waitA = a._waitMinutes;
+      const waitB = b._waitMinutes;
+      const urgentA = a._effectiveVitals.isUrgent;
+      const urgentB = b._effectiveVitals.isUrgent;
 
       if (sortBy === 'TRIAGE_PRIORITY') {
         if (urgentA && !urgentB) return -1;
@@ -377,11 +430,9 @@ export default function ClinicalAssignmentQueue() {
 
     // Filter by Acuity / Wait Time Pill
     if (activeFilter === 'URGENT') {
-      list = list.filter(isPatientUrgent);
+      list = list.filter((p: any) => p._effectiveVitals?.isUrgent);
     } else if (activeFilter === 'LONG_WAIT') {
-      list = list.filter((p: any, idx: number) => {
-        return getWaitMinutesNumber(p, Math.max(5, 24 - idx * 3)) >= 20;
-      });
+      list = list.filter((p: any) => p._waitMinutes >= 20);
     }
 
     // Filter by Real-Time Search Query
@@ -860,10 +911,11 @@ export default function ClinicalAssignmentQueue() {
               {filteredPatients.map((patient: any, idx: number) => {
                 const patientName = `${patient.firstName || ''} ${patient.lastName || patient.name || ''}`.trim() || 'PATIENT';
                 const isSelected = selectedPatient?.id === patient.id;
-                const isUrgent = isPatientUrgent(patient);
+                const effVitals = patient._effectiveVitals || getEffectivePatientVitals(patient, patient._queueIndex ?? idx);
+                const isUrgent = effVitals.isUrgent;
                 
-                const waitMinutesFormatted = getFormattedWaitMinutes(patient, Math.max(5, 24 - idx * 3));
-                const vitalsText = getFormattedVitalsSummary(patient, idx);
+                const waitMinutesFormatted = getFormattedWaitMinutes(patient, patient._waitMinutes || Math.max(5, 24 - idx * 3));
+                const vitalsText = effVitals.summary;
                 const complaint = patient.chiefComplaint || 'Consultation & Clinical Review';
                 const cleanEhr = normalizeEhrNumber(patient.ehrNumber || patient.ehr || `MMH/EHR/26/000${idx + 1}`);
 
@@ -931,7 +983,7 @@ export default function ClinicalAssignmentQueue() {
                         </div>
                       </div>
 
-                      {/* Selected Indicator Pill */}
+                      {/* Right Selected Checkmark */}
                       {isSelected && (
                         <div className="shrink-0 flex items-center gap-1 px-2.5 py-1 bg-blue-600 text-white rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm">
                           <CheckCircle2 className="w-3 h-3" />
@@ -967,19 +1019,26 @@ export default function ClinicalAssignmentQueue() {
           </div>
 
           {/* Routing Target Banner */}
-          {selectedPatient ? (
-            <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-2xl flex items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-2 h-2 rounded-full bg-blue-600 animate-ping shrink-0" />
-                <span className="font-bold text-blue-950 dark:text-blue-200 truncate">
-                  Ready to Route: <strong className="uppercase">{selectedPatient.firstName} {selectedPatient.lastName}</strong> ({normalizeEhrNumber(selectedPatient.ehrNumber || selectedPatient.ehr || 'MMH/EHR/26/0001')})
+          {selectedPatient ? (() => {
+            const effSelVitals = selectedPatient._effectiveVitals || getEffectivePatientVitals(selectedPatient);
+            const isSelUrgent = effSelVitals.isUrgent;
+            return (
+              <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-2xl flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-blue-600 animate-ping shrink-0" />
+                  <span className="font-bold text-blue-950 dark:text-blue-200 truncate">
+                    Ready to Route: <strong className="uppercase">{selectedPatient.firstName || ''} {selectedPatient.lastName || selectedPatient.name || ''}</strong> ({normalizeEhrNumber(selectedPatient.ehrNumber || selectedPatient.ehr || 'MMH/EHR/26/0001')}) • {effSelVitals.summary}
+                  </span>
+                </div>
+                <span className={cn(
+                  "text-[10px] font-black uppercase tracking-wider shrink-0 font-mono px-2 py-0.5 rounded-full",
+                  isSelUrgent ? "bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800" : "text-blue-600 dark:text-blue-400"
+                )}>
+                  {isSelUrgent ? 'URGENT STAT' : 'STANDARD'}
                 </span>
               </div>
-              <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider shrink-0 font-mono">
-                {selectedPatient.acuity || 'STANDARD'}
-              </span>
-            </div>
-          ) : (
+            );
+          })() : (
             <div className="p-3.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-500 font-bold text-center">
               No patient selected. Please click a waiting patient on the left.
             </div>
