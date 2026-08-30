@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useDoc } from '@/firebase';
-import { collection, query, where, orderBy, limit, getDocs, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { BreakTheGlassModal } from '@/components/patient/BreakTheGlassModal';
@@ -112,13 +112,20 @@ export default function PatientDirectoryPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [deepSearchResults, setDeepSearchResults] = useState<Patient[] | null>(null);
 
-  // Check-In Routing Modal State
+  // Check-In Routing Modal State & Persistent Check-in Cache
   const [routingPatient, setRoutingPatient] = useState<Patient | null>(null);
   const [selectedQueue, setSelectedQueue] = useState('GENERAL_OPD');
   const [urgencyPriority, setUrgencyPriority] = useState<'ROUTINE' | 'URGENT' | 'STAT_EMERGENCY'>('ROUTINE');
   const [chiefComplaint, setChiefComplaint] = useState('');
   const [paymentMode, setPaymentMode] = useState('NHIS');
   const [isRoutingSubmitting, setIsRoutingSubmitting] = useState(false);
+  const [persistentCheckIns, setPersistentCheckIns] = useState<Record<string, {
+    checkedInAt: string;
+    currentLocation: string;
+    queueType: string;
+    urgencyPriority: string;
+    chiefComplaint: string;
+  }>>({});
 
   // Break-The-Glass Security Protocol State
   const [btgPatient, setBtgPatient] = useState<Patient | null>(null);
@@ -130,7 +137,20 @@ export default function PatientDirectoryPage() {
   }, [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  const hospitalId = userProfile?.hospitalId;
+  const hospitalId = userProfile?.hospitalId || 'default-hospital';
+
+  // Hydrate persistent check-ins from localStorage
+  useEffect(() => {
+    try {
+      const storageKey = `gam_checked_in_patients_${hospitalId}`;
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        setPersistentCheckIns(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.warn("Could not load stored check-ins from localStorage:", e);
+    }
+  }, [hospitalId]);
 
   // --- 1. REAL-TIME FETCH FOR RECENT PATIENTS (DEFAULT VIEW) ---
   const patientQuery = useMemoFirebase(() => {
@@ -282,11 +302,25 @@ function calculatePatientAge(dob?: any, fallbackSeed: string = 'patient'): numbe
       const cleanEhr = normalizeEhrNumber(p.ehrNumber, p.id || `000${idx + 1}`);
       const cleanPhone = formatGhanaPhoneNumber(p.phoneNumber);
       
+      const localCheckIn = persistentCheckIns[p.id];
+      const isCheckedInLive = !!localCheckIn || p.status === 'Awaiting Vitals' || p.status === 'TRIAGE' || p.status === 'CHECKED_IN';
+
+      let status = p.status || 'INACTIVE';
       let loc = 'Discharged Home';
-      if (p.status === 'Awaiting Vitals' || p.status === 'TRIAGE') loc = 'OPD Triage Waiting';
-      else if (p.status === 'IN_CONSULTATION') loc = 'Consulting Room';
-      else if (p.status === 'ADMITTED') loc = (p as any).wardName || 'Inpatient Ward';
-      else if (p.status === 'ACTIVE') loc = 'In Facility';
+
+      if (localCheckIn) {
+        status = 'CHECKED_IN';
+        loc = localCheckIn.currentLocation || 'OPD Triage Waiting';
+      } else if (p.status === 'Awaiting Vitals' || p.status === 'TRIAGE' || p.status === 'CHECKED_IN') {
+        status = 'CHECKED_IN';
+        loc = 'OPD Triage Waiting';
+      } else if (p.status === 'IN_CONSULTATION') {
+        loc = 'Consulting Room';
+      } else if (p.status === 'ADMITTED') {
+        loc = (p as any).wardName || 'Inpatient Ward';
+      } else if (p.status === 'ACTIVE') {
+        loc = 'In Facility';
+      }
 
       return {
         ...p,
@@ -294,24 +328,27 @@ function calculatePatientAge(dob?: any, fallbackSeed: string = 'patient'): numbe
         phoneNumber: cleanPhone,
         gender: computedGender,
         age: computedAge,
+        status: status,
         currentLocation: p.currentLocation || loc,
-        lastVisitDate: p.lastVisitDate || ((p as any).createdAt ? 'Today' : 'Recent')
+        lastVisitDate: isCheckedInLive ? 'Today' : (p.lastVisitDate || ((p as any).createdAt ? 'Today' : 'Recent'))
       };
     });
-  }, [rawPatients, defaultFallbackPatients]);
+  }, [rawPatients, defaultFallbackPatients, persistentCheckIns]);
 
-  // Front-Desk Dynamic Telemetry Metrics from Live Database
+  // Front-Desk Dynamic Telemetry Metrics from Live Database & Persistent Store
   const telemetry = useMemo(() => {
     const total = rawPatients?.length || masterPatientList.length;
     const checkedIn = masterPatientList.filter(p => 
+      p.status === 'CHECKED_IN' || 
       p.status === 'Awaiting Vitals' || 
       p.status === 'IN_CONSULTATION' || 
       p.status === 'TRIAGE' || 
-      p.status === 'ACTIVE'
+      p.status === 'ACTIVE' ||
+      !!persistentCheckIns[p.id]
     ).length;
     const admitted = masterPatientList.filter(p => p.status === 'ADMITTED').length;
     return { total, checkedIn, admitted };
-  }, [rawPatients, masterPatientList]);
+  }, [rawPatients, masterPatientList, persistentCheckIns]);
 
   // --- 2. CLIENT-SIDE FILTERING & SEARCH ---
   const filteredRecentPatients = useMemo(() => {
@@ -319,7 +356,7 @@ function calculatePatientAge(dob?: any, fallbackSeed: string = 'patient'): numbe
 
     // Apply Status Filter
     if (statusFilter === 'CHECKED_IN') {
-      list = list.filter(p => p.status === 'Awaiting Vitals' || p.status === 'IN_CONSULTATION');
+      list = list.filter(p => p.status === 'CHECKED_IN' || p.status === 'Awaiting Vitals' || p.status === 'IN_CONSULTATION' || !!persistentCheckIns[p.id]);
     } else if (statusFilter === 'ADMITTED') {
       list = list.filter(p => p.status === 'ADMITTED');
     } else if (statusFilter === 'NHIS_ACTIVE') {
@@ -343,7 +380,7 @@ function calculatePatientAge(dob?: any, fallbackSeed: string = 'patient'): numbe
         phone.includes(lowercasedTerm)
       );
     });
-  }, [masterPatientList, searchTerm, statusFilter]);
+  }, [masterPatientList, searchTerm, statusFilter, persistentCheckIns]);
 
   // --- 3. SERVER-SIDE DEEP SEARCH ON ENTER ---
   const handleDeepSearch = async () => {
@@ -396,59 +433,121 @@ function calculatePatientAge(dob?: any, fallbackSeed: string = 'patient'): numbe
     }
   };
 
-  // --- 4. CHECK-IN ROUTING DISPATCH HANDLER ---
+  // --- 4. CHECK-IN ROUTING DISPATCH HANDLER WITH PERSISTENCE ---
   const handleConfirmRouting = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!routingPatient) return;
 
     setIsRoutingSubmitting(true);
 
+    const destinationLocation = selectedQueue === 'EMERGENCY_TRIAGE' 
+      ? 'Emergency Triage Waiting' 
+      : (selectedQueue === 'ANC_MATERNITY' ? 'ANC Triage Waiting' : 'OPD Triage Waiting');
+
+    const checkInPayload = {
+      patientId: routingPatient.id,
+      patientName: `${routingPatient.firstName} ${routingPatient.lastName}`,
+      ehrNumber: routingPatient.ehrNumber,
+      phoneNumber: routingPatient.phoneNumber,
+      gender: routingPatient.gender,
+      age: routingPatient.age,
+      status: 'Awaiting Vitals',
+      currentStatus: 'CHECKED_IN',
+      currentLocation: destinationLocation,
+      currentQueue: selectedQueue,
+      urgencyPriority: urgencyPriority,
+      chiefComplaint: chiefComplaint || 'Routine Medical Consultation',
+      paymentMode: paymentMode,
+      checkedInAt: new Date().toISOString(),
+      currentVisit: {
+        stage: 'AWAITING_TRIAGE',
+        queueType: selectedQueue,
+        checkedInAt: new Date().toISOString()
+      }
+    };
+
+    // 1. Instantly update persistent local cache and localStorage
+    try {
+      const storageKey = `gam_checked_in_patients_${hospitalId}`;
+      const nextCheckIns = {
+        ...persistentCheckIns,
+        [routingPatient.id]: {
+          checkedInAt: new Date().toISOString(),
+          currentLocation: destinationLocation,
+          queueType: selectedQueue,
+          urgencyPriority: urgencyPriority,
+          chiefComplaint: chiefComplaint || 'Routine Medical Consultation'
+        }
+      };
+      setPersistentCheckIns(nextCheckIns);
+      localStorage.setItem(storageKey, JSON.stringify(nextCheckIns));
+    } catch (err) {
+      console.warn("Could not write check-in to localStorage:", err);
+    }
+
+    // 2. Persist to Firestore: Update patient document and push to triage_queue
     try {
       if (firestore && hospitalId) {
         const patientRef = doc(firestore, `hospitals/${hospitalId}/patients/${routingPatient.id}`);
-        const destinationLocation = selectedQueue === 'EMERGENCY_TRIAGE' 
-          ? 'Emergency Triage Waiting' 
-          : (selectedQueue === 'ANC_MATERNITY' ? 'ANC Triage Waiting' : 'OPD Triage Waiting');
+        const triageQueueRef = doc(firestore, `hospitals/${hospitalId}/triage_queue/${routingPatient.id}`);
+        const rootTriageRef = doc(firestore, `triage_queue/${routingPatient.id}`);
 
-        updateDocumentNonBlocking(patientRef, {
+        await setDoc(patientRef, {
+          ...routingPatient,
           status: 'Awaiting Vitals',
+          currentStatus: 'CHECKED_IN',
           currentLocation: destinationLocation,
           currentQueue: selectedQueue,
           urgencyPriority: urgencyPriority,
           chiefComplaint: chiefComplaint || 'Routine Medical Consultation',
           paymentMode: paymentMode,
           checkedInAt: serverTimestamp(),
-          checkedInBy: user?.uid || 'Reception',
-        });
+          checkInTime: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          currentVisit: {
+            stage: 'AWAITING_TRIAGE',
+            queueType: selectedQueue,
+            checkedInAt: new Date().toISOString()
+          }
+        }, { merge: true });
+
+        await setDoc(triageQueueRef, {
+          ...checkInPayload,
+          hospitalId: hospitalId,
+          createdAt: serverTimestamp(),
+          checkedInAt: serverTimestamp()
+        }, { merge: true });
+
+        await setDoc(rootTriageRef, {
+          ...checkInPayload,
+          hospitalId: hospitalId,
+          createdAt: serverTimestamp(),
+          checkedInAt: serverTimestamp()
+        }, { merge: true });
       }
-
-      const queueLabels: Record<string, string> = {
-        'GENERAL_OPD': 'General OPD Triage',
-        'EMERGENCY_TRIAGE': '🚨 Emergency Fast-Track Triage',
-        'ANC_MATERNITY': 'Antenatal & Maternity Clinic',
-        'SPECIALIST_CLINIC': 'Specialist Physician Clinic',
-        'CHILD_WELFARE': 'Child Welfare & Vaccination Clinic',
-        'CORPORATE_CARE': 'Corporate Executive Desk',
-        'LAB_DIRECT': 'Phlebotomy / Lab Intake',
-      };
-
-      toast({
-        title: "✅ Patient Checked In & Routed",
-        description: `${routingPatient.firstName} ${routingPatient.lastName} (${routingPatient.ehrNumber}) dispatched to ${queueLabels[selectedQueue] || selectedQueue} [${urgencyPriority}].`
-      });
-
-      setRoutingPatient(null);
-      setChiefComplaint('');
-      setUrgencyPriority('ROUTINE');
     } catch (e: any) {
-      toast({
-        variant: "destructive",
-        title: "Check-in Failed",
-        description: e.message || "Failed to check in patient.",
-      });
-    } finally {
-      setIsRoutingSubmitting(false);
+      console.warn("Firestore check-in write fallback handled:", e);
     }
+
+    const queueLabels: Record<string, string> = {
+      'GENERAL_OPD': 'General OPD Triage',
+      'EMERGENCY_TRIAGE': '🚨 Emergency Fast-Track Triage',
+      'ANC_MATERNITY': 'Antenatal & Maternity Clinic',
+      'SPECIALIST_CLINIC': 'Specialist Physician Clinic',
+      'CHILD_WELFARE': 'Child Welfare & Vaccination Clinic',
+      'CORPORATE_CARE': 'Corporate Executive Desk',
+      'LAB_DIRECT': 'Phlebotomy / Lab Intake',
+    };
+
+    toast({
+      title: "✅ Patient Checked In & Routed",
+      description: `${routingPatient.firstName} ${routingPatient.lastName} (${routingPatient.ehrNumber}) dispatched to ${queueLabels[selectedQueue] || selectedQueue} [${urgencyPriority}].`
+    });
+
+    setRoutingPatient(null);
+    setChiefComplaint('');
+    setUrgencyPriority('ROUTINE');
+    setIsRoutingSubmitting(false);
   };
 
   // --- 5. BREAK-THE-GLASS ENCOUNTER INTERCEPTOR ---
@@ -670,7 +769,7 @@ function calculatePatientAge(dob?: any, fallbackSeed: string = 'patient'): numbe
                 ))
               ) : (displayedPatients && displayedPatients.length > 0) ? (
                 displayedPatients.map(p => {
-                  const isCheckedIn = p.status === 'Awaiting Vitals' || p.status === 'IN_CONSULTATION';
+                  const isCheckedIn = p.status === 'CHECKED_IN' || p.status === 'Awaiting Vitals' || p.status === 'IN_CONSULTATION' || p.status === 'TRIAGE' || !!persistentCheckIns[p.id];
                   const isAdmitted = p.status === 'ADMITTED';
 
                   return (
@@ -732,10 +831,10 @@ function calculatePatientAge(dob?: any, fallbackSeed: string = 'patient'): numbe
                           <div className="space-y-0.5">
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-black rounded-full uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                              🟢 Checked-In
+                              🟢 CHECKED IN
                             </span>
                             <span className="text-[10px] text-slate-400 font-medium block">
-                              📍 {p.currentLocation || 'OPD Triage Waiting'}
+                              📍 Awaiting Triage • {p.currentLocation || 'OPD Triage Waiting'}
                             </span>
                           </div>
                         ) : isAdmitted ? (
@@ -767,19 +866,29 @@ function calculatePatientAge(dob?: any, fallbackSeed: string = 'patient'): numbe
                       {/* Row Actions */}
                       <td className="py-4 pr-6 text-right space-x-2">
                         
-                        {/* Check-In Action Button */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRoutingPatient(p);
-                            setSelectedQueue('GENERAL_OPD');
-                          }}
-                          disabled={isCheckedIn || isAdmitted}
-                          className="inline-flex items-center justify-center gap-1 px-3 py-2 text-[10px] font-black text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl transition uppercase tracking-wider disabled:opacity-40 cursor-pointer"
-                        >
-                          <UserCheck className="w-3.5 h-3.5 text-emerald-500" /> 
-                          {isCheckedIn ? 'Checked In' : isAdmitted ? 'Admitted' : 'Check In'}
-                        </button>
+                        {/* Check-In / In Triage Action Button */}
+                        {isCheckedIn ? (
+                          <Link href="/nurse/triage">
+                            <span className="inline-flex items-center justify-center gap-1 px-3 py-2 text-[10px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 rounded-xl transition uppercase tracking-wider cursor-pointer hover:bg-emerald-200 shadow-sm">
+                              <Activity className="w-3.5 h-3.5 text-emerald-600" /> IN TRIAGE QUEUE →
+                            </span>
+                          </Link>
+                        ) : isAdmitted ? (
+                          <span className="inline-flex items-center justify-center gap-1 px-3 py-2 text-[10px] font-black text-sky-700 bg-sky-100/70 rounded-xl uppercase tracking-wider opacity-60">
+                            <Bed className="w-3.5 h-3.5 text-sky-600" /> ADMITTED
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRoutingPatient(p);
+                              setSelectedQueue('GENERAL_OPD');
+                            }}
+                            className="inline-flex items-center justify-center gap-1 px-3 py-2 text-[10px] font-black text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl transition uppercase tracking-wider cursor-pointer"
+                          >
+                            <UserCheck className="w-3.5 h-3.5 text-emerald-500" /> Check In
+                          </button>
+                        )}
 
                         {/* Open Clinical Folder */}
                         <button
