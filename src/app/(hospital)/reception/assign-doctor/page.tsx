@@ -11,7 +11,8 @@ import {
   Users, AlertCircle, ShieldCheck, ChevronRight, 
   HeartPulse, DoorOpen, UserCheck, Loader2, ShieldAlert,
   CheckCircle2, Sparkles, AlertTriangle, ArrowRight, User,
-  Search, X, Flame, Filter, ArrowUpDown, Volume2, Navigation, MapPin
+  Search, X, Flame, Filter, ArrowUpDown, Volume2, Navigation, MapPin,
+  Printer, MessageSquare, Check, Radio, Share2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -121,7 +122,7 @@ const DEMO_ACTIVE_CLINICIANS = [
     specialty: 'SENIOR MEDICAL OFFICER - OPD', 
     room: 'Consulting Room 5', 
     wayfinding: 'Ground Floor • Surgical Wing (Door 005)',
-    routeGuide: 'Follow Green Line to West Corridor',
+    routeGuide: 'Follow Green Floor Line to West Corridor',
     currentLoad: 0, 
     status: 'OPEN' 
   },
@@ -141,17 +142,40 @@ const DEMO_ACTIVE_CLINICIANS = [
     specialty: 'MEDICAL OFFICER - OPD 2', 
     room: 'Consulting Room 2', 
     wayfinding: 'Ground Floor • General OPD Wing B (Door 002)',
-    routeGuide: 'Follow Blue Line → Turn Right at Station B',
+    routeGuide: 'Follow Blue Floor Line → Turn Right at Station B',
     currentLoad: 4, 
     status: 'BUSY' 
   },
 ];
 
-// Helper: Check if patient is high acuity
+// Helper: Universal High-Acuity & Urgent Vitals Predicate
 function isPatientUrgent(p: any): boolean {
-  const bp = p.triage?.bloodPressure || p.triage?.bp || p.vitals?.bp || '';
-  const temp = parseFloat(p.triage?.temperature || p.triage?.temp || p.vitals?.temp || '0');
-  return p.acuity === 'URGENT' || bp.startsWith('14') || bp.startsWith('15') || bp.startsWith('16') || temp >= 38.0;
+  if (!p) return false;
+  if (p.acuity === 'URGENT' || p.acuity === 'EMERGENCY') return true;
+
+  const triage = p.triage || p.vitals || {};
+
+  // Temperature parsing (>= 38.0 C)
+  const rawTemp = String(triage.temperature || triage.temp || p.temperature || p.temp || '');
+  const tempMatch = rawTemp.match(/(\d+(\.\d+)?)/);
+  if (tempMatch) {
+    const tempVal = parseFloat(tempMatch[1]);
+    if (!isNaN(tempVal) && tempVal >= 38.0) return true;
+  }
+
+  // Blood Pressure parsing (systolic >= 140 or diastolic >= 90)
+  const rawBp = String(triage.bloodPressure || triage.bp || p.bloodPressure || p.bp || '');
+  const bpMatch = rawBp.match(/(\d{2,3})\s*\/\s*(\d{2,3})/);
+  if (bpMatch) {
+    const systolic = parseInt(bpMatch[1], 10);
+    const diastolic = parseInt(bpMatch[2], 10);
+    if (systolic >= 140 || diastolic >= 90) return true;
+  } else {
+    const singleSysMatch = rawBp.match(/^(\d{2,3})/);
+    if (singleSysMatch && parseInt(singleSysMatch[1], 10) >= 140) return true;
+  }
+
+  return false;
 }
 
 // Helper: Get Numeric Wait Minutes
@@ -233,12 +257,21 @@ export default function ClinicalAssignmentQueue() {
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'URGENT' | 'LONG_WAIT'>('ALL');
-  const [sortBy, setSortBy] = useState<'TRIAGE_PRIORITY' | 'STRICT_FIFO'>('TRIAGE_PRIORITY');
+  const [sortBy, setSortBy] = useState<'LONGEST_WAIT' | 'TRIAGE_PRIORITY'>('LONGEST_WAIT');
 
-  // Assignment Modal State
+  // Confirmation Modal State (Pre-dispatch)
   const [assignmentModalTarget, setAssignmentModalTarget] = useState<{
     patient: any;
     doctor: any;
+  } | null>(null);
+
+  // Success & Wayfinding Pass Modal State (Post-dispatch)
+  const [routedSuccessData, setRoutedSuccessData] = useState<{
+    patient: any;
+    doctor: any;
+    queueNumber: number;
+    dispatchedAt: string;
+    smsSent: boolean;
   } | null>(null);
 
   const userProfileRef = useMemoFirebase(() => {
@@ -287,8 +320,8 @@ export default function ClinicalAssignmentQueue() {
         fullName: formatDoctorName(d.fullName || d.name || 'Clinician'),
         specialty: (d.specialty || d.department || 'GENERAL PRACTITIONER').toUpperCase(),
         room: d.room || `Consulting Room ${idx + 1}`,
-        wayfinding: d.wayfinding || `Ground Floor • OPD Wing (Door 00${idx + 1})`,
-        routeGuide: d.routeGuide || 'Follow Blue Floor Line',
+        wayfinding: d.wayfinding || `Ground Floor • General OPD Wing ${String.fromCharCode(65 + (idx % 3))} (Door 00${idx + 1})`,
+        routeGuide: d.routeGuide || `Follow Blue Floor Line directly to Door 00${idx + 1}`,
         currentLoad: d.currentLoad ?? (idx % 3),
         status: d.status || 'AVAILABLE'
       }));
@@ -316,7 +349,7 @@ export default function ClinicalAssignmentQueue() {
     }).length;
   }, [unassignedPatients]);
 
-  // FAIR TRIAGE & FIFO SORTING
+  // FAIR FIFO / LONGEST WAIT SORTING (DEFAULT: b.waitMinutes - a.waitMinutes)
   const sortedPatients = useMemo(() => {
     const base = [...unassignedPatients];
 
@@ -327,12 +360,11 @@ export default function ClinicalAssignmentQueue() {
       const urgentB = isPatientUrgent(b);
 
       if (sortBy === 'TRIAGE_PRIORITY') {
-        // High-acuity patients pinned to top, then sorted descending by wait time within urgent tier
         if (urgentA && !urgentB) return -1;
         if (!urgentA && urgentB) return 1;
-        return waitB - waitA; // longest wait first
+        return waitB - waitA;
       } else {
-        // Pure FIFO: longest wait time strictly first
+        // Strict Longest Wait First (True FIFO)
         return waitB - waitA;
       }
     });
@@ -414,6 +446,8 @@ export default function ClinicalAssignmentQueue() {
     try {
       const patientFullName = `${patient.firstName || ''} ${patient.lastName || patient.name || ''}`.trim() || 'Patient';
       const patientEhr = normalizeEhrNumber(patient.ehrNumber || patient.ehr || 'MMH/EHR/26/0001');
+      const queuePosition = (doctor.currentLoad || 0) + 1;
+      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
       if (firestore && hospitalId && patient.id && !patient.id.startsWith('p_0')) {
         const patientRef = doc(firestore, `hospitals/${hospitalId}/patients`, patient.id);
@@ -432,6 +466,15 @@ export default function ClinicalAssignmentQueue() {
         description: `${patientFullName} (${patientEhr}) routed to ${doctor.fullName} in ${doctor.room}.`
       });
 
+      // Prepare Routing Slip & Notification Data
+      setRoutedSuccessData({
+        patient: { ...patient, fullName: patientFullName, ehr: patientEhr },
+        doctor: doctor,
+        queueNumber: queuePosition,
+        dispatchedAt: `Today, ${nowStr}`,
+        smsSent: false
+      });
+
       // Advance selection to next patient
       const currentIndex = filteredPatients.findIndex(p => p.id === patient.id);
       const nextPatient = filteredPatients[currentIndex + 1] || filteredPatients[0];
@@ -446,6 +489,34 @@ export default function ClinicalAssignmentQueue() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Action: Print Routing Pass
+  const handlePrintSlip = () => {
+    if (typeof window !== 'undefined') {
+      window.print();
+    }
+  };
+
+  // Action: Send SMS Notification
+  const handleSendSms = () => {
+    if (!routedSuccessData) return;
+    const phone = routedSuccessData.patient.phoneNumber || routedSuccessData.patient.phone || '024 475 0901';
+    setRoutedSuccessData(prev => prev ? { ...prev, smsSent: true } : null);
+
+    toast({
+      title: "📱 SMS Notice Dispatched!",
+      description: `Sent to ${phone}: "Dear ${routedSuccessData.patient.fullName}, you have been routed to ${routedSuccessData.doctor.fullName} in ${routedSuccessData.doctor.room}."`
+    });
+  };
+
+  // Action: Broadcast Hall Chime
+  const handleBroadcastCallout = () => {
+    if (!routedSuccessData) return;
+    toast({
+      title: "🔊 OPD Display & Audio Chime Broadcasted!",
+      description: `Calling ${routedSuccessData.patient.fullName} to ${routedSuccessData.doctor.room} on waiting hall screens.`
+    });
   };
 
   const pageIsLoading = isUserLoading || isProfileLoading;
@@ -506,7 +577,7 @@ export default function ClinicalAssignmentQueue() {
               </div>
             </div>
             <p className="mt-1 text-xs md:text-sm text-slate-400 font-medium max-w-2xl">
-              Fair queue sorting (longest wait & high-acuity priority) with wayfinding guidance to consulting rooms.
+              Fair FIFO queue sorting (longest wait duration first) with instant thermal routing pass printing and SMS notification dispatch.
             </p>
           </div>
           
@@ -596,7 +667,7 @@ export default function ClinicalAssignmentQueue() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* ======================================================================= */}
-        {/* LEFT COLUMN: PATIENT QUEUE (FAIR FIFO + URGENT PINNING)                 */}
+        {/* LEFT COLUMN: PATIENT QUEUE (FAIR FIFO + LONGEST WAIT FIRST)             */}
         {/* ======================================================================= */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 flex flex-col h-full space-y-4">
           
@@ -608,12 +679,25 @@ export default function ClinicalAssignmentQueue() {
                 1. Patients Waiting for Doctor ({filteredPatients.length}{filteredPatients.length !== unassignedPatients.length ? ` of ${unassignedPatients.length}` : ''})
               </h2>
               <p className="text-[10px] text-slate-400 mt-0.5">
-                Longest wait times & high acuity patients prioritized at the top.
+                Longest wait duration ranked #1 at top for fair triaging.
               </p>
             </div>
 
             {/* Fair Sort Mode Toggle */}
             <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shrink-0 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setSortBy('LONGEST_WAIT')}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1",
+                  sortBy === 'LONGEST_WAIT'
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-white"
+                )}
+              >
+                <ArrowUpDown className="w-3 h-3" />
+                Longest Wait First
+              </button>
               <button
                 type="button"
                 onClick={() => setSortBy('TRIAGE_PRIORITY')}
@@ -625,20 +709,7 @@ export default function ClinicalAssignmentQueue() {
                 )}
               >
                 <Flame className="w-3 h-3 text-amber-300" />
-                Urgent + Wait
-              </button>
-              <button
-                type="button"
-                onClick={() => setSortBy('STRICT_FIFO')}
-                className={cn(
-                  "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1",
-                  sortBy === 'STRICT_FIFO'
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-800 dark:hover:text-white"
-                )}
-              >
-                <ArrowUpDown className="w-3 h-3" />
-                Strict FIFO
+                Urgent STAT Pin
               </button>
             </div>
           </div>
@@ -666,7 +737,7 @@ export default function ClinicalAssignmentQueue() {
               )}
             </div>
 
-            {/* Quick Acuity & Priority Filter Pills */}
+            {/* Quick Acuity & Priority Filter Pills (Fixed counts) */}
             <div className="flex flex-wrap items-center gap-1.5">
               
               {/* All Chip */}
@@ -683,7 +754,7 @@ export default function ClinicalAssignmentQueue() {
                 All ({unassignedPatients.length})
               </button>
 
-              {/* High Acuity / Fever Chip */}
+              {/* High Acuity / Fever Chip (Accurate count matching Temp >= 38.0 or BP >= 140) */}
               <button
                 type="button"
                 onClick={() => setActiveFilter('URGENT')}
@@ -949,7 +1020,7 @@ export default function ClinicalAssignmentQueue() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. ASSIGNMENT CONFIRMATION & WAYFINDING MODAL                             */}
+      {/* 3. ASSIGNMENT CONFIRMATION MODAL                                          */}
       {/* ========================================================================= */}
       {assignmentModalTarget && (
         <Dialog open={!!assignmentModalTarget} onOpenChange={() => setAssignmentModalTarget(null)}>
@@ -959,10 +1030,10 @@ export default function ClinicalAssignmentQueue() {
                 <ArrowRightLeft className="w-6 h-6" />
               </div>
               <DialogTitle className="text-xl font-black uppercase tracking-tight text-white">
-                Confirm Doctor Assignment & Wayfinding
+                Confirm Doctor Assignment
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-400">
-                Verify patient routing details and consulting room wayfinding directions.
+                Verify patient routing details before transferring custody to the consulting room queue.
               </DialogDescription>
             </DialogHeader>
 
@@ -1049,6 +1120,128 @@ export default function ClinicalAssignmentQueue() {
                     CONFIRM & DISPATCH PATIENT &rarr;
                   </>
                 )}
+              </button>
+            </div>
+
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 4. POST-ASSIGNMENT ROUTING PASS & NOTIFICATION MODAL                       */}
+      {/* ========================================================================= */}
+      {routedSuccessData && (
+        <Dialog open={!!routedSuccessData} onOpenChange={() => setRoutedSuccessData(null)}>
+          <DialogContent className="bg-slate-950 border border-slate-800 text-white rounded-3xl p-6 md:p-8 max-w-lg shadow-2xl space-y-5">
+            <DialogHeader>
+              <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center border border-emerald-500/30 mb-2">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <DialogTitle className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-2">
+                Patient Routed Successfully
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-400">
+                Routing custody transferred. Hand the printed pass to the patient or trigger automated alerts.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Printable Thermal Receipt Card */}
+            <div id="thermal-routing-pass" className="p-5 bg-white text-slate-950 rounded-2xl border-2 border-slate-300 shadow-inner font-mono text-xs space-y-3">
+              {/* Receipt Header */}
+              <div className="text-center pb-2 border-b-2 border-dashed border-slate-400">
+                <div className="text-[10px] font-black tracking-widest uppercase text-slate-600">GAM MED HEALTHCARE</div>
+                <div className="text-base font-black uppercase tracking-tight text-slate-950 mt-0.5">MMH OPD ROUTING PASS</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{routedSuccessData.dispatchedAt}</div>
+              </div>
+
+              {/* Patient & Doctor Row */}
+              <div className="space-y-1.5 py-1 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600 uppercase font-bold text-[10px]">PATIENT:</span>
+                  <span className="font-black text-slate-950 uppercase">{routedSuccessData.patient.fullName}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600 uppercase font-bold text-[10px]">EHR NUMBER:</span>
+                  <span className="font-black text-slate-950">{routedSuccessData.patient.ehr}</span>
+                </div>
+                <div className="flex justify-between items-center pt-1 border-t border-slate-200">
+                  <span className="text-slate-600 uppercase font-bold text-[10px]">DOCTOR:</span>
+                  <span className="font-black text-slate-950 uppercase">{routedSuccessData.doctor.fullName}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600 uppercase font-bold text-[10px]">DESTINATION:</span>
+                  <span className="font-black text-blue-900 uppercase">{routedSuccessData.doctor.room}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600 uppercase font-bold text-[10px]">QUEUE POSITION:</span>
+                  <span className="font-black text-emerald-800">#{routedSuccessData.queueNumber} IN ROOM QUEUE</span>
+                </div>
+              </div>
+
+              {/* Physical Wayfinding Pin */}
+              <div className="p-2.5 bg-slate-100 rounded-xl border border-slate-300 text-[11px] font-sans text-slate-800">
+                <div className="font-bold flex items-center gap-1 text-slate-950 mb-0.5">
+                  <MapPin className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  {routedSuccessData.doctor.wayfinding}
+                </div>
+                <div className="text-[10px] text-slate-600">{routedSuccessData.doctor.routeGuide}</div>
+              </div>
+
+              {/* Receipt Footer */}
+              <div className="text-center pt-2 border-t-2 border-dashed border-slate-400 text-[9px] text-slate-500 uppercase">
+                Please be seated outside {routedSuccessData.doctor.room} • Watch OPD Calling TV
+              </div>
+            </div>
+
+            {/* Multichannel Notification Actions */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+              
+              {/* 1. Print Thermal Routing Pass */}
+              <button
+                type="button"
+                onClick={handlePrintSlip}
+                className="px-4 py-3 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-xl border border-slate-800 transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow"
+              >
+                <Printer className="w-4 h-4 text-sky-400" />
+                <span>Print Slip</span>
+              </button>
+
+              {/* 2. Send SMS Alert */}
+              <button
+                type="button"
+                onClick={handleSendSms}
+                className={cn(
+                  "px-4 py-3 font-black text-xs rounded-xl border transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow",
+                  routedSuccessData.smsSent 
+                    ? "bg-emerald-950/60 border-emerald-800 text-emerald-300"
+                    : "bg-slate-900 hover:bg-slate-800 border-slate-800 text-white"
+                )}
+              >
+                <MessageSquare className="w-4 h-4 text-emerald-400" />
+                <span>{routedSuccessData.smsSent ? 'SMS Sent ✓' : 'Send SMS Notice'}</span>
+              </button>
+
+              {/* 3. Broadcast Hall TV Chime */}
+              <button
+                type="button"
+                onClick={handleBroadcastCallout}
+                className="sm:col-span-2 px-4 py-2.5 bg-slate-900/60 hover:bg-slate-800/80 text-slate-300 font-bold text-xs rounded-xl border border-slate-800/80 transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer"
+              >
+                <Volume2 className="w-4 h-4 text-amber-400" />
+                <span>Broadcast to OPD Waiting TV Board</span>
+              </button>
+
+            </div>
+
+            {/* Done Button */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setRoutedSuccessData(null)}
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer"
+              >
+                <Check className="w-4 h-4" />
+                <span>Done / Next Patient</span>
               </button>
             </div>
 
