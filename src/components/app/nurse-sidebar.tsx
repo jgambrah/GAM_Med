@@ -7,7 +7,7 @@ import {
   HeartPulse, Activity, AlertTriangle, UserCheck, BedDouble, 
   ClipboardList, Baby, Users, Radio, Video, Timer, 
   CalendarMinus, Banknote, LogOut, ChevronRight, Stethoscope,
-  Pill, BellRing, PackagePlus
+  Pill, BellRing, PackagePlus, ArrowRightLeft
 } from 'lucide-react';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -34,6 +34,7 @@ export function NurseSidebar() {
       links: [
         { name: "Triage Queue", href: "/nurse/triage", icon: Activity },
         { name: "Outpatient Desk (OPD)", href: "/nurse/opd", icon: HeartPulse },
+        { name: "Assign Doctor & Consult", href: "/reception/assign-doctor", icon: ArrowRightLeft },
         { name: "Emergency (ER) Board", href: "/emergency", icon: AlertTriangle },
       ]
     },

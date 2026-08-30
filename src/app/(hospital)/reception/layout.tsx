@@ -6,6 +6,9 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { ReceptionSidebar } from '@/components/app/reception-sidebar';
+import { NurseSidebar } from '@/components/app/nurse-sidebar';
+import { DoctorSidebar } from '@/components/app/doctor-sidebar';
+import { DirectorSidebar } from '@/components/app/director-sidebar';
 
 export default function ReceptionLayout({
   children,
@@ -23,7 +26,7 @@ export default function ReceptionLayout({
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userProfileRef);
   
   const userRole = userProfile?.role;
-  const isAuthorized = ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE'].includes(userRole);
+  const isAuthorized = ['DIRECTOR', 'ADMIN', 'RECEPTIONIST', 'NURSE', 'DOCTOR'].includes(userRole || '');
 
   const isLoading = isUserLoading || isProfileLoading;
 
@@ -41,19 +44,26 @@ export default function ReceptionLayout({
         <div className="text-center">
           <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
           <h1 className="text-2xl font-bold">Access Denied</h1>
-          <p className="text-muted-foreground">You do not have clearance for the Front Desk.</p>
+          <p className="text-muted-foreground">You do not have clearance for this operational desk.</p>
           <Button onClick={() => router.push('/dashboard')}>Return Home</Button>
         </div>
       </div>
     );
   }
 
+  // Dynamically render sidebar matching the authenticated user's role
+  const activeSidebar = 
+    userRole === 'NURSE' ? <NurseSidebar /> :
+    userRole === 'DOCTOR' ? <DoctorSidebar /> :
+    userRole === 'DIRECTOR' || userRole === 'ADMIN' ? <DirectorSidebar userProfile={userProfile} /> :
+    <ReceptionSidebar />;
+
   return (
     <>
-        <ReceptionSidebar />
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-            {children}
-        </main>
+      {activeSidebar}
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+        {children}
+      </main>
     </>
   );
 }
