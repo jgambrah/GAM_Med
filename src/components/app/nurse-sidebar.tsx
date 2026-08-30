@@ -33,7 +33,7 @@ export function NurseSidebar() {
       title: "OUTPATIENT & TRIAGE",
       links: [
         { name: "Triage Queue", href: "/nurse/triage", icon: Activity },
-        { name: "Outpatient Desk (OPD)", href: "/nurse", icon: HeartPulse },
+        { name: "Outpatient Desk (OPD)", href: "/nurse/opd", icon: HeartPulse },
         { name: "Emergency (ER) Board", href: "/emergency", icon: AlertTriangle },
       ]
     },
@@ -112,7 +112,9 @@ export function NurseSidebar() {
             <ul className="space-y-0.5">
               {section.links.map(link => {
                 const Icon = link.icon;
-                const isActive = pathname === link.href || (link.href !== '/nurse' && pathname.startsWith(link.href));
+                const isActive = link.href === '/nurse'
+                  ? pathname === '/nurse'
+                  : pathname === link.href || (link.href !== '/' && pathname.startsWith(`${link.href}/`));
                                  
                 return (
                   <li key={link.name}>

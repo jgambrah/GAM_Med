@@ -21,7 +21,7 @@ export default function OpdSmartRedirectPage() {
   useEffect(() => {
     if (!isUserLoading && !isProfileLoading && userProfile) {
       if (userProfile.role === 'NURSE') {
-        router.replace('/nurse');
+        router.replace('/nurse/opd');
       } else if (userProfile.role === 'DOCTOR' || userProfile.role === 'DIRECTOR' || userProfile.role === 'ADMIN') {
         router.replace('/doctor');
       } else if (userProfile.role === 'RECEPTIONIST') {
