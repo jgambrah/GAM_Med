@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import {
   collection, query, where, orderBy, doc, 
@@ -10,7 +10,8 @@ import {
   ArrowRightLeft, Clock, Activity, Stethoscope, 
   Users, AlertCircle, ShieldCheck, ChevronRight, 
   HeartPulse, DoorOpen, UserCheck, Loader2, ShieldAlert,
-  CheckCircle2, Sparkles, AlertTriangle, ArrowRight, User
+  CheckCircle2, Sparkles, AlertTriangle, ArrowRight, User,
+  Search, X, Flame, Filter
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ const DEMO_WAITING_PATIENTS = [
     rawWaitMinutes: 24, 
     acuity: 'URGENT', 
     chiefComplaint: 'Severe Migraine & High BP',
+    phoneNumber: '024 475 0901',
     vitals: { bp: '145/92', temp: '38.1', pulse: '94', spo2: '98', weight: '72' } 
   },
   { 
@@ -52,6 +54,7 @@ const DEMO_WAITING_PATIENTS = [
     rawWaitMinutes: 18, 
     acuity: 'STANDARD', 
     chiefComplaint: 'Routine Antenatal Follow-up',
+    phoneNumber: '054 236 7470',
     vitals: { bp: '120/80', temp: '36.8', pulse: '74', spo2: '99', weight: '65' } 
   },
   { 
@@ -62,6 +65,7 @@ const DEMO_WAITING_PATIENTS = [
     rawWaitMinutes: 15, 
     acuity: 'STANDARD', 
     chiefComplaint: 'General Malaise & Fatigue',
+    phoneNumber: '024 556 7812',
     vitals: { bp: '118/76', temp: '37.0', pulse: '72', spo2: '99', weight: '80' } 
   },
   { 
@@ -69,9 +73,10 @@ const DEMO_WAITING_PATIENTS = [
     firstName: 'DANIEL', 
     lastName: 'ANIM', 
     ehrNumber: 'MMH/EHR/26/0004', 
-    rawWaitMinutes: 12, 
+    rawWaitMinutes: 21, 
     acuity: 'URGENT', 
     chiefComplaint: 'Persistent Cough & Low Grade Fever',
+    phoneNumber: '020 889 1234',
     vitals: { bp: '136/88', temp: '37.8', pulse: '88', spo2: '96', weight: '68' } 
   },
   { 
@@ -82,6 +87,7 @@ const DEMO_WAITING_PATIENTS = [
     rawWaitMinutes: 8, 
     acuity: 'STANDARD', 
     chiefComplaint: 'Medication Refill & Blood Sugar Check',
+    phoneNumber: '055 443 2190',
     vitals: { bp: '124/82', temp: '36.6', pulse: '70', spo2: '98', weight: '60' } 
   },
   { 
@@ -89,10 +95,11 @@ const DEMO_WAITING_PATIENTS = [
     firstName: 'BENJAMIN', 
     lastName: 'HEDIDOR', 
     ehrNumber: 'MMH/EHR/26/0007', 
-    rawWaitMinutes: 5, 
-    acuity: 'STANDARD', 
-    chiefComplaint: 'Ear Fullness & Discomfort',
-    vitals: { bp: '128/84', temp: '36.9', pulse: '76', spo2: '99', weight: '75' } 
+    rawWaitMinutes: 36, 
+    acuity: 'URGENT', 
+    chiefComplaint: 'High Fever & Ear Discomfort',
+    phoneNumber: '024 991 3456',
+    vitals: { bp: '142/90', temp: '38.2', pulse: '92', spo2: '97', weight: '75' } 
   },
 ];
 
@@ -209,6 +216,10 @@ export default function ClinicalAssignmentQueue() {
   const [loading, setLoading] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>('p_01');
 
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'URGENT' | 'LONG_WAIT'>('ALL');
+
   // Assignment Modal State
   const [assignmentModalTarget, setAssignmentModalTarget] = useState<{
     patient: any;
@@ -268,12 +279,7 @@ export default function ClinicalAssignmentQueue() {
     return DEMO_ACTIVE_CLINICIANS;
   }, [rawOnlineDoctors]);
 
-  // Selected Patient Object
-  const selectedPatient = useMemo(() => {
-    return unassignedPatients.find(p => p.id === selectedPatientId) || unassignedPatients[0] || null;
-  }, [unassignedPatients, selectedPatientId]);
-
-  // Dynamic Telemetry: Longest Wait Time computed via Math.max across all waiting patients
+  // Dynamic Telemetry Metrics
   const longestWaitStr = useMemo(() => {
     if (unassignedPatients.length === 0) return '0 mins';
     const waitList = unassignedPatients.map((p: any, idx: number) => {
@@ -284,8 +290,73 @@ export default function ClinicalAssignmentQueue() {
   }, [unassignedPatients]);
 
   const urgentCount = useMemo(() => {
-    return unassignedPatients.filter(p => p.acuity === 'URGENT' || p.vitals?.temp > 38 || p.vitals?.bp?.startsWith('14')).length;
+    return unassignedPatients.filter(p => {
+      const bp = p.triage?.bloodPressure || p.triage?.bp || p.vitals?.bp || '';
+      const temp = parseFloat(p.triage?.temperature || p.triage?.temp || p.vitals?.temp || '0');
+      return p.acuity === 'URGENT' || bp.startsWith('14') || bp.startsWith('15') || temp >= 38.0;
+    }).length;
   }, [unassignedPatients]);
+
+  const longWaitCount = useMemo(() => {
+    return unassignedPatients.filter((p: any, idx: number) => {
+      return getWaitMinutesNumber(p, Math.max(5, 24 - idx * 3)) >= 20;
+    }).length;
+  }, [unassignedPatients]);
+
+  // Real-Time Filtered Patients List
+  const filteredPatients = useMemo(() => {
+    let list = unassignedPatients;
+
+    // Filter by Acuity / Wait Time Pill
+    if (activeFilter === 'URGENT') {
+      list = list.filter((p: any) => {
+        const bp = p.triage?.bloodPressure || p.triage?.bp || p.vitals?.bp || '';
+        const temp = parseFloat(p.triage?.temperature || p.triage?.temp || p.vitals?.temp || '0');
+        return p.acuity === 'URGENT' || bp.startsWith('14') || bp.startsWith('15') || temp >= 38.0;
+      });
+    } else if (activeFilter === 'LONG_WAIT') {
+      list = list.filter((p: any, idx: number) => {
+        return getWaitMinutesNumber(p, Math.max(5, 24 - idx * 3)) >= 20;
+      });
+    }
+
+    // Filter by Real-Time Search Query
+    const queryClean = searchQuery.trim().toLowerCase();
+    if (queryClean) {
+      list = list.filter((p: any) => {
+        const fullName = `${p.firstName || ''} ${p.lastName || p.name || ''}`.toLowerCase();
+        const ehr = (p.ehrNumber || p.ehr || '').toLowerCase();
+        const normEhr = normalizeEhrNumber(ehr).toLowerCase();
+        const phone = (p.phoneNumber || p.phone || '').toLowerCase();
+        const gha = (p.ghanaCardId || '').toLowerCase();
+        const complaint = (p.chiefComplaint || '').toLowerCase();
+
+        return fullName.includes(queryClean) ||
+               ehr.includes(queryClean) ||
+               normEhr.includes(queryClean) ||
+               phone.includes(queryClean) ||
+               gha.includes(queryClean) ||
+               complaint.includes(queryClean);
+      });
+    }
+
+    return list;
+  }, [unassignedPatients, activeFilter, searchQuery]);
+
+  // Auto-Select First Result on Search/Filter Change
+  useEffect(() => {
+    if (filteredPatients.length > 0) {
+      const isSelectedPresent = filteredPatients.some(p => p.id === selectedPatientId);
+      if (!isSelectedPresent) {
+        setSelectedPatientId(filteredPatients[0].id);
+      }
+    }
+  }, [filteredPatients, selectedPatientId]);
+
+  // Selected Patient Object
+  const selectedPatient = useMemo(() => {
+    return filteredPatients.find(p => p.id === selectedPatientId) || filteredPatients[0] || null;
+  }, [filteredPatients, selectedPatientId]);
 
   // Trigger Assignment Modal
   const openAssignmentConfirmation = (doctor: any) => {
@@ -331,8 +402,8 @@ export default function ClinicalAssignmentQueue() {
       });
 
       // Advance selection to next patient
-      const currentIndex = unassignedPatients.findIndex(p => p.id === patient.id);
-      const nextPatient = unassignedPatients[currentIndex + 1] || unassignedPatients[0];
+      const currentIndex = filteredPatients.findIndex(p => p.id === patient.id);
+      const nextPatient = filteredPatients[currentIndex + 1] || filteredPatients[0];
       setSelectedPatientId(nextPatient ? nextPatient.id : null);
       setAssignmentModalTarget(null);
     } catch (e: any) {
@@ -497,11 +568,13 @@ export default function ClinicalAssignmentQueue() {
         {/* LEFT COLUMN: PATIENT QUEUE                                              */}
         {/* ======================================================================= */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 flex flex-col h-full space-y-4">
+          
+          {/* Column Header */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
             <div>
               <h2 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
                 <Clock className="w-4 h-4 text-amber-500" /> 
-                1. Patients Waiting for Doctor ({unassignedPatients.length})
+                1. Patients Waiting for Doctor ({filteredPatients.length}{filteredPatients.length !== unassignedPatients.length ? ` of ${unassignedPatients.length}` : ''})
               </h2>
               <p className="text-[10px] text-slate-400 mt-0.5">
                 Click any patient card to select for routing to a clinician.
@@ -512,23 +585,117 @@ export default function ClinicalAssignmentQueue() {
             </span>
           </div>
 
+          {/* REAL-TIME SEARCH & TRIAGE FILTER TOOLBAR */}
+          <div className="space-y-2.5 pt-1">
+            
+            {/* Search Input Box */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search patient by name, EHR number, or phone..."
+                className="w-full pl-10 pr-9 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded-full"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Quick Acuity & Priority Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              
+              {/* All Chip */}
+              <button
+                type="button"
+                onClick={() => setActiveFilter('ALL')}
+                className={cn(
+                  "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1",
+                  activeFilter === 'ALL'
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950 shadow-sm"
+                    : "bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                )}
+              >
+                All ({unassignedPatients.length})
+              </button>
+
+              {/* High Acuity / Fever Chip */}
+              <button
+                type="button"
+                onClick={() => setActiveFilter('URGENT')}
+                className={cn(
+                  "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 border",
+                  activeFilter === 'URGENT'
+                    ? "bg-rose-600 text-white border-rose-500 shadow-sm"
+                    : "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/60 hover:bg-rose-100"
+                )}
+              >
+                <Flame className="w-3 h-3" />
+                High Acuity / Fever ({urgentCount})
+              </button>
+
+              {/* Longest Wait (> 20 mins) Chip */}
+              <button
+                type="button"
+                onClick={() => setActiveFilter('LONG_WAIT')}
+                className={cn(
+                  "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 border",
+                  activeFilter === 'LONG_WAIT'
+                    ? "bg-amber-600 text-white border-amber-500 shadow-sm"
+                    : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/60 hover:bg-amber-100"
+                )}
+              >
+                <Clock className="w-3 h-3" />
+                Wait &gt; 20m ({longWaitCount})
+              </button>
+
+              {/* Clear Filter Indicator */}
+              {(searchQuery || activeFilter !== 'ALL') && (
+                <button
+                  type="button"
+                  onClick={() => { setSearchQuery(''); setActiveFilter('ALL'); }}
+                  className="ml-auto text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  Reset
+                </button>
+              )}
+
+            </div>
+          </div>
+
+          {/* List Area */}
           {arePatientsLoading ? (
             <div className="p-16 text-center">
               <Loader2 className="animate-spin text-indigo-500 mx-auto w-8 h-8" />
             </div>
-          ) : unassignedPatients.length === 0 ? (
-            <div className="p-16 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-center flex flex-col items-center justify-center">
-              <Users className="w-10 h-10 text-slate-400 mb-2" />
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-500">
-                All Patients Assigned to Clinicians
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-1">
-                New patients will appear here immediately after nursing triage completion.
-              </p>
+          ) : filteredPatients.length === 0 ? (
+            <div className="p-12 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-center flex flex-col items-center justify-center space-y-3">
+              <Search className="w-8 h-8 text-slate-400" />
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                  No Matching Patients Found
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-1 max-w-xs">
+                  {searchQuery ? `No waiting patients match "${searchQuery}".` : 'No patients currently meet the selected triage filter.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setSearchQuery(''); setActiveFilter('ALL'); }}
+                className="px-4 py-2 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white text-xs font-black rounded-xl uppercase tracking-wider transition cursor-pointer"
+              >
+                Clear Search & Filters
+              </button>
             </div>
           ) : (
-            <div className="space-y-3 overflow-y-auto pr-1" style={{ maxHeight: '680px' }}>
-              {unassignedPatients.map((patient: any, idx: number) => {
+            <div className="space-y-3 overflow-y-auto pr-1" style={{ maxHeight: '620px' }}>
+              {filteredPatients.map((patient: any, idx: number) => {
                 const patientName = `${patient.firstName || ''} ${patient.lastName || patient.name || ''}`.trim() || 'PATIENT';
                 const isSelected = selectedPatient?.id === patient.id;
                 const isUrgent = patient.acuity === 'URGENT' || patient.vitals?.bp?.startsWith('14') || patient.vitals?.temp > 38;
@@ -632,10 +799,10 @@ export default function ClinicalAssignmentQueue() {
           </div>
 
           {/* Routing Target Banner */}
-          {selectedPatient && (
+          {selectedPatient ? (
             <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-2xl flex items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+                <div className="w-2 h-2 rounded-full bg-blue-600 animate-ping shrink-0" />
                 <span className="font-bold text-blue-950 dark:text-blue-200 truncate">
                   Ready to Route: <strong className="uppercase">{selectedPatient.firstName} {selectedPatient.lastName}</strong> ({normalizeEhrNumber(selectedPatient.ehrNumber || selectedPatient.ehr || 'MMH/EHR/26/0001')})
                 </span>
@@ -643,6 +810,10 @@ export default function ClinicalAssignmentQueue() {
               <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider shrink-0 font-mono">
                 {selectedPatient.acuity || 'STANDARD'}
               </span>
+            </div>
+          ) : (
+            <div className="p-3.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-500 font-bold text-center">
+              No patient selected. Please click a waiting patient on the left.
             </div>
           )}
 
