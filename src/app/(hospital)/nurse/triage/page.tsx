@@ -323,6 +323,53 @@ export default function EmergencyTriageStation() {
       triagedBy: userProfile?.displayName || userProfile?.name || 'Ama Takyi'
     });
 
+    // 3. Push to shared waiting_for_doctor store (/reception/assign-doctor)
+    try {
+      const vitals = recordedVitals || {};
+      const bpSys = vitals.bpSystolic || vitals.systolicBP || '120';
+      const bpDia = vitals.bpDiastolic || vitals.diastolicBP || '80';
+      const tempVal = vitals.temperature || '37.0';
+      const pulseVal = vitals.pulse || '72';
+      const isUrgent = Number(tempVal) >= 38.0 || Number(bpSys) >= 140;
+
+      const newWaitingPatient = {
+        id: activePatient.id,
+        name: activePatient.name || activePatient.patientName || `${activePatient.firstName || ''} ${activePatient.lastName || ''}`.trim(),
+        firstName: activePatient.firstName || (activePatient.patientName || activePatient.name || '').split(' ')[0] || 'PATIENT',
+        lastName: activePatient.lastName || (activePatient.patientName || activePatient.name || '').split(' ').slice(1).join(' ') || '',
+        ehrNumber: activePatient.ehrNumber || activePatient.ehrId || 'MMH/EHR/26/0007',
+        phone: activePatient.phone || activePatient.phoneNumber || '',
+        phoneNumber: activePatient.phone || activePatient.phoneNumber || '',
+        waitMinutes: 1, // calculated from triageCompletedAt
+        rawWaitMinutes: 1,
+        triagedAt: new Date().toISOString(),
+        bp: `${bpSys}/${bpDia} mmHg`,
+        temp: `${tempVal}°C`,
+        pulse: `${pulseVal} bpm`,
+        reason: activePatient.complaint || activePatient.chiefComplaint || 'Consultation & Clinical Review',
+        chiefComplaint: activePatient.complaint || activePatient.chiefComplaint || 'Consultation & Clinical Review',
+        isUrgent,
+        acuity: isUrgent ? 'URGENT' : 'STANDARD',
+        status: 'WAITING_FOR_DOCTOR',
+        vitals: {
+          bp: `${bpSys}/${bpDia}`,
+          temp: String(tempVal),
+          pulse: String(pulseVal),
+          spo2: String(vitals.spO2 || vitals.spo2 || '98'),
+          weight: String(vitals.weight || '70'),
+          height: String(vitals.height || '1.7')
+        }
+      };
+
+      // Persist to shared store / localStorage
+      const existing = JSON.parse(localStorage.getItem('gam_waiting_patients') || '[]');
+      const updated = [newWaitingPatient, ...existing.filter((p: any) => p.ehrNumber !== newWaitingPatient.ehrNumber)];
+      localStorage.setItem('gam_waiting_patients', JSON.stringify(updated));
+      localStorage.setItem(`gam_waiting_patients_${hospitalId}`, JSON.stringify(updated));
+    } catch (err) {
+      console.warn("Could not save to gam_waiting_patients:", err);
+    }
+
     setTriagedTodayCount(prev => prev + 1);
     setIsVitalsModalOpen(false);
     setSelectedPatientForVitals(null);

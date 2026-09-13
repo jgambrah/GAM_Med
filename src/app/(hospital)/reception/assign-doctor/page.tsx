@@ -351,12 +351,35 @@ export default function ClinicalAssignmentQueue() {
   }, [firestore, hospitalId]);
   const { data: rawOnlineDoctors, isLoading: areDoctorsLoading } = useCollection<any>(onlineDoctorsQuery);
 
+  const [waitingPatients, setWaitingPatients] = useState<any[]>(DEMO_WAITING_PATIENTS);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('gam_waiting_patients') || localStorage.getItem(`gam_waiting_patients_${hospitalId}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Merge dynamic patients with defaults (avoiding duplicates)
+          const dynamicEhrs = new Set(parsed.map((p: any) => normalizeEhrNumber(p.ehrNumber || p.ehr || '')));
+          const remainingDemo = DEMO_WAITING_PATIENTS.filter(p => !dynamicEhrs.has(normalizeEhrNumber(p.ehrNumber || '')));
+          setWaitingPatients([...parsed, ...remainingDemo]);
+          return;
+        }
+      } catch (e) {
+        console.error("Failed to parse waiting patients", e);
+      }
+    }
+    setWaitingPatients(DEMO_WAITING_PATIENTS);
+  }, [hospitalId]);
+
   const unassignedPatients = useMemo(() => {
     if (rawUnassignedPatients && rawUnassignedPatients.length > 0) {
-      return rawUnassignedPatients;
+      const rawEhrs = new Set(rawUnassignedPatients.map((p: any) => normalizeEhrNumber(p.ehrNumber || p.ehr || '')));
+      const extraWaiting = waitingPatients.filter(p => !rawEhrs.has(normalizeEhrNumber(p.ehrNumber || '')));
+      return [...rawUnassignedPatients, ...extraWaiting];
     }
-    return DEMO_WAITING_PATIENTS;
-  }, [rawUnassignedPatients]);
+    return waitingPatients;
+  }, [rawUnassignedPatients, waitingPatients]);
 
   const activeClinicians = useMemo(() => {
     if (rawOnlineDoctors && rawOnlineDoctors.length > 0) {
@@ -526,6 +549,18 @@ export default function ClinicalAssignmentQueue() {
         dispatchedAt: `Today, ${nowStr}`,
         smsSent: false
       });
+
+      // Remove assigned patient from waitingPatients state and localStorage
+      const assignedEhr = patientEhr;
+      const nextWaiting = waitingPatients.filter((p: any) => 
+        p.id !== patient.id && 
+        normalizeEhrNumber(p.ehrNumber || p.ehr || '') !== assignedEhr
+      );
+      setWaitingPatients(nextWaiting);
+      try {
+        localStorage.setItem('gam_waiting_patients', JSON.stringify(nextWaiting));
+        localStorage.setItem(`gam_waiting_patients_${hospitalId}`, JSON.stringify(nextWaiting));
+      } catch (e) {}
 
       // Advance selection to next patient
       const currentIndex = filteredPatients.findIndex(p => p.id === patient.id);
