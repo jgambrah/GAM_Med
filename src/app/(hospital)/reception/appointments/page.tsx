@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { 
@@ -87,7 +87,7 @@ export default function AppointmentsQueueHub() {
   };
 
   // Hydrate persistent state from localStorage first, then merge or fallback to Firestore/demo
-  React.useEffect(() => {
+  useEffect(() => {
     try {
       const storageKey = `gam_appointments_data_${hospitalId}`;
       const stored = localStorage.getItem(storageKey) || localStorage.getItem('gam_appointments_data');

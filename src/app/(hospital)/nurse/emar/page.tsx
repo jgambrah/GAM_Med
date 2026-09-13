@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Pill, Activity, Clock, CheckCircle2, AlertTriangle, 
   Search, ShieldAlert, Barcode, UserCheck, BedDouble, 
