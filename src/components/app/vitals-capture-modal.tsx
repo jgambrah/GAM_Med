@@ -14,7 +14,7 @@ interface VitalsCaptureModalProps {
   } | null;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (recordedVitals?: any) => void;
   hospitalId?: string;
 }
 
@@ -101,7 +101,7 @@ export default function VitalsCaptureModal({ encounter, isOpen, onClose, onSucce
         description: `Vitals recorded. ${patientName} routed to Consultation.`,
       });
 
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess(vitals);
       onClose();
     } catch (error: any) {
       toast({

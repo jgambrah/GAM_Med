@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { 
   Activity, Users, AlertTriangle, HeartPulse, Clock, 
   Search, UserPlus, ChevronRight, ShieldAlert, CheckCircle2, 
@@ -27,6 +27,9 @@ export default function EmergencyTriageStation() {
 
   const [persistentCheckIns, setPersistentCheckIns] = useState<Record<string, any>>({});
   const [triagePatientsStore, setTriagePatientsStore] = useState<any[]>([]);
+  const [completedTriagedIds, setCompletedTriagedIds] = useState<Set<string>>(new Set());
+  const [triageQueue, setTriageQueue] = useState<any[]>([]);
+  const [triagedTodayCount, setTriagedTodayCount] = useState<number>(14);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -37,7 +40,7 @@ export default function EmergencyTriageStation() {
   const hospitalId = userProfile?.hospitalId || 'default-hospital';
   const isAuthorized = userProfile?.role === 'NURSE' || userProfile?.role === 'DOCTOR' || userProfile?.role === 'DIRECTOR' || !userProfile?.role;
 
-  // Hydrate persistent check-ins from localStorage
+  // Hydrate persistent check-ins, queue, and completed triage from localStorage
   useEffect(() => {
     try {
       const storageKey = `gam_checked_in_patients_${hospitalId}`;
@@ -45,11 +48,20 @@ export default function EmergencyTriageStation() {
       if (stored) {
         setPersistentCheckIns(JSON.parse(stored));
       }
-      const storedTriage = localStorage.getItem('triage_patients');
+      const storedTriage = localStorage.getItem(`gam_triage_queue_${hospitalId}`) || localStorage.getItem('triage_patients');
       if (storedTriage) {
         const parsedTriage = JSON.parse(storedTriage);
         if (Array.isArray(parsedTriage)) {
           setTriagePatientsStore(parsedTriage);
+        }
+      }
+      const completedKey = `gam_completed_triage_${hospitalId}`;
+      const storedCompleted = localStorage.getItem(completedKey) || localStorage.getItem('gam_completed_triage');
+      if (storedCompleted) {
+        const parsedCompleted = JSON.parse(storedCompleted);
+        if (Array.isArray(parsedCompleted)) {
+          setCompletedTriagedIds(new Set(parsedCompleted.map((x: string) => String(x).toLowerCase().trim())));
+          setTriagedTodayCount(14 + parsedCompleted.length);
         }
       }
     } catch (e) {
@@ -100,62 +112,237 @@ export default function EmergencyTriageStation() {
     'p_07': { firstName: 'REBECCA', lastName: 'ADDO', ehrNumber: 'MMH/EHR/26/0006' },
   }), []);
 
+  // Deduplicate and filter out completed triage records
   const combinedQueue = useMemo(() => {
     const listMap = new Map<string, any>();
 
+    const addPatient = (p: any) => {
+      if (!p) return;
+      const pid = String(p.id || p.patientId || '').trim();
+      const rawEhr = String(p.ehrNumber || p.ehr || p.ehrId || '').trim();
+      const normEhr = rawEhr.toUpperCase();
+      const normId = pid.toLowerCase();
+
+      // Exclude if already triaged
+      if (normId && completedTriagedIds.has(normId)) return;
+      if (normEhr && completedTriagedIds.has(normEhr.toLowerCase())) return;
+
+      // Exclude if Firestore record indicates waiting for doctor / already triaged
+      const statusUpper = String(p.status || '').toUpperCase();
+      const stageUpper = String(p.stage || '').toUpperCase();
+      if (
+        statusUpper === 'WAITING FOR DOCTOR' || 
+        statusUpper === 'WAITING_FOR_DOCTOR' || 
+        statusUpper === 'IN CONSULTATION' || 
+        statusUpper === 'IN_CONSULT' || 
+        statusUpper === 'COMPLETED' ||
+        stageUpper === 'VITALS_LOGGED' ||
+        stageUpper === 'VITALS LOGGED' ||
+        stageUpper === 'IN_CONSULT'
+      ) {
+        return;
+      }
+
+      // Unique deduplication key: normalized EHR, else normalized ID
+      const dedupeKey = normEhr || normId;
+      if (!dedupeKey) return;
+
+      const existing = listMap.get(dedupeKey);
+      if (existing) {
+        listMap.set(dedupeKey, {
+          ...existing,
+          ...p,
+          id: existing.id || pid,
+          ehrNumber: existing.ehrNumber || rawEhr,
+        });
+      } else {
+        listMap.set(dedupeKey, {
+          id: pid || p.id,
+          firstName: p.firstName || p.patientName?.split(' ')[0] || 'PATIENT',
+          lastName: p.lastName || p.patientName?.split(' ').slice(1).join(' ') || '',
+          ehrNumber: rawEhr || `MMH/EHR/26/000${pid.slice(-1)}`,
+          status: p.status === 'AWAITING_VITALS' ? 'Awaiting Vitals' : (p.status || 'Awaiting Vitals'),
+          checkInTime: p.checkedInAt || p.checkInTime || new Date().toISOString(),
+          chiefComplaint: p.chiefComplaint || 'Medical Review',
+          urgencyPriority: p.urgencyPriority || 'ROUTINE',
+        });
+      }
+    };
+
     // 1. Add Default Fallback Patients
-    defaultTriagePatients.forEach(p => listMap.set(p.id, p));
+    defaultTriagePatients.forEach(addPatient);
 
     // 2. Add Firestore Queue Patients
     if (queue && queue.length > 0) {
-      queue.forEach((p: any) => listMap.set(p.id, p));
+      queue.forEach(addPatient);
     }
 
     // 3. Add Locally / Persistently Checked-in Patients from Directory
     Object.entries(persistentCheckIns).forEach(([patientId, data]: [string, any]) => {
       const meta = (directoryPatientsMap as any)[patientId] || {};
-      const existing = listMap.get(patientId);
-      listMap.set(patientId, {
+      addPatient({
         id: patientId,
-        firstName: data.firstName || meta.firstName || existing?.firstName || 'PATIENT',
-        lastName: data.lastName || meta.lastName || existing?.lastName || '',
-        ehrNumber: data.ehrNumber || meta.ehrNumber || existing?.ehrNumber || `MMH/EHR/26/000${patientId.slice(-1)}`,
+        firstName: data.firstName || meta.firstName || 'PATIENT',
+        lastName: data.lastName || meta.lastName || '',
+        ehrNumber: data.ehrNumber || meta.ehrNumber || `MMH/EHR/26/000${patientId.slice(-1)}`,
         status: 'Awaiting Vitals',
-        checkInTime: data.checkedInAt || existing?.checkInTime || new Date().toISOString(),
-        chiefComplaint: data.chiefComplaint || existing?.chiefComplaint || 'Medical Review',
-        urgencyPriority: data.urgencyPriority || existing?.urgencyPriority || 'ROUTINE',
+        checkInTime: data.checkedInAt || data.checkInTime || new Date().toISOString(),
+        chiefComplaint: data.chiefComplaint || 'Medical Review',
+        urgencyPriority: data.urgencyPriority || 'ROUTINE',
       });
     });
 
     // 4. Add patients from shared triage_patients store
-    triagePatientsStore.forEach((p: any) => {
-      const pid = p.id || p.patientId;
-      if (!pid) return;
-      const meta = (directoryPatientsMap as any)[pid] || {};
-      const existing = listMap.get(pid);
-      listMap.set(pid, {
-        id: pid,
-        firstName: p.firstName || meta.firstName || p.patientName?.split(' ')[0] || existing?.firstName || 'PATIENT',
-        lastName: p.lastName || meta.lastName || p.patientName?.split(' ').slice(1).join(' ') || existing?.lastName || '',
-        ehrNumber: p.ehrNumber || meta.ehrNumber || existing?.ehrNumber || `MMH/EHR/26/000${String(pid).slice(-1)}`,
-        status: p.status === 'AWAITING_VITALS' ? 'Awaiting Vitals' : (p.status || 'Awaiting Vitals'),
-        checkInTime: p.checkedInAt || p.checkInTime || existing?.checkInTime || new Date().toISOString(),
-        chiefComplaint: p.chiefComplaint || existing?.chiefComplaint || 'Medical Review',
-        urgencyPriority: p.urgencyPriority || existing?.urgencyPriority || 'ROUTINE',
-      });
-    });
+    triagePatientsStore.forEach(addPatient);
 
     return Array.from(listMap.values());
-  }, [defaultTriagePatients, queue, persistentCheckIns, triagePatientsStore, directoryPatientsMap]);
+  }, [defaultTriagePatients, queue, persistentCheckIns, triagePatientsStore, directoryPatientsMap, completedTriagedIds]);
+
+  // Synchronize local triageQueue state with deduplicated queue
+  useEffect(() => {
+    setTriageQueue(combinedQueue);
+  }, [combinedQueue]);
+
+  // 1. Save triage queue to localStorage store
+  const saveTriageQueueToStore = (updatedQueue: any[]) => {
+    try {
+      const json = JSON.stringify(updatedQueue);
+      localStorage.setItem(`gam_triage_queue_${hospitalId}`, json);
+      localStorage.setItem('triage_patients', json);
+    } catch (err) {
+      console.warn("Could not save triage queue to store:", err);
+    }
+  };
+
+  // 2. Push patient to OPD Desk / Assignment store
+  const updatePatientStatus = async (patientId: string, updates: {
+    stage: string;
+    vitals?: any;
+    triagedAt: string;
+    triagedBy: string;
+  }) => {
+    try {
+      const opdKey = `gam_opd_patients_${hospitalId}`;
+      const existingOpd = JSON.parse(localStorage.getItem(opdKey) || '[]');
+      const pMeta = selectedPatientForVitals || {};
+      const newOpdEntry = {
+        id: patientId,
+        name: pMeta.patientName || `${pMeta.firstName || ''} ${pMeta.lastName || ''}`.trim() || 'PATIENT',
+        ehr: pMeta.ehrId || pMeta.ehrNumber || 'MMH/EHR/26/0007',
+        stage: 'Vitals Logged',
+        status: 'Waiting for Doctor',
+        currentStatus: 'VITALS_LOGGED',
+        assignedDoctor: 'Pending Assignment',
+        room: 'Waiting Hall A',
+        acuity: updates.vitals?.isCriticalAlert ? 'URGENT' : 'STANDARD',
+        vitals: updates.vitals || {},
+        timeIn: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        triagedAt: updates.triagedAt,
+        triagedBy: updates.triagedBy,
+        complaint: pMeta.chiefComplaint || 'Vitals Logged / Routine Triage'
+      };
+      const filteredOpd = existingOpd.filter((p: any) => p.id !== patientId && p.ehr !== newOpdEntry.ehr);
+      filteredOpd.unshift(newOpdEntry);
+      localStorage.setItem(opdKey, JSON.stringify(filteredOpd));
+      localStorage.setItem('opd_patients', JSON.stringify(filteredOpd));
+    } catch (err) {
+      console.warn("Could not update OPD store in localStorage:", err);
+    }
+
+    if (firestore) {
+      try {
+        const patientRef = doc(firestore, `hospitals/${hospitalId}/patients`, patientId);
+        await setDoc(patientRef, {
+          status: 'Waiting for Doctor',
+          stage: updates.stage || 'VITALS_LOGGED',
+          currentStatus: 'VITALS_LOGGED',
+          vitals: {
+            ...updates.vitals,
+            triagedAt: updates.triagedAt,
+            triagedBy: updates.triagedBy
+          },
+          triagedAt: updates.triagedAt,
+          triagedBy: updates.triagedBy,
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+
+        const triageQueueRef = doc(firestore, `hospitals/${hospitalId}/triage_queue`, patientId);
+        await deleteDoc(triageQueueRef).catch(() => {});
+        const rootTriageRef = doc(firestore, 'triage_queue', patientId);
+        await deleteDoc(rootTriageRef).catch(() => {});
+      } catch (err: any) {
+        console.warn("Firestore patient update fallback applied locally:", err);
+      }
+    }
+  };
+
+  // Vitals form submission handler
+  const handleVitalsSuccess = (recordedVitals?: any) => {
+    const activePatient = selectedPatientForVitals;
+    if (!activePatient) return;
+
+    // 1. Mark patient as triaged in store / state
+    const updatedQueue = triageQueue.filter(patient => 
+      patient.id !== activePatient.id && 
+      patient.ehrNumber !== activePatient.ehrNumber &&
+      patient.ehrNumber !== activePatient.ehrId
+    );
+    setTriageQueue(updatedQueue);
+    saveTriageQueueToStore(updatedQueue);
+
+    // Track completed triage to prevent reappearance
+    const completedId = String(activePatient.id).toLowerCase().trim();
+    const completedEhr = String(activePatient.ehrNumber || activePatient.ehrId || '').toLowerCase().trim();
+    setCompletedTriagedIds(prev => {
+      const next = new Set(prev);
+      if (completedId) next.add(completedId);
+      if (completedEhr) next.add(completedEhr);
+      try {
+        const arr = Array.from(next);
+        localStorage.setItem(`gam_completed_triage_${hospitalId}`, JSON.stringify(arr));
+        localStorage.setItem('gam_completed_triage', JSON.stringify(arr));
+      } catch (e) {}
+      return next;
+    });
+
+    // Remove from persistentCheckIns in localStorage
+    try {
+      const checkedInKey = `gam_checked_in_patients_${hospitalId}`;
+      const stored = JSON.parse(localStorage.getItem(checkedInKey) || '{}');
+      delete stored[activePatient.id];
+      if (activePatient.patientId) delete stored[activePatient.patientId];
+      localStorage.setItem(checkedInKey, JSON.stringify(stored));
+      localStorage.setItem('gam_checked_in_patients', JSON.stringify(stored));
+    } catch (e) {}
+
+    // 2. Push patient to OPD Desk / Assignment store
+    updatePatientStatus(activePatient.id, {
+      stage: 'VITALS_LOGGED',
+      vitals: recordedVitals,
+      triagedAt: new Date().toISOString(),
+      triagedBy: userProfile?.displayName || userProfile?.name || 'Ama Takyi'
+    });
+
+    setTriagedTodayCount(prev => prev + 1);
+    setIsVitalsModalOpen(false);
+    setSelectedPatientForVitals(null);
+  };
 
   const filteredQueue = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    return combinedQueue.filter(p => {
+    return triageQueue.filter(p => {
+      if (acuityFilter !== 'all') {
+        if (acuityFilter === '1' && p.acuityLevel !== '1' && p.urgencyPriority !== 'RESUSCITATION') return false;
+        if (acuityFilter === '2' && p.acuityLevel !== '2' && p.urgencyPriority !== 'EMERGENT') return false;
+        if (acuityFilter === '3' && p.acuityLevel !== '3' && p.urgencyPriority !== 'URGENT' && p.urgencyPriority !== 'ROUTINE') return false;
+      }
+
+      if (!q) return true;
       const nameMatch = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase().includes(q);
       const ehrMatch = (p.ehrNumber || '').toLowerCase().includes(q);
       return nameMatch || ehrMatch;
     });
-  }, [combinedQueue, searchQuery]);
+  }, [triageQueue, searchQuery, acuityFilter]);
 
   const isLoading = isUserLoading || isProfileLoading || isQueueLoading;
 
@@ -180,7 +367,7 @@ export default function EmergencyTriageStation() {
     );
   }
 
-  const queueCount = combinedQueue?.length ?? 0;
+  const queueCount = triageQueue.length;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-12">
@@ -288,7 +475,7 @@ export default function EmergencyTriageStation() {
                 Shift Active
               </span>
             </div>
-            <div className="text-2xl font-black text-white">14 Evaluated</div>
+            <div className="text-2xl font-black text-white">{triagedTodayCount} Evaluated</div>
             <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
               <HeartPulse className="w-3 h-3 text-emerald-400" />
               Avg Vitals Speed: 4 mins
@@ -395,8 +582,14 @@ export default function EmergencyTriageStation() {
                       setSelectedPatientForVitals({
                         id: p.id,
                         patientId: p.id,
+                        firstName: p.firstName,
+                        lastName: p.lastName,
                         patientName: `${p.firstName || ''} ${p.lastName || ''}`.trim(),
                         ehrId: p.ehrNumber || 'MMH/EHR/26/0007',
+                        ehrNumber: p.ehrNumber || 'MMH/EHR/26/0007',
+                        chiefComplaint: p.chiefComplaint || 'Medical Review',
+                        department: p.department || 'General OPD',
+                        doctorName: p.doctorName,
                       });
                       setIsVitalsModalOpen(true);
                     }}
@@ -418,6 +611,7 @@ export default function EmergencyTriageStation() {
           setIsVitalsModalOpen(false);
           setSelectedPatientForVitals(null);
         }}
+        onSuccess={handleVitalsSuccess}
         hospitalId={hospitalId}
       />
 

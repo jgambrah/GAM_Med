@@ -133,10 +133,33 @@ export default function OutpatientDeskPage() {
   const hospitalId = userProfile?.hospitalId || 'default-hospital';
   const isAuthorized = ['NURSE', 'DOCTOR', 'DIRECTOR', 'ADMIN'].includes(userProfile?.role || 'NURSE');
 
+  const [opdPatients, setOpdPatients] = useState<any[]>(DEMO_OPD_PATIENTS);
+
+  // Hydrate persistent OPD patients from localStorage
+  useEffect(() => {
+    try {
+      const storageKey = `gam_opd_patients_${hospitalId}`;
+      const stored = localStorage.getItem(storageKey) || localStorage.getItem('opd_patients');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const storedEhrs = new Set(parsed.map((p: any) => String(p.ehr || p.ehrNumber || '').toUpperCase()));
+          const remainingDemo = DEMO_OPD_PATIENTS.filter(p => !storedEhrs.has(String(p.ehr).toUpperCase()));
+          setOpdPatients([...parsed, ...remainingDemo]);
+          return;
+        }
+      }
+      setOpdPatients(DEMO_OPD_PATIENTS);
+    } catch (e) {
+      console.warn("Could not load stored OPD patients:", e);
+      setOpdPatients(DEMO_OPD_PATIENTS);
+    }
+  }, [hospitalId]);
+
   // Dynamically Compute Consulting Rooms Active Queue Count from Roster
   const consultingRoomsWithDynamicLoad = useMemo(() => {
     return OPD_CONSULTING_ROOMS.map(crm => {
-      const assignedPatients = DEMO_OPD_PATIENTS.filter(
+      const assignedPatients = opdPatients.filter(
         p => p.room === crm.room || (p.assignedDoctor && p.assignedDoctor.toLowerCase() === crm.doctor.toLowerCase())
       );
       const activeLoad = assignedPatients.length;
@@ -148,11 +171,11 @@ export default function OutpatientDeskPage() {
         status: inConsult ? 'IN SESSION' : activeLoad === 0 ? 'OPEN' : 'AVAILABLE'
       };
     });
-  }, []);
+  }, [opdPatients]);
 
   // Filtered Patients
   const filteredPatients = useMemo(() => {
-    return DEMO_OPD_PATIENTS.filter(p => {
+    return opdPatients.filter(p => {
       // Stage filter
       if (stageFilter === 'VITALS_LOGGED' && p.stage !== 'Vitals Logged') return false;
       if (stageFilter === 'WAITING_DOC' && p.stage !== 'Awaiting Doctor') return false;
@@ -166,14 +189,14 @@ export default function OutpatientDeskPage() {
              p.complaint.toLowerCase().includes(q) ||
              p.assignedDoctor.toLowerCase().includes(q);
     });
-  }, [stageFilter, searchQuery]);
+  }, [opdPatients, stageFilter, searchQuery]);
 
   // Synchronized Accurate KPI Counters
-  const totalActiveCount = DEMO_OPD_PATIENTS.length; // 6
-  const vitalsLoggedPendingCount = DEMO_OPD_PATIENTS.filter(p => p.stage === 'Vitals Logged').length; // 3
-  const awaitingDoctorAssignedCount = DEMO_OPD_PATIENTS.filter(p => p.stage === 'Awaiting Doctor').length; // 2
-  const inConsultCount = DEMO_OPD_PATIENTS.filter(p => p.stage === 'In Consultation').length; // 1
-  const urgentCount = DEMO_OPD_PATIENTS.filter(p => p.acuity === 'URGENT').length; // 3
+  const totalActiveCount = opdPatients.length;
+  const vitalsLoggedPendingCount = opdPatients.filter(p => p.stage === 'Vitals Logged').length;
+  const awaitingDoctorAssignedCount = opdPatients.filter(p => p.stage === 'Awaiting Doctor').length;
+  const inConsultCount = opdPatients.filter(p => p.stage === 'In Consultation').length;
+  const urgentCount = opdPatients.filter(p => p.acuity === 'URGENT').length;
 
   // Action Handlers
   const handleCallPatient = (patient: any) => {
