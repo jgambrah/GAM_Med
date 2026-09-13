@@ -26,6 +26,7 @@ export default function EmergencyTriageStation() {
   const [isVitalsModalOpen, setIsVitalsModalOpen] = useState(false);
 
   const [persistentCheckIns, setPersistentCheckIns] = useState<Record<string, any>>({});
+  const [triagePatientsStore, setTriagePatientsStore] = useState<any[]>([]);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -40,9 +41,16 @@ export default function EmergencyTriageStation() {
   useEffect(() => {
     try {
       const storageKey = `gam_checked_in_patients_${hospitalId}`;
-      const stored = localStorage.getItem(storageKey);
+      const stored = localStorage.getItem(storageKey) || localStorage.getItem('gam_checked_in_patients');
       if (stored) {
         setPersistentCheckIns(JSON.parse(stored));
+      }
+      const storedTriage = localStorage.getItem('triage_patients');
+      if (storedTriage) {
+        const parsedTriage = JSON.parse(storedTriage);
+        if (Array.isArray(parsedTriage)) {
+          setTriagePatientsStore(parsedTriage);
+        }
       }
     } catch (e) {
       console.warn("Could not load stored check-ins from localStorage:", e);
@@ -119,8 +127,26 @@ export default function EmergencyTriageStation() {
       });
     });
 
+    // 4. Add patients from shared triage_patients store
+    triagePatientsStore.forEach((p: any) => {
+      const pid = p.id || p.patientId;
+      if (!pid) return;
+      const meta = (directoryPatientsMap as any)[pid] || {};
+      const existing = listMap.get(pid);
+      listMap.set(pid, {
+        id: pid,
+        firstName: p.firstName || meta.firstName || p.patientName?.split(' ')[0] || existing?.firstName || 'PATIENT',
+        lastName: p.lastName || meta.lastName || p.patientName?.split(' ').slice(1).join(' ') || existing?.lastName || '',
+        ehrNumber: p.ehrNumber || meta.ehrNumber || existing?.ehrNumber || `MMH/EHR/26/000${String(pid).slice(-1)}`,
+        status: p.status === 'AWAITING_VITALS' ? 'Awaiting Vitals' : (p.status || 'Awaiting Vitals'),
+        checkInTime: p.checkedInAt || p.checkInTime || existing?.checkInTime || new Date().toISOString(),
+        chiefComplaint: p.chiefComplaint || existing?.chiefComplaint || 'Medical Review',
+        urgencyPriority: p.urgencyPriority || existing?.urgencyPriority || 'ROUTINE',
+      });
+    });
+
     return Array.from(listMap.values());
-  }, [defaultTriagePatients, queue, persistentCheckIns, directoryPatientsMap]);
+  }, [defaultTriagePatients, queue, persistentCheckIns, triagePatientsStore, directoryPatientsMap]);
 
   const filteredQueue = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
